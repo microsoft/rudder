@@ -319,47 +319,11 @@ namespace ScopeAnalyzer
 
         private void Initialize()
         {
-            foreach(var node in cfg.Nodes)
-            {
-                foreach(var ins in node.Instructions)
-                {
-                    foreach (var v in ins.Variables)
-                    {
-                        var type = v.Type.Resolve(host);
-                        if (IsConstantType(type)) variables.Add(v);
-                    }
+            variables = cfg.Variables();
+            variables = new HashSet<IVariable>(variables.Where(v => IsConstantType(v.Type, host)).ToList());
 
-                    if (ins is LoadInstruction || ins is StoreInstruction)
-                    {
-                        IValue operand;
-                        if (ins is LoadInstruction)
-                        {
-                            operand = (ins as LoadInstruction).Operand;
-                        }
-                        else
-                        {
-                            operand = (ins as StoreInstruction).Result;
-                        }
-
-                        IFieldReference field = null;
-                        if (operand is InstanceFieldAccess)
-                        {
-                            field = (operand as InstanceFieldAccess).Field;
-                        }
-                        else if (operand is StaticFieldAccess)
-                        {
-                            field = (operand as StaticFieldAccess).Field;
-                        }
-
-                        if (field == null) continue;
-
-                        if (IsConstantType(field.Type, host))
-                            fields.Add(field);
-                    }
-                }
-            }      
-            
-             
+            fields = cfg.Fields();
+            fields = new HashSet<IFieldReference>(fields.Where(f => IsConstantType(f.Type, host)).ToList());
         }
 
 
@@ -416,11 +380,21 @@ namespace ScopeAnalyzer
             return IsConstantType(type);
         }
 
+        //TODO: what about aliasing?
         public static bool IsConstantType(ITypeDefinition type)
         {
             if (type.IsEnum || type.IsGeneric || type.IsAbstract ||
-              type.IsDummy() || type.IsDelegate || type.IsInterface ||
-              (!type.IsValueType && !(type.IsReferenceType && type.FullName() == "System.String")))
+              type.IsDummy() || type.IsDelegate || type.IsInterface)
+                return false;
+
+            if (!(type is INamedTypeReference))
+                return false;
+
+            var nmtype = type as INamedTypeReference;
+            while (nmtype.IsAlias)
+                nmtype = nmtype.AliasForType.AliasedType;
+
+            if (!type.IsValueType && !(type.IsReferenceType && (nmtype.FullName() == "System.String")))
                 return false;
             return true;
         }
@@ -622,7 +596,14 @@ namespace ScopeAnalyzer
                     if (result is InstanceFieldAccess)
                     {
                         var ifa = result as InstanceFieldAccess;
-                        UpdateStateCopy(nstate, ifa.Field, operand);
+                        try
+                        {
+                            UpdateStateCopy(nstate, ifa.Field, operand);
+                        }
+                        catch
+                        {
+                            Console.WriteLine(instruction);
+                        }
                     }
                     else if (result is StaticFieldAccess)
                     {
