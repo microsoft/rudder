@@ -77,16 +77,16 @@ namespace ScopeAnalyzer
     /// </summary>
     public class FieldEscapeSet
     {
-        Dictionary<IFieldDefinition, Boolean> fieldsEscaped;
+        Dictionary<IFieldReference, Boolean> fieldsEscaped;
 
-        private FieldEscapeSet(Dictionary<IFieldDefinition, Boolean> fe)
+        private FieldEscapeSet(Dictionary<IFieldReference, Boolean> fe)
         {
             fieldsEscaped = fe;
         }
 
-        public static FieldEscapeSet Bottom(IEnumerable<IFieldDefinition> fields)
+        public static FieldEscapeSet Bottom(IEnumerable<IFieldReference> fields)
         {
-            Dictionary<IFieldDefinition, Boolean> fe = new Dictionary<IFieldDefinition, bool>();
+            Dictionary<IFieldReference, Boolean> fe = new Dictionary<IFieldReference, bool>();
             foreach (var f in fields)
             {
                 fe[f] = false;
@@ -94,9 +94,9 @@ namespace ScopeAnalyzer
             return new FieldEscapeSet(fe);
         }
 
-        public static FieldEscapeSet Top(IEnumerable<IFieldDefinition> fields)
+        public static FieldEscapeSet Top(IEnumerable<IFieldReference> fields)
         {
-            Dictionary<IFieldDefinition, Boolean> fe = new Dictionary<IFieldDefinition, bool>();
+            Dictionary<IFieldReference, Boolean> fe = new Dictionary<IFieldReference, bool>();
             foreach (var f in fields)
             {
                 fe[f] = true;
@@ -114,13 +114,13 @@ namespace ScopeAnalyzer
             get { return fieldsEscaped.Values.All(b => !b); }
         }
 
-        public void Escape(IFieldDefinition f)
+        public void Escape(IFieldReference f)
         {
             if (!fieldsEscaped.ContainsKey(f)) throw new InvalidFieldsDomainOperation("Field not in the domain!");
             fieldsEscaped[f] = true;
         }
 
-        public bool Escaped(IFieldDefinition f)
+        public bool Escaped(IFieldReference f)
         {
             if (!fieldsEscaped.ContainsKey(f)) throw new InvalidFieldsDomainOperation("Field not in the domain!");
             return fieldsEscaped[f];
@@ -164,7 +164,7 @@ namespace ScopeAnalyzer
 
         public FieldEscapeSet Clone()
         {
-            return new FieldEscapeSet(new Dictionary<IFieldDefinition, bool>(fieldsEscaped));
+            return new FieldEscapeSet(new Dictionary<IFieldReference, bool>(fieldsEscaped));
         }
 
         public override string ToString()
@@ -203,12 +203,12 @@ namespace ScopeAnalyzer
         }
 
 
-        public static ScopeEscapeDomain Top(IEnumerable<IFieldDefinition> fdefs)
+        public static ScopeEscapeDomain Top(IEnumerable<IFieldReference> fdefs)
         {
             return new ScopeEscapeDomain(VarEscapeSet.Top, FieldEscapeSet.Top(fdefs));
         }
 
-        public static ScopeEscapeDomain Bottom(IEnumerable<IFieldDefinition> fdefs)
+        public static ScopeEscapeDomain Bottom(IEnumerable<IFieldReference> fdefs)
         {
             return new ScopeEscapeDomain(VarEscapeSet.Bottom, FieldEscapeSet.Bottom(fdefs));
         }
@@ -238,7 +238,7 @@ namespace ScopeAnalyzer
             vset.Escape(v);
         }
 
-        public void Escape(IFieldDefinition f)
+        public void Escape(IFieldReference f)
         {
             fset.Escape(f);
         }
@@ -248,7 +248,7 @@ namespace ScopeAnalyzer
             return vset.Escaped(v);
         }
 
-        public bool Escaped(IFieldDefinition f)
+        public bool Escaped(IFieldReference f)
         {
             return fset.Escaped(f);
         }
@@ -310,9 +310,9 @@ namespace ScopeAnalyzer
         ITypeDefinition rowType;
         ITypeDefinition rowsetType;
         Dictionary<Instruction, ScopeEscapeDomain> results = new Dictionary<Instruction, ScopeEscapeDomain>();
-        List<IFieldDefinition> fieldsToTrack = new List<IFieldDefinition>();
+        HashSet<IFieldReference> fieldsToTrack = new HashSet<IFieldReference>();
         IMetadataHost host;
-        bool hasExceptions = false;
+        bool unsupported = false;
 
         public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, ITypeDefinition rowtype, ITypeDefinition rowsettype) : base(cfg)
         {
@@ -331,7 +331,7 @@ namespace ScopeAnalyzer
 
         protected override ScopeEscapeDomain InitialValue(CFGNode node)
         {
-            if (hasExceptions)
+            if (unsupported)
             {
                 return ScopeEscapeDomain.Top(fieldsToTrack);
             }
@@ -370,9 +370,9 @@ namespace ScopeAnalyzer
             get { return host; }
         }
 
-        public bool HasExceptions
+        public bool Unsupported
         {
-            get { return hasExceptions; }
+            get { return unsupported; }
         }
 
         public Dictionary<Instruction, ScopeEscapeDomain> Results
@@ -384,22 +384,45 @@ namespace ScopeAnalyzer
 
         private void Initialize()
         {
+            var fieldDefinitions = new List<IFieldDefinition>();
             var mtype = (method.ContainingType as INamedTypeReference).Resolve(host);
+
+            IFieldDefinition env = null;
             // Now we find fields to track.
             foreach (var field in mtype.Fields)
             {
-                // Skip this, as it references an escaped "environement".
-                if (field.Name.Value.EndsWith("__this")) continue;
+                // Skip this, as it references an escaped "environment".
+                if (field.Type.Resolve(host).Equals((mtype as INestedTypeDefinition).ContainingType.Resolve(host)))
+                {
+                    if (env == null)
+                    {
+                        env = field;               
+                    }
+                    else
+                    {
+                        Utils.WriteLine("WARNING: too many closure environments found!");
+                        unsupported = true;
+                    }
+                }
 
-                if (!field.IsStatic && PossiblyRow(field.Type)) fieldsToTrack.Add(field);
+                if (!field.IsStatic && PossiblyRow(field.Type)) fieldDefinitions.Add(field);
             }
+
+            if (env == null)
+            {
+                unsupported = true;
+                Utils.WriteLine("WARNING: no closure environment found!");
+            }
+
+            var frefs = cfg.Fields();
+            fieldsToTrack = new HashSet<IFieldReference>(frefs.Where(f => fieldDefinitions.Contains(f.Resolve(host))).ToList());
 
             var instructions = new List<Instruction>();
             foreach(var block in cfg.Nodes)
                 instructions.AddRange(block.Instructions);
 
             if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
-                hasExceptions = true;
+                unsupported = true;
         }
 
         private void UpdateResults(Dictionary<Instruction, ScopeEscapeDomain> states)
@@ -415,7 +438,7 @@ namespace ScopeAnalyzer
             get { return rowType; }
         }
 
-        public IEnumerable<IFieldDefinition> TrackedFields
+        public IEnumerable<IFieldReference> TrackedFields
         {
             get { return fieldsToTrack; }
         }
@@ -442,6 +465,10 @@ namespace ScopeAnalyzer
 
             return false;
         }
+
+
+
+
 
 
         /* 
@@ -507,11 +534,10 @@ namespace ScopeAnalyzer
                     {             
                         var r = result as InstanceFieldAccess;
 
-                        var fdef = MatchFieldDefinition(r.Field);
-                        if (fdef != null)
+                        if (IsFieldTracked(r.Field))
                         {
                             if (nstate.Escaped(operand))
-                                UpdateState(nstate, fdef, instruction);
+                                UpdateState(nstate, r.Field, instruction);
                         }
                         else
                         {
@@ -546,17 +572,15 @@ namespace ScopeAnalyzer
                     if (operand is InstanceFieldAccess)
                     {
                         var op = operand as InstanceFieldAccess;
-                        var fdef = MatchFieldDefinition(op.Field);
-
-                        if (fdef == null)
+                        if (!IsFieldTracked(op.Field))
                         {
                             UpdateState(nstate, result, instruction);
                         } else
                         {
-                            if (nstate.Escaped(fdef))
+                            if (nstate.Escaped(op.Field))
                                 UpdateState(nstate, result, instruction);
                             else if (nstate.Escaped(result))
-                                UpdateState(nstate, fdef, instruction);
+                                UpdateState(nstate, op.Field, instruction);
                         }
                     }
                     // Set resuls as escaped in this case
@@ -708,16 +732,30 @@ namespace ScopeAnalyzer
             #endregion
 
 
-            private IFieldDefinition MatchFieldDefinition(IFieldReference fref)
+            //private IFieldDefinition MatchFieldDefinition(IFieldReference fref)
+            //{
+            //    foreach (var fdef in parent.TrackedFields)
+            //    {
+            //        if (fref.Name != fdef.Name) continue;
+            //        var resolved = fref.Resolve(parent.Host);
+            //        if (resolved.Equals(fdef)) return fdef;
+            //    }
+            //    return null;
+            //}
+
+            private bool IsFieldTracked(IFieldReference field)
             {
-                foreach (var fdef in parent.TrackedFields)
+                if (parent.TrackedFields.Contains(field)) return true;
+
+                // sanity
+                foreach (var f in parent.TrackedFields)
                 {
-                    if (fref.Name != fdef.Name) continue;
-                    var resolved = fref.Resolve(parent.Host);
-                    if (resolved.Equals(fdef)) return fdef;
+                    if (f == field || f.Equals(field)) return true;
                 }
-                return null;
+
+                return false;
             }
+
 
             private bool PossiblyRow(ITypeReference type)
             {
@@ -738,7 +776,7 @@ namespace ScopeAnalyzer
                 //state.Escape(fdef);
             }
 
-            private void UpdateState(ScopeEscapeDomain state, IFieldDefinition fdef, Instruction instruction)
+            private void UpdateState(ScopeEscapeDomain state, IFieldReference fdef, Instruction instruction)
             {
                 state.SetAllEscaped();
                 // TODO: refine the above with the following line of code

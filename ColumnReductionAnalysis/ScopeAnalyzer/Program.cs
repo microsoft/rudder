@@ -46,7 +46,7 @@ namespace ScopeAnalyzer
         public int AssembliesLoaded;
         public int Methods;
         public int FailedMethods;
-        public int MethodsWithExceptions;
+        public int UnsupportedMethods;
         public int NotEscapeDummies;
 
         public ScopeAnalysisStats(int assemblies = 0, int assembliesLoaded = 0, int methods = 0, int failedMethods = 0,
@@ -56,7 +56,7 @@ namespace ScopeAnalyzer
             AssembliesLoaded = assembliesLoaded;
             Methods = methods;
             FailedMethods = failedMethods;
-            MethodsWithExceptions = methodsWithExceptions;
+            UnsupportedMethods = methodsWithExceptions;
             NotEscapeDummies = notEscapeDummies;
         }
     }
@@ -109,7 +109,7 @@ namespace ScopeAnalyzer
                     stats.Methods += results.Count();
                     var goodMethods = results.Where(r => !r.Failed).ToList();
                     stats.FailedMethods += (results.Count() - goodMethods.Count);
-                    stats.MethodsWithExceptions += goodMethods.Where(r => r.HasExceptions).ToList().Count;
+                    stats.UnsupportedMethods += goodMethods.Where(r => r.Unsupported).ToList().Count;
                     stats.NotEscapeDummies += goodMethods.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
 
                     Utils.WriteLine("\n====== Done analyzing the assembly  =========\n");
@@ -187,7 +187,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Methods failed: " + stats.FailedMethods);
             Utils.WriteLine("Interesting methods (not failed): " + (stats.Methods - stats.FailedMethods));           
             Utils.WriteLine("");
-            Utils.WriteLine("Exceptions: " + stats.MethodsWithExceptions);
+            Utils.WriteLine("Unsupported feature: " + stats.UnsupportedMethods);
             Utils.WriteLine("Not escape dummies: " + stats.NotEscapeDummies);
         }
 

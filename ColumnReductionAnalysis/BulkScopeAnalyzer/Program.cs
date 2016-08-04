@@ -38,7 +38,7 @@ namespace BulkScopeAnalyzer
                     cumulativeStats.AssembliesLoaded += stats.AssembliesLoaded;
                     cumulativeStats.FailedMethods += stats.FailedMethods;
                     cumulativeStats.Methods += stats.Methods;
-                    cumulativeStats.MethodsWithExceptions += stats.MethodsWithExceptions;
+                    cumulativeStats.UnsupportedMethods += stats.UnsupportedMethods;
                     cumulativeStats.NotEscapeDummies += stats.NotEscapeDummies;
                 }
                 catch (Exception e)

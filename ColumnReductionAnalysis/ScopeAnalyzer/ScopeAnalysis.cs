@@ -20,14 +20,12 @@ namespace ScopeAnalyzer
 
     public class ScopeMethodAnalysisResult
     {
-
         public ScopeEscapeDomain EscapeSummary { get; set; }
         public ConstantPropagationDomain CPropagationSummary { get; set; }
 
-
         public bool Failed { get; set; }
 
-        public bool HasExceptions { get; set; }
+        public bool Unsupported { get; set; }
 
         public IMethodDefinition Method { get; set; }
 
@@ -136,23 +134,23 @@ namespace ScopeAnalyzer
 
                 if (IsProcessor(method))
                 {
-                    System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
+                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
                      
                     Utils.WriteLine("Running escape analysis...");
                     var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, host, rowType, rowsetType);
                     methodResults.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
-                    methodResults.HasExceptions = escAnalysis.HasExceptions;
+                    methodResults.Unsupported = escAnalysis.Unsupported;
                     Utils.WriteLine(methodResults.EscapeSummary.ToString());
                     Utils.WriteLine("Done with escape analysis\n");
 
-                    Utils.WriteLine("Running constant propagation set analysis...");
-                    var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
-                    methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
+                    //Utils.WriteLine("Running constant propagation set analysis...");
+                    //var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
+                    //methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
 
-                    Utils.WriteLine(methodResults.CPropagationSummary.ToString());
-                    Utils.WriteLine("Done with constant propagation set analysis\n");
+                    //Utils.WriteLine(methodResults.CPropagationSummary.ToString());
+                    //Utils.WriteLine("Done with constant propagation set analysis\n");
 
-                    Utils.WriteLine("Method has exceptions: " + escAnalysis.HasExceptions);
+                    Utils.WriteLine("Method has unsupported features: " + escAnalysis.Unsupported);
                 } 
                 else
                 {
