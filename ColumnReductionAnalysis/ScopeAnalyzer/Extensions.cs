@@ -16,6 +16,11 @@ namespace ScopeAnalyzer
     {
         public static string FullName(this ITypeReference tref)
         {
+            if (tref is CCI.IManagedPointerTypeReference || tref is CCI.IManagedPointerTypeReference)
+            {
+                return "managed-pointer";
+            }
+
             return CCI.TypeHelper.GetTypeName(tref, NameFormattingOptions.Signature);
         }
 

@@ -127,11 +127,6 @@ namespace ScopeAnalyzer
             Utils.WriteLine("\n--------------------------------------------------\n");
             Utils.WriteLine("Preparing method: " + method.FullName());
 
-            if (!method.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serialize"))
-            {
-                return method;
-            }
-
             try
             {
                 var data = PrepareMethod(methodDefinition);
@@ -188,7 +183,7 @@ namespace ScopeAnalyzer
         {
             var disassembler = new Disassembler(host, methodDefinition, sourceLocationProvider);
             var methodBody = disassembler.Execute();
-            System.IO.File.WriteAllText(@"mbody-zvonimir.txt", methodBody.ToString());
+
             var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);
             ControlFlowGraph.ComputeDominators(cfg);
             ControlFlowGraph.IdentifyLoops(cfg);

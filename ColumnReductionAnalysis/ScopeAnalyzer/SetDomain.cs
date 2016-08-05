@@ -23,21 +23,20 @@ namespace ScopeAnalyzer
 
         public void Add(T c)
         {
-            if (IsTop) return;
+            if (IsTop || Contains(c)) return;
             elements.Add(c);
         }
 
         public void AddRange(IEnumerable<T> cs)
         {
             if (IsTop) return;
-            elements.UnionWith(cs);
+            foreach (var c in cs) Add(c);         
         }
 
         public bool Contains(T c)
         {
             if (IsTop) return true;
 
-            //TODO: can we just use HashSet.Contains?
             foreach (var e in elements)
             {
                 if (c.Equals(e)) return true;

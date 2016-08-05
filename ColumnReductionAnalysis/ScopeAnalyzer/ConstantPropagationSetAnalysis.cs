@@ -44,7 +44,7 @@ namespace ScopeAnalyzer
             string summary = "Constants:";
             foreach(var c in elements)
             {
-                summary += "\t" + c.Value.ToString();
+                summary += "\t" + c.ToString();
             }
             return summary;
         }
@@ -389,12 +389,12 @@ namespace ScopeAnalyzer
 
             if (!(type is INamedTypeReference))
                 return false;
-
+            
             var nmtype = type as INamedTypeReference;
             while (nmtype.IsAlias)
                 nmtype = nmtype.AliasForType.AliasedType;
 
-            if (!type.IsValueType && !(type.IsReferenceType && (nmtype.FullName() == "System.String")))
+            if (!type.IsValueType && !(type.IsReferenceType && nmtype.FullName() == "System.String"))
                 return false;
             return true;
         }
@@ -596,21 +596,14 @@ namespace ScopeAnalyzer
                     if (result is InstanceFieldAccess)
                     {
                         var ifa = result as InstanceFieldAccess;
-                        try
-                        {
-                            UpdateStateCopy(nstate, ifa.Field, operand);
-                        }
-                        catch
-                        {
-                            Console.WriteLine(instruction);
-                        }
+                        UpdateStateCopy(nstate, ifa.Field, operand);
                     }
                     else if (result is StaticFieldAccess)
                     {
                         var sfa = result as InstanceFieldAccess;
                         UpdateStateCopy(nstate, sfa.Field, operand);
                     }
-                    //TODO: see other assignable value
+                    //TODO: see other assignable values
                 }
 
                 SetCurrent(nstate);
