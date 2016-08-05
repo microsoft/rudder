@@ -126,6 +126,12 @@ namespace ScopeAnalyzer
 
             Utils.WriteLine("\n--------------------------------------------------\n");
             Utils.WriteLine("Preparing method: " + method.FullName());
+
+            if (!method.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serialize"))
+            {
+                return method;
+            }
+
             try
             {
                 var data = PrepareMethod(methodDefinition);
@@ -167,7 +173,7 @@ namespace ScopeAnalyzer
             }
             catch (Exception e)
             {
-                Utils.WriteLine(methodDefinition.FullName() + " METHOD FAILURE: " + e.Message);
+                Utils.WriteLine("METHOD FAILURE: " + e.Message);
                 Utils.WriteLine(e.StackTrace);
                 // Our analysis failed; save this info.
                 methodResults.Failed = true;
@@ -182,7 +188,7 @@ namespace ScopeAnalyzer
         {
             var disassembler = new Disassembler(host, methodDefinition, sourceLocationProvider);
             var methodBody = disassembler.Execute();
-
+            System.IO.File.WriteAllText(@"mbody-zvonimir.txt", methodBody.ToString());
             var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);
             ControlFlowGraph.ComputeDominators(cfg);
             ControlFlowGraph.IdentifyLoops(cfg);
@@ -195,7 +201,7 @@ namespace ScopeAnalyzer
             splitter.Transform();
 
             methodBody.UpdateVariables();
-
+            //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", methodBody.ToString());
             var typeAnalysis = new TypeInferenceAnalysis(cfg);
             typeAnalysis.Analyze();
 

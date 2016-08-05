@@ -76,7 +76,7 @@ namespace ScopeAnalyzer
 
         public static bool IsDummy(this ITypeDefinition tdef)
         {
-            return tdef.FullName().Equals("Microsoft.Cci.DummyNamespaceTypeDefinition");
+            return tdef.FullName().Equals("Microsoft.Cci.DummyNamespaceTypeDefinition") || tdef is Dummy;
         }
 
         public static IFieldDefinition Resolve(this IFieldReference fref, IMetadataHost host)
