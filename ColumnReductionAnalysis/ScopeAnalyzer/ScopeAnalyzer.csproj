@@ -70,9 +70,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConstantsInfoProvider.cs" />
     <Compile Include="ConstantPropagationSetAnalysis.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="EscapeInformation.cs" />
+    <Compile Include="EscapeInfoProvider.cs" />
     <Compile Include="NaiveScopeMayEscapeAnalysis.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="Program.cs" />

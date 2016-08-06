@@ -144,12 +144,12 @@ namespace ScopeAnalyzer
                     Utils.WriteLine(methodResults.EscapeSummary.ToString());
                     Utils.WriteLine("Done with escape analysis\n");
 
-                    //Utils.WriteLine("Running constant propagation set analysis...");
-                    //var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
-                    //methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
+                    Utils.WriteLine("Running constant propagation set analysis...");
+                    var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
+                    methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
 
-                    //Utils.WriteLine(methodResults.CPropagationSummary.ToString());
-                    //Utils.WriteLine("Done with constant propagation set analysis\n");
+                    Utils.WriteLine(methodResults.CPropagationSummary.ToString());
+                    Utils.WriteLine("Done with constant propagation set analysis\n");
 
                     Utils.WriteLine("Method has unsupported features: " + escAnalysis.Unsupported);
                 } 
@@ -263,14 +263,14 @@ namespace ScopeAnalyzer
             return true;
         }
 
-        public class NaiveScopeEscapeInfo : EscapeInformation
+        private class NaiveScopeEscapeInfoProvider : EscapeInfoProvider
         {
             Dictionary<Instruction, ScopeEscapeDomain> info;
             IMetadataHost host;
             ITypeDefinition rowType;
             ITypeDefinition rowsetType;
 
-            public NaiveScopeEscapeInfo(Dictionary<Instruction, ScopeEscapeDomain> results, IMetadataHost h,
+            public NaiveScopeEscapeInfoProvider(Dictionary<Instruction, ScopeEscapeDomain> results, IMetadataHost h,
                                          ITypeDefinition rowt, ITypeDefinition rowsett)
             {
                 info = results;
@@ -282,29 +282,67 @@ namespace ScopeAnalyzer
 
             public bool Escaped(Instruction instruction, IVariable var)
             {
-                var domain = info[instruction];
-                if (domain.IsTop) return true;
-
                 var rtype = var.Type.Resolve(host);
                 if (!NaiveScopeMayEscapeAnalysis.PossiblyRow(rtype, rowType, rowsetType, host)) return true;
 
+                var domain = info[instruction];
+                if (domain.IsTop) return true;
                 return domain.Escaped(var);
             }
 
-            public bool Escaped(Instruction instruction, IFieldDefinition fdef)
+            public bool Escaped(Instruction instruction, IFieldReference field)
             {
-                var domain = info[instruction];
-                if (domain.IsTop) return true;
-
-                var rtype = fdef.Type.Resolve(host);
+                var rtype = field.Type.Resolve(host);
                 if (!NaiveScopeMayEscapeAnalysis.PossiblyRow(rtype, rowType, rowsetType, host)) return true;
 
-                return domain.Escaped(fdef);
+                var domain = info[instruction];
+                if (domain.IsTop) return true;
+                return domain.Escaped(field);
             }
 
             public bool Escaped(Instruction instruction, IVariable array, int index)
             {
                 return true;
+            }
+        }
+
+        private class NaiveScopeConstantsProvider : ConstantsInfoProvider
+        {
+            Dictionary<Instruction, ConstantPropagationDomain> info;
+            IMetadataHost host;
+
+            public NaiveScopeConstantsProvider(Dictionary<Instruction, ConstantPropagationDomain> results, IMetadataHost h)
+            {
+                info = results;
+                host = h;
+            }
+
+
+            public IEnumerable<Constant> GetConstants(Instruction instruction, IVariable var)
+            {
+                if (!ConstantPropagationSetAnalysis.IsConstantType(var.Type, host)) return null;
+
+                var domain = info[instruction];
+                if (domain.IsTop) return null;
+                if (domain.IsBottom) return new HashSet<Constant>();
+
+                return new HashSet<Constant>(domain.Constants(var).Elements);
+            }
+
+            public IEnumerable<Constant> GetConstants(Instruction instruction, IFieldReference field)
+            {
+                if (!ConstantPropagationSetAnalysis.IsConstantType(field.Type, host)) return null;
+
+                var domain = info[instruction];
+                if (domain.IsTop) return null;
+                if (domain.IsBottom) return new HashSet<Constant>();
+
+                return new HashSet<Constant>(domain.Constants(field).Elements);
+            }
+
+            public IEnumerable<Constant> GetConstants(Instruction instruction, IVariable array, int index)
+            {
+                return null;
             }
 
         }
