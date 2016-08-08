@@ -18,10 +18,13 @@ namespace BulkScopeAnalyzer
             string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
             //string mainFolder = @"\\MADANM2\parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug";
             var subdirs = SubDirectoryPaths(mainFolder);
-            string libPath = "C:\\Users\\t-zpavli\\Desktop\\libs";
+            
+            //string libPath = "C:\\Users\\t-zpavli\\Desktop\\libs";
+            string libPath = "\\MADANM2\\parasail\\ScopeSurvey\\ScopeMapAccess\\bin\\LocalDebug";
             string outPath = "bulk-trace-output";
 
             ScopeAnalyzer.Utils.SetOutput(outPath);
+            ScopeAnalyzer.Utils.WriteLine("Analyzing " + subdirs.Count() + " Scope projects.\n");
            
             var cumulativeStats = new ScopeAnalyzer.ScopeAnalysisStats();
             foreach (var subdir in subdirs)

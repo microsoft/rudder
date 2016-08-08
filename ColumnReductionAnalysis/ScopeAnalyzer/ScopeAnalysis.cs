@@ -52,6 +52,7 @@ namespace ScopeAnalyzer
         ITypeDefinition rowsetType;
         ITypeDefinition reducerType;
         ITypeDefinition processorType;
+        ITypeDefinition columnType;
         ISourceLocationProvider sourceLocationProvider;
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
@@ -82,14 +83,15 @@ namespace ScopeAnalyzer
                     else if (type.FullName() == "ScopeRuntime.Processor") processorType = type;
                     else if (type.FullName() == "ScopeRuntime.Row") rowType = type;
                     else if (type.FullName() == "ScopeRuntime.RowSet") rowsetType = type;
+                    else if (type.FullName() == "ScopeRuntime.ColumnData") columnType = type;
                 }
 
-                if (reducerType != null && processorType != null && rowsetType != null && rowType != null) continue;
+                if (reducerType != null && processorType != null && rowsetType != null && rowType != null && columnType != null) continue;
             }
 
             if (reducerType == null || processorType == null || rowsetType == null || rowType == null)
-                throw new NotInterestingScopeScript(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}",
-                                                      reducerType != null, processorType != null, rowType != null, rowType != null));
+                throw new NotInterestingScopeScript(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}",
+                                                      reducerType != null, processorType != null, rowType != null, rowType != null, columnType != null));
         }
 
 
@@ -111,10 +113,9 @@ namespace ScopeAnalyzer
 
         public void Analyze()
         {
-            this.Rewrite(assembly.Module);
+            base.Rewrite(assembly.Module);
         }
-
-
+ 
 
         public override IMethodDefinition Rewrite(IMethodDefinition methodDefinition)
         {
@@ -122,16 +123,19 @@ namespace ScopeAnalyzer
             methodResults.Failed = false;
             results.Add(methodResults);
 
-            IMethodDefinition method = methodDefinition;
+            //if (!methodDefinition.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serializ"))
+            //{
+            //    return methodDefinition;
+            //}
 
             Utils.WriteLine("\n--------------------------------------------------\n");
-            Utils.WriteLine("Preparing method: " + method.FullName());
+            Utils.WriteLine("Preparing method: " + methodDefinition.FullName());
 
             try
             {
                 var data = PrepareMethod(methodDefinition);
                 var cfg = data.Item1;
-                method = data.Item2;
+                IMethodDefinition method = data.Item2;
 
                 if (IsProcessor(method))
                 {
@@ -144,12 +148,12 @@ namespace ScopeAnalyzer
                     Utils.WriteLine(methodResults.EscapeSummary.ToString());
                     Utils.WriteLine("Done with escape analysis\n");
 
-                    Utils.WriteLine("Running constant propagation set analysis...");
-                    var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
-                    methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
+                    //Utils.WriteLine("Running constant propagation set analysis...");
+                    //var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
+                    //methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
 
-                    Utils.WriteLine(methodResults.CPropagationSummary.ToString());
-                    Utils.WriteLine("Done with constant propagation set analysis\n");
+                    //Utils.WriteLine(methodResults.CPropagationSummary.ToString());
+                    //Utils.WriteLine("Done with constant propagation set analysis\n");
 
                     Utils.WriteLine("Method has unsupported features: " + escAnalysis.Unsupported);
                 } 
@@ -174,7 +178,7 @@ namespace ScopeAnalyzer
                 methodResults.Failed = true;
             }
 
-            return method;
+            return methodDefinition;
         }
 
 
@@ -200,9 +204,9 @@ namespace ScopeAnalyzer
             var typeAnalysis = new TypeInferenceAnalysis(cfg);
             typeAnalysis.Analyze();
 
-            var forwardCopyAnalysis = new ForwardCopyPropagationAnalysis(cfg);
-            forwardCopyAnalysis.Analyze();
-            forwardCopyAnalysis.Transform(methodBody);
+            //var forwardCopyAnalysis = new ForwardCopyPropagationAnalysis(cfg);
+            //forwardCopyAnalysis.Analyze();
+            //forwardCopyAnalysis.Transform(methodBody);
 
             var backwardCopyAnalysis = new BackwardCopyPropagationAnalysis(cfg);
             backwardCopyAnalysis.Analyze();

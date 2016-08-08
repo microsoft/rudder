@@ -157,5 +157,7 @@ namespace ScopeAnalyzer
             return fields;
         }
 
+
+        
     }
 }

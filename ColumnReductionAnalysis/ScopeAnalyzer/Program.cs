@@ -136,6 +136,10 @@ namespace ScopeAnalyzer
             {
                 try
                 {
+                    //HAAAAACK
+                    //TODO: is this a CCI bug?
+                    if (rassembly.EndsWith("__ScopeCodeGen__.dll")) continue;
+
                     var rasm = new Assembly(host);
                     rasm.Load(rassembly, false);
                     refs.Add(rasm);
