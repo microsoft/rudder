@@ -11,7 +11,7 @@ namespace ScopeAnalyzer
 {
     public class ConstantSetDomain : SetDomain<Constant>
     {
-        private ConstantSetDomain(HashSet<Constant> cons)
+        private ConstantSetDomain(List<Constant> cons)
         {
             elements = cons;
         }
@@ -23,7 +23,7 @@ namespace ScopeAnalyzer
 
         public static ConstantSetDomain Bottom
         {
-            get { return new ConstantSetDomain(new HashSet<Constant>()); }
+            get { return new ConstantSetDomain(new List<Constant>()); }
         }
 
         public void SetNotConstant()
@@ -33,7 +33,7 @@ namespace ScopeAnalyzer
 
         public ConstantSetDomain Clone()
         {
-            var ncons = elements == null ? null : new HashSet<Constant>(elements);
+            var ncons = elements == null ? null : new List<Constant>(elements);
             return new ConstantSetDomain(ncons);
         }
 
@@ -118,8 +118,7 @@ namespace ScopeAnalyzer
             get { return fieldMapping.Count; }
         }
    
-        
-       
+              
         public ConstantPropagationDomain Clone()
         {
             var clone = new ConstantPropagationDomain();
@@ -178,23 +177,23 @@ namespace ScopeAnalyzer
 
         public void Join(ConstantPropagationDomain other)
         {
-            if (VarCount != other.VarCount) throw new IncompatibleConstantPropagationDomains("Not same variable set!");
+            if (VarCount != other.VarCount) throw new IncompatibleConstantPropagationDomains("Not the same variable set!");
 
             for(int i = 0; i < varMapping.Keys.Count; i++)
             {
                 var v = varMapping.Keys.ElementAt(i);
-                if (!other.Contains(v)) throw new IncompatibleConstantPropagationDomains("Not same variable set!");
+                if (!other.Contains(v)) throw new IncompatibleConstantPropagationDomains("Not the same variable set! " + v.ToString());
                 var ncsd = Constants(v).Clone();
                 ncsd.Join(other.Constants(v));
                 Set(v, ncsd);
             }
 
-            if (FieldCount != other.FieldCount) throw new IncompatibleConstantPropagationDomains("Not same field set!");
+            if (FieldCount != other.FieldCount) throw new IncompatibleConstantPropagationDomains("Not the same field set!");
 
             for (int i = 0; i < fieldMapping.Keys.Count; i++)
             {
                 var f = fieldMapping.Keys.ElementAt(i);
-                if (!other.Contains(f)) throw new IncompatibleConstantPropagationDomains("Not same field set!");
+                if (!other.Contains(f)) throw new IncompatibleConstantPropagationDomains("Not the same field set! " + f.ToString());
                 var ncsd = Constants(f).Clone();
                 ncsd.Join(other.Constants(f));
                 Set(f, ncsd);
@@ -248,6 +247,8 @@ namespace ScopeAnalyzer
 
         public override bool Equals(object obj)
         {
+            if (obj == this) return true;
+
             var other = obj as ConstantPropagationDomain;
 
             if (VarCount != other.VarCount) return false;
@@ -288,6 +289,24 @@ namespace ScopeAnalyzer
             return summary;
         }
 
+        public string Summary()
+        {
+            string summary = String.Empty;
+            foreach (var v in varMapping.Keys)
+            {
+                if (varMapping[v].IsBottom || varMapping[v].IsTop) continue;
+
+                summary += String.Format("{0} ({1}): {2}\n", v.Name, v.Type.ToString(), varMapping[v].ToString());
+            }
+            summary += "\n";
+            foreach (var f in fieldMapping.Keys)
+            {
+                if (fieldMapping[f].IsBottom || fieldMapping[f].IsTop) continue;
+
+                summary += String.Format("{0} ({1}): {2}\n", f.Name, f.Type.ToString(), fieldMapping[f].ToString());
+            }
+            return summary;
+        }
 
         public class IncompatibleConstantPropagationDomains : Exception
         {
@@ -343,6 +362,7 @@ namespace ScopeAnalyzer
             get { return postResults; }
         }
 
+
         #region Dataflow interface implementation
 
         protected override bool Compare(ConstantPropagationDomain left, ConstantPropagationDomain right)
@@ -356,6 +376,7 @@ namespace ScopeAnalyzer
             var visitor = new ConstantPropagationTransferVisitor(nState, this);
             visitor.Visit(node);
             UpdateResults(visitor);
+
             return visitor.State.Clone();
         }
 
@@ -391,11 +412,13 @@ namespace ScopeAnalyzer
 
         public static bool IsConstantType(ITypeReference tref, IMetadataHost host)
         {
-            var type = tref.Resolve(host);
+            var t = tref;
+            while (t.IsAlias) t = t.AliasForType.AliasedType;
+
+            var type = t.Resolve(host);
             return IsConstantType(type);
         }
 
-        //TODO: what about aliasing?
         public static bool IsConstantType(ITypeDefinition type)
         {
             if (type.IsEnum || type.IsGeneric || type.IsAbstract ||
@@ -652,7 +675,21 @@ namespace ScopeAnalyzer
                 SavePostState(instruction, FreshCurrent());
             }
 
+            public override void Visit(SizeofInstruction instruction)
+            {
+                SavePreState(instruction, FreshCurrent());
+                var nstate = FreshCurrent();
 
+                if (instruction.HasResult && IsConstantType(instruction.Result.Type))
+                {
+                    UpdateStateNotConstant(nstate, instruction.Result);
+                }
+
+                SetCurrent(nstate);
+                SavePostState(instruction, FreshCurrent());
+            }
+
+            
 
             private void SetCurrent(ConstantPropagationDomain curr)
             {

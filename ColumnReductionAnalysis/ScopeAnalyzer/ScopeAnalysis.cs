@@ -142,7 +142,7 @@ namespace ScopeAnalyzer
 
                 if (IsProcessor(methodDefinition))
                 {
-                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
+                    System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
 
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResults);
                     var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResults);

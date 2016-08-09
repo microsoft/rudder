@@ -8,7 +8,7 @@ namespace ScopeAnalyzer
 {
     public abstract class SetDomain<T>
     {
-        protected HashSet<T> elements = new HashSet<T>();
+        protected List<T> elements = new List<T>();
 
 
         public bool IsTop
@@ -103,6 +103,10 @@ namespace ScopeAnalyzer
 
         public override bool Equals(object obj)
         {
+            if (this == obj) return true;
+
+            if (!(obj is SetDomain<T>)) return false;
+
             var other = obj as SetDomain<T>;
 
             if (IsTop && other.IsTop) return true;

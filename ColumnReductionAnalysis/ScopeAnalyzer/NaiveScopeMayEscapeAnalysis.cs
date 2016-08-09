@@ -14,14 +14,14 @@ namespace ScopeAnalyzer
     /// </summary>
     public class VarEscapeSet : SetDomain<IVariable>
     {
-        public VarEscapeSet(HashSet<IVariable> vesc)
+        public VarEscapeSet(List<IVariable> vesc)
         {
             elements = vesc;
         }
 
         public static VarEscapeSet Bottom
         {
-            get { return new VarEscapeSet(new HashSet<IVariable>()); }
+            get { return new VarEscapeSet(new List<IVariable>()); }
         }
 
         public static VarEscapeSet Top
@@ -47,7 +47,7 @@ namespace ScopeAnalyzer
 
         public VarEscapeSet Clone()
         {
-            var nvesc = elements == null ? elements : new HashSet<IVariable>(elements);
+            var nvesc = elements == null ? elements : new List<IVariable>(elements);
             return new VarEscapeSet(nvesc);
         }
 
