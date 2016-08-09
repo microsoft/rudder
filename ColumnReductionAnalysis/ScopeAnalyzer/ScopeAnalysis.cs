@@ -125,11 +125,6 @@ namespace ScopeAnalyzer
 
             //if (!methodDefinition.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serializ"))
             //{
-            //    return methodDefinition;
-            //}
-
-            //if (!methodDefinition.FullName().Contains("MoveNext()"))
-            //{
             //    return;
             //}
 
@@ -142,7 +137,7 @@ namespace ScopeAnalyzer
 
                 if (IsProcessor(methodDefinition))
                 {
-                    System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
+                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
 
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResults);
                     var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResults);
@@ -209,7 +204,7 @@ namespace ScopeAnalyzer
 
 
 
-        string _code = String.Empty;
+        //string _code = String.Empty;
         private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
         {
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
@@ -253,7 +248,7 @@ namespace ScopeAnalyzer
 
             //var dot = DOTSerializer.Serialize(cfg);
             //var dgml = DGMLSerializer.Serialize(cfg);
-            _code = methodBody.ToString();
+            //_code = methodBody.ToString();
             //return new Tuple<ControlFlowGraph, IMethodDefinition>(cfg, methodBody);
             return cfg;
         }

@@ -136,7 +136,6 @@ namespace ScopeAnalyzer
             {
                 try
                 {
-                    //HAAAAACK
                     //TODO: is this a CCI bug?
                     if (rassembly.EndsWith("__ScopeCodeGen__.dll")) continue;
 
