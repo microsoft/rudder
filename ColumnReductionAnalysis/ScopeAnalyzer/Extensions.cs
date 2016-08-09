@@ -34,15 +34,22 @@ namespace ScopeAnalyzer
             return MemberHelper.GetMethodSignature(method, NameFormattingOptions.Signature | NameFormattingOptions.ParameterName);
         }
 
-        public static bool SubtypeOf(this ITypeReference subtype, ITypeDefinition supertype)
+        public static bool SubtypeOf(this ITypeReference subtype, ITypeDefinition supertype, IMetadataHost host = null)
         {
             if (!(subtype is INamedTypeReference && supertype is INamedTypeDefinition)) return false;
             var subt = subtype as INamedTypeReference;
             var supt = supertype as INamedTypeDefinition;
 
             while (subt.IsAlias) subt = subt.AliasForType.AliasedType;
-            var subtdef = subt.ResolvedType;
-            return subtdef.SubtypeOf(supt);
+
+            if (subt.ResolvedType.SubtypeOf(supertype)) return true;
+
+            if (host != null)
+            {
+                return CCI.TypeHelper.Resolve(subt, host).SubtypeOf(supt);
+            }
+
+            return false;
         }
 
         public static bool SubtypeOf(this ITypeDefinition subtype, ITypeDefinition supertype)
@@ -53,18 +60,18 @@ namespace ScopeAnalyzer
             return subt.SubtypeOf(supt);
         }
 
-        public static bool SubtypeOf(this INamedTypeDefinition subtype, ITypeDefinition supertype)
-        {
-            if (!(supertype is INamedTypeDefinition)) return false;
-            var supt = supertype as INamedTypeDefinition;
-            return subtype.SubtypeOf(supt);
-        }
+        //public static bool SubtypeOf(this INamedTypeDefinition subtype, ITypeDefinition supertype)
+        //{
+        //    if (!(supertype is INamedTypeDefinition)) return false;
+        //    var supt = supertype as INamedTypeDefinition;
+        //    return subtype.SubtypeOf(supt);
+        //}
 
         public static bool SubtypeOf(this INamedTypeDefinition subtype, INamedTypeDefinition supertype)
         {
             if (subtype.IsEnum || supertype.IsEnum || subtype.IsValueType || supertype.IsValueType) return false;
 
-            if (subtype.Equals(supertype)) return true;
+            if (subtype.Equals(supertype) || CCI.TypeHelper.Type1DerivesFromOrIsTheSameAsType2(subtype, supertype)) return true;
 
             foreach (var subcl in subtype.BaseClasses)
             {

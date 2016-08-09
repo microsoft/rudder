@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Frontend;
 using Backend;
 using Microsoft.Cci;
-using Microsoft.Cci.MutableCodeModel;
+using Microsoft.Cci.Immutable;
 using Backend.Analysis;
 using Backend.Serialization;
 using Backend.ThreeAddressCode;
@@ -36,7 +36,7 @@ namespace ScopeAnalyzer
     }
 
 
-    class ScopeAnalysis : MetadataRewriter
+    class ScopeAnalysis : MetadataTraverser
     {
 
         public class NotInterestingScopeScript : Exception
@@ -48,16 +48,16 @@ namespace ScopeAnalyzer
         IMetadataHost mhost;
         Assembly assembly;
         List<Assembly> refAssemblies;
-        ITypeDefinition rowType;
-        ITypeDefinition rowsetType;
-        ITypeDefinition reducerType;
-        ITypeDefinition processorType;
-        ITypeDefinition columnType;
+        List<ITypeDefinition> rowTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> rowsetTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> processorTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> columnTypes = new List<ITypeDefinition>();
         ISourceLocationProvider sourceLocationProvider;
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
 
-        public ScopeAnalysis(IMetadataHost host, Assembly assembly, List<Assembly> refAssemblies) : base(host)
+        public ScopeAnalysis(IMetadataHost host, Assembly assembly, List<Assembly> refAssemblies)
         {
             this.mhost = host;
             this.assembly = assembly;
@@ -79,19 +79,19 @@ namespace ScopeAnalyzer
                 var allTypes = asm.Module.GetAllTypes();
                 foreach (var type in allTypes)
                 {
-                    if (type.FullName() == "ScopeRuntime.Reducer") reducerType = type;
-                    else if (type.FullName() == "ScopeRuntime.Processor") processorType = type;
-                    else if (type.FullName() == "ScopeRuntime.Row") rowType = type;
-                    else if (type.FullName() == "ScopeRuntime.RowSet") rowsetType = type;
-                    else if (type.FullName() == "ScopeRuntime.ColumnData") columnType = type;
+                    if (type.FullName() == "ScopeRuntime.Reducer") reducerTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.Processor") processorTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.Row") rowTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.RowSet") rowsetTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.ColumnData") columnTypes.Add(type);
                 }
 
-                if (reducerType != null && processorType != null && rowsetType != null && rowType != null && columnType != null) continue;
+                if (reducerTypes.Any() && processorTypes.Any() && rowsetTypes.Any() && rowTypes.Any() && columnTypes.Any()) continue;
             }
 
-            if (reducerType == null || processorType == null || rowsetType == null || rowType == null)
+            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || !rowTypes.Any() || !columnTypes.Any())
                 throw new NotInterestingScopeScript(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}",
-                                                      reducerType != null, processorType != null, rowType != null, rowType != null, columnType != null));
+                                                      reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count));
         }
 
 
@@ -113,11 +113,11 @@ namespace ScopeAnalyzer
 
         public void Analyze()
         {
-            base.Rewrite(assembly.Module);
+            base.Traverse(assembly.Module);
         }
  
 
-        public override IMethodDefinition Rewrite(IMethodDefinition methodDefinition)
+        public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
             var methodResults = new ScopeMethodAnalysisResult(methodDefinition);
             methodResults.Failed = false;
@@ -128,32 +128,33 @@ namespace ScopeAnalyzer
             //    return methodDefinition;
             //}
 
+            //if (!methodDefinition.FullName().Contains("MoveNext()"))
+            //{
+            //    return;
+            //}
+
             Utils.WriteLine("\n--------------------------------------------------\n");
             Utils.WriteLine("Preparing method: " + methodDefinition.FullName());
 
             try
             {
-                var data = PrepareMethod(methodDefinition);
-                var cfg = data.Item1;
-                IMethodDefinition method = data.Item2;
+                var cfg = PrepareMethod(methodDefinition);
 
-                if (IsProcessor(method))
+                if (IsProcessor(methodDefinition))
                 {
                     //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
-                     
-                    Utils.WriteLine("Running escape analysis...");
-                    var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, host, rowType, rowsetType);
-                    methodResults.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
-                    methodResults.Unsupported = escAnalysis.Unsupported;
-                    Utils.WriteLine(methodResults.EscapeSummary.ToString());
-                    Utils.WriteLine("Done with escape analysis\n");
 
-                    //Utils.WriteLine("Running constant propagation set analysis...");
-                    //var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, host);
-                    //methodResults.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
+                    var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResults);
+                    var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResults);
 
-                    //Utils.WriteLine(methodResults.CPropagationSummary.ToString());
-                    //Utils.WriteLine("Done with constant propagation set analysis\n");
+                    var escInfo = new NaiveScopeEscapeInfoProvider(escAnalysis.PostResults, mhost, rowTypes, rowsetTypes);
+                    var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
+
+
+                    Utils.WriteLine("Running used columns anaysis...");
+                    var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, escInfo, cspInfo, rowTypes, columnTypes);
+                    var outcome = clsAnalysis.Analyze();
+                    Utils.WriteLine("Used columns results:\n" + outcome.ToString());
 
                     Utils.WriteLine("Method has unsupported features: " + escAnalysis.Unsupported);
                 } 
@@ -178,14 +179,40 @@ namespace ScopeAnalyzer
                 methodResults.Failed = true;
             }
 
-            return methodDefinition;
+            return;
         }
 
 
-        string _code = String.Empty;
-        private Tuple<ControlFlowGraph, IMethodDefinition> PrepareMethod(IMethodDefinition methodDefinition)
+        private NaiveScopeMayEscapeAnalysis DoEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
-            var disassembler = new Disassembler(host, methodDefinition, sourceLocationProvider);
+            Utils.WriteLine("Running escape analysis...");
+            var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
+            results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
+            results.Unsupported = escAnalysis.Unsupported;
+            Utils.WriteLine(results.EscapeSummary.ToString());
+            Utils.WriteLine("Done with escape analysis\n");
+            return escAnalysis;
+        }
+
+        private ConstantPropagationSetAnalysis DoConstantPropagationAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
+        {
+            Utils.WriteLine("Running constant propagation set analysis...");
+            var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost);
+            results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
+
+            Utils.WriteLine(results.CPropagationSummary.ToString());
+            Utils.WriteLine("Done with constant propagation set analysis\n");
+            return cpsAnalysis;
+        }
+
+
+
+
+
+        string _code = String.Empty;
+        private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
+        {
+            var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
             var methodBody = disassembler.Execute();
 
             var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);
@@ -227,7 +254,8 @@ namespace ScopeAnalyzer
             //var dot = DOTSerializer.Serialize(cfg);
             //var dgml = DGMLSerializer.Serialize(cfg);
             _code = methodBody.ToString();
-            return new Tuple<ControlFlowGraph, IMethodDefinition>(cfg, base.Rewrite(methodDefinition));
+            //return new Tuple<ControlFlowGraph, IMethodDefinition>(cfg, methodBody);
+            return cfg;
         }
 
     
@@ -247,12 +275,11 @@ namespace ScopeAnalyzer
             if (mtype.IsEnum || mtype.IsValueType) return false;
 
             // Its definition must be available.
-            var rmtype = mtype.Resolve(host);
+            var rmtype = mtype.Resolve(mhost);
             // Method needs to be contained in nested Reducer or Processor subclass.
             if (!(rmtype is INestedTypeDefinition)) return false;
             var type = (rmtype as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
-            if (!type.SubtypeOf(reducerType) && !type.SubtypeOf(processorType)) return false;
-
+            if (reducerTypes.All(rt => !type.SubtypeOf(rt)) && processorTypes.All(pt => !type.SubtypeOf(pt))) return false;
             // We are currently focusing on MoveNext methods only.
             if (!method.FullName().EndsWith(".MoveNext()")) return false;
            
@@ -271,11 +298,11 @@ namespace ScopeAnalyzer
         {
             Dictionary<Instruction, ScopeEscapeDomain> info;
             IMetadataHost host;
-            ITypeDefinition rowType;
-            ITypeDefinition rowsetType;
+            List<ITypeDefinition> rowType;
+            List<ITypeDefinition> rowsetType;
 
             public NaiveScopeEscapeInfoProvider(Dictionary<Instruction, ScopeEscapeDomain> results, IMetadataHost h,
-                                         ITypeDefinition rowt, ITypeDefinition rowsett)
+                                         List<ITypeDefinition> rowt, List<ITypeDefinition> rowsett)
             {
                 info = results;
                 host = h;
@@ -327,10 +354,11 @@ namespace ScopeAnalyzer
                 if (!ConstantPropagationSetAnalysis.IsConstantType(var.Type, host)) return null;
 
                 var domain = info[instruction];
-                if (domain.IsTop) return null;
-                if (domain.IsBottom) return new HashSet<Constant>();
+                var varDomain = domain.Constants(var);
+                if (varDomain.IsTop) return null;
+                if (varDomain.IsBottom) return new HashSet<Constant>();
 
-                return new HashSet<Constant>(domain.Constants(var).Elements);
+                return new HashSet<Constant>(varDomain.Elements);
             }
 
             public IEnumerable<Constant> GetConstants(Instruction instruction, IFieldReference field)
@@ -338,10 +366,11 @@ namespace ScopeAnalyzer
                 if (!ConstantPropagationSetAnalysis.IsConstantType(field.Type, host)) return null;
 
                 var domain = info[instruction];
-                if (domain.IsTop) return null;
-                if (domain.IsBottom) return new HashSet<Constant>();
+                var fieldDomain = domain.Constants(field);
+                if (fieldDomain.IsTop) return null;
+                if (fieldDomain.IsBottom) return new HashSet<Constant>();
 
-                return new HashSet<Constant>(domain.Constants(field).Elements);
+                return new HashSet<Constant>(fieldDomain.Elements);
             }
 
             public IEnumerable<Constant> GetConstants(Instruction instruction, IVariable array, int index)

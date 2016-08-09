@@ -307,7 +307,8 @@ namespace ScopeAnalyzer
         HashSet<IFieldReference> fields = new HashSet<IFieldReference>();
         IMetadataHost host;
 
-        Dictionary<Instruction, ConstantPropagationDomain> results = new Dictionary<Instruction, ConstantPropagationDomain>();
+        Dictionary<Instruction, ConstantPropagationDomain> preResults = new Dictionary<Instruction, ConstantPropagationDomain>();
+        Dictionary<Instruction, ConstantPropagationDomain> postResults = new Dictionary<Instruction, ConstantPropagationDomain>();
 
         public ConstantPropagationSetAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h) : base(cfg)
         {
@@ -332,6 +333,15 @@ namespace ScopeAnalyzer
             get { return host; }
         }
 
+        public Dictionary<Instruction, ConstantPropagationDomain> PreResults
+        {
+            get { return preResults; }
+        }
+
+        public Dictionary<Instruction, ConstantPropagationDomain> PostResults
+        {
+            get { return postResults; }
+        }
 
         #region Dataflow interface implementation
 
@@ -345,7 +355,7 @@ namespace ScopeAnalyzer
             var nState = input.Clone();
             var visitor = new ConstantPropagationTransferVisitor(nState, this);
             visitor.Visit(node);
-            UpdateResults(visitor.PostStates);
+            UpdateResults(visitor);
             return visitor.State.Clone();
         }
 
@@ -366,11 +376,16 @@ namespace ScopeAnalyzer
         #endregion
 
 
-        private void UpdateResults(Dictionary<Instruction, ConstantPropagationDomain> states)
+        private void UpdateResults(ConstantPropagationTransferVisitor visitor)
         {
-            foreach (var key in states.Keys)
+            foreach (var key in visitor.PreStates.Keys)
             {
-                results[key] = states[key];
+                preResults[key] = visitor.PreStates[key];
+            }
+
+            foreach (var key in visitor.PostStates.Keys)
+            {
+                postResults[key] = visitor.PostStates[key];
             }
         }
 

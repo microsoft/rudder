@@ -141,7 +141,7 @@ namespace ScopeAnalyzer
                     if (rassembly.EndsWith("__ScopeCodeGen__.dll")) continue;
 
                     var rasm = new Assembly(host);
-                    rasm.Load(rassembly, false);
+                    rasm.Load(rassembly);
                     refs.Add(rasm);
                     Utils.WriteLine("Successfully loaded reference assembly: " + rassembly);
                 }

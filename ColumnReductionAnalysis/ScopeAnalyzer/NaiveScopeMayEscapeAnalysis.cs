@@ -307,20 +307,21 @@ namespace ScopeAnalyzer
     public class NaiveScopeMayEscapeAnalysis : ForwardDataFlowAnalysis<ScopeEscapeDomain>
     {
         IMethodDefinition method;
-        ITypeDefinition rowType;
-        ITypeDefinition rowsetType;
-        Dictionary<Instruction, ScopeEscapeDomain> results = new Dictionary<Instruction, ScopeEscapeDomain>();
+        List<ITypeDefinition> rowTypes;
+        List<ITypeDefinition> rowsetTypes;
+        Dictionary<Instruction, ScopeEscapeDomain> preResults = new Dictionary<Instruction, ScopeEscapeDomain>();
+        Dictionary<Instruction, ScopeEscapeDomain> postResults = new Dictionary<Instruction, ScopeEscapeDomain>();
         HashSet<IFieldReference> fieldsToTrack = new HashSet<IFieldReference>();
         IMetadataHost host;
         bool unsupported = false;
 
-        public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, ITypeDefinition rowtype, ITypeDefinition rowsettype) : base(cfg)
+        public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, List<ITypeDefinition> rowtype, List<ITypeDefinition> rowsettype) : base(cfg)
         {
             method = m;
             host = h;
 
-            rowType = rowtype;
-            rowsetType = rowsettype;
+            rowTypes = rowtype;
+            rowsetTypes = rowsettype;
 
             Initialize();
         }
@@ -353,7 +354,7 @@ namespace ScopeAnalyzer
             var nState = input.Clone();
             var visitor = new EscapeTransferVisitor(nState, this);
             visitor.Visit(node);
-            UpdateResults(visitor.PostStates);
+            UpdateResults(visitor);
             return visitor.State.Clone();
         }
 
@@ -375,9 +376,14 @@ namespace ScopeAnalyzer
             get { return unsupported; }
         }
 
-        public Dictionary<Instruction, ScopeEscapeDomain> Results
+        public Dictionary<Instruction, ScopeEscapeDomain> PreResults
         {
-            get { return results; }
+            get { return preResults; }
+        }
+
+        public Dictionary<Instruction, ScopeEscapeDomain> PostResults
+        {
+            get { return preResults; }
         }
 
 
@@ -425,17 +431,22 @@ namespace ScopeAnalyzer
                 unsupported = true;
         }
 
-        private void UpdateResults(Dictionary<Instruction, ScopeEscapeDomain> states)
+        private void UpdateResults(EscapeTransferVisitor visitor)
         {
-            foreach (var key in states.Keys)
+            foreach (var key in visitor.PreStates.Keys)
             {
-                results[key] = states[key];
+                preResults[key] = visitor.PreStates[key];
+            }
+
+            foreach (var key in visitor.PostStates.Keys)
+            {
+                postResults[key] = visitor.PostStates[key];
             }
         }
 
-        public ITypeDefinition RowType
+        public List<ITypeDefinition> RowTypes
         {
-            get { return rowType; }
+            get { return rowTypes; }
         }
 
         public IEnumerable<IFieldReference> TrackedFields
@@ -445,7 +456,20 @@ namespace ScopeAnalyzer
 
         public bool PossiblyRow(ITypeReference type)
         {
-            return PossiblyRow(type, rowType, rowsetType, host);
+            return PossiblyRow(type, rowTypes, rowsetTypes, host);
+        }
+
+
+        public static bool PossiblyRow(ITypeReference type, List<ITypeDefinition> rowTypes, List<ITypeDefinition> rowsetTypes, IMetadataHost host)
+        {
+            foreach(var rt in rowTypes)
+            {
+                foreach(var rst in rowsetTypes)
+                {
+                    if (PossiblyRow(type, rt, rst, host)) return true;
+                }
+            }
+            return false;
         }
 
         public static bool PossiblyRow(ITypeReference type, ITypeDefinition rowType, ITypeDefinition rowsetType, IMetadataHost host)
