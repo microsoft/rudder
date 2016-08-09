@@ -210,7 +210,17 @@ namespace ScopeAnalyzer
         {
             fieldMapping[f] = cons;
         }
-            
+         
+        
+        public IReadOnlyCollection<IVariable> Variables
+        {
+            get { return varMapping.Keys.ToList().AsReadOnly(); }
+        }
+
+        public IReadOnlyCollection<IFieldReference> Fields
+        {
+            get { return fieldMapping.Keys.ToList().AsReadOnly(); }
+        }
 
         public void SetNonConstant(IVariable v)
         {
@@ -376,14 +386,14 @@ namespace ScopeAnalyzer
             var visitor = new ConstantPropagationTransferVisitor(nState, this);
             visitor.Visit(node);
             UpdateResults(visitor);
-
             return visitor.State.Clone();
         }
+
 
         protected override ConstantPropagationDomain InitialValue(CFGNode node)
         {
             var iv =  ConstantPropagationDomain.Bottom(variables, fields);
-            iv.SetFieldNonConstant();
+            //iv.SetFieldNonConstant();
             return iv;
         }
 
