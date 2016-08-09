@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace ScopeProgramAnalysis
 {
@@ -105,6 +106,8 @@ namespace ScopeProgramAnalysis
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                         System.Console.WriteLine("Done!");
 
+                        ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
+
                         var escapes = depAnalysisResult.A1_Escaping.Select(traceable => traceable.ToString());
 
                         if (depAnalysisResult.A4_Ouput.Any())
@@ -139,6 +142,18 @@ namespace ScopeProgramAnalysis
             {
                 System.Console.WriteLine("No {0} class in {1}", kind, inputPath);
             }
+        }
+
+        private static void ValidateInputSchema(string inputPath, MethodDefinition method, Backend.Analyses.DependencyDomain dependencyResults)
+        {
+            var inputDirectory = Path.GetDirectoryName(inputPath);
+            var xmlFile = Path.Combine(inputDirectory, "ScopeVertexDef.xml");
+            XElement x = XElement.Load(xmlFile);
+            var operators = x.Descendants("operator");
+            var reducers = operators.Where(op => op.Attribute("className") != null && op.Attribute("className").Value.StartsWith("ScopeReducer"));
+
+            var inputSchemas = reducers.SelectMany(r => r.Descendants("input").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
+            var outputSchemas = reducers.SelectMany(r => r.Descendants("output").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
         }
 
         private static void WriteSarifOutput(string inputPath, string outputFilePath, IList<Result> results)
