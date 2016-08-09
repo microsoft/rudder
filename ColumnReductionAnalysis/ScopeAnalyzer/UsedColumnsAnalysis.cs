@@ -123,8 +123,9 @@ namespace ScopeAnalyzer
         /// <param name="arguments"></param>
         /// <returns></returns>
         private ColumnsDomain GetCols(Instruction instruction, bool isStatic, bool isVirt, string name, IList<IVariable> arguments, IVariable result)
-        {         
-            // Row does not have static methods and methods of interest have at most two arguments in SSA form.
+        {
+            // Row does not have static methods that return columns. Also, the methods of interest 
+            // have at most two arguments in SSA form.
             if (isStatic || arguments.Count > 2 || arguments.Count == 0) return ColumnsDomain.Bottom;
 
             var _this = arguments.ElementAt(0);
@@ -132,11 +133,11 @@ namespace ScopeAnalyzer
             // The methods must belong to Row.
             if (rowTypes.All(rt => !_this.Type.SubtypeOf(rt))) return ColumnsDomain.Bottom;
 
+            // If the row escapes, we are done.
+            if (escInfo.Escaped(instruction, _this)) return ColumnsDomain.Top;
+
             // The method must return column type in some form.
             if (!IsResultColumn(result)) return ColumnsDomain.Bottom;
-
-            // if the row escapes, we are done.
-            if (escInfo.Escaped(instruction, _this)) return ColumnsDomain.Top;
 
             if (isVirt)
             {
@@ -159,6 +160,7 @@ namespace ScopeAnalyzer
                     }
                     else
                     {
+                        // Essentially, we don't know what is exactly happening so we overapproximate.
                         return ColumnsDomain.Top;
                     }
                 }
@@ -203,7 +205,7 @@ namespace ScopeAnalyzer
             if (result.Type is IArrayTypeReference)
             {
                 var t = result.Type as IArrayTypeReference;
-                toCheck.Add(t);
+                toCheck.Add(t.ElementType);
             }
             else if (result.Type is INamedTypeReference)
             {
