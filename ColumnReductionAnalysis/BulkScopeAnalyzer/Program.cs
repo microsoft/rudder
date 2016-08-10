@@ -18,8 +18,9 @@ namespace BulkScopeAnalyzer
         }
 
         static void DoParallel()
-        {        
-            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+        {
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            string mainFolder = @"\\MADANM2\parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug";
             var subdirs = SubDirectoryPaths(mainFolder);
             var dlls = new List<string>();
             foreach (var subdir in subdirs) dlls.AddRange(LibraryPaths(subdir));

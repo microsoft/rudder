@@ -686,11 +686,18 @@ namespace ScopeAnalyzer
                 var result = instruction.Result;
                 if (IsConstantType(result.Type))
                 {
-                    if (instruction.Arguments.All(v => !nstate.Constants(v).IsTop))
+                    var consargs = instruction.Arguments.Where(v => IsConstantType(v.Type)).ToList();
+                    if (consargs.Count == 0)
+                    {
+                        UpdateStateNotConstant(nstate, result);
+                    }
+                    else if (consargs.All(v => !nstate.Constants(v).IsTop))
                     {
                         var cpd = ConstantSetDomain.Bottom;
-                        foreach(var v in instruction.Arguments)
+                        foreach(var v in consargs)
                         {
+                            if (!IsConstantType(v.Type)) continue;
+
                             cpd.Join(nstate.Constants(v));
                         }
                         nstate.Set(result, cpd);
