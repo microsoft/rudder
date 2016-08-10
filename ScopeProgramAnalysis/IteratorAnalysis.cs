@@ -188,7 +188,7 @@ namespace Backend.Analyses
 
     public class ColumnDomain
     {
-        public static readonly ColumnDomain TOP = new ColumnDomain(-2); 
+        public static readonly ColumnDomain TOP = new ColumnDomain(-2) { ColumnName = "__TOP__", IsTOP = true }; 
         public string ColumnName { get; private set; }
         public int ColumnPosition { get; private set; }
         public bool IsString { get; private set; }
@@ -207,7 +207,7 @@ namespace Backend.Analyses
         }
         public ColumnDomain(int columnPosition)
         {
-            this.ColumnName = null;
+            this.ColumnName = "_TOP_";
             this.IsString = false;
             this.ColumnPosition = columnPosition;
             IsTOP = columnPosition == -2;
