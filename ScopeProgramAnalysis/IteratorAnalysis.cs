@@ -578,7 +578,7 @@ namespace Backend.Analyses
             private bool IsClousureParamerField(IFieldAccess fieldAccess)
             {
                 var result = true;
-                result = this.iteratorDependencyAnalysis.specialFields.Contains(fieldAccess);
+                result = this.iteratorDependencyAnalysis.specialFields.Keys.Contains(fieldAccess.FieldName);
                 return result;
             }
 
@@ -1257,12 +1257,12 @@ namespace Backend.Analyses
         private IDictionary<IVariable, IExpression> equalities;
         DataFlowAnalysisResult<PointsToGraph>[] ptgs;
         private ScopeInfo scopeData;
-        private IList<InstanceFieldAccess> specialFields;
+        private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
         private MethodDefinition method;
 
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
-                                            IList<InstanceFieldAccess> specialFields, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
+                                            IDictionary<string, IVariable> specialFields, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
         {
             this.method = method;
             this.iteratorClass = method.ContainingType;

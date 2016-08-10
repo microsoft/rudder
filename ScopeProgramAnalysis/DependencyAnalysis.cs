@@ -10,6 +10,7 @@ using Backend.Utils;
 using Model.ThreeAddressCode.Instructions;
 using Model.ThreeAddressCode.Values;
 using Model.ThreeAddressCode.Expressions;
+using System;
 
 namespace ScopeProgramAnalysis
 {
@@ -20,7 +21,7 @@ namespace ScopeProgramAnalysis
         private MethodDefinition moveNextMethod;
         private IDictionary<IVariable, IExpression> equalities;
         private MethodDefinition entryMethod;
-        private IList<InstanceFieldAccess> specialFields; 
+        private IDictionary<string,IVariable> specialFields; 
 
         public SongTaoDependencyAnalysis(Host host,
                                         MethodDefinition method,
@@ -36,9 +37,9 @@ namespace ScopeProgramAnalysis
         {
             var cfgEntry = DoAnalysisPhases(entryMethod, host, false);
 
-            var especialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
-                .Where(st => st.Result is InstanceFieldAccess).Select(st => st.Result as InstanceFieldAccess);
-            this.specialFields = especialFields.ToList();
+            var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
+                .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
+            this.specialFields = specialFields.ToDictionary(item => item.Key, item => item.Value);
 
             Backend.Model.ControlFlowGraph cfg = DoAnalysisPhases(this.moveNextMethod, this.host);
 
