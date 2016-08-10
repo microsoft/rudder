@@ -40,8 +40,11 @@ namespace ScopeProgramAnalysis
             //const string root = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ILAnalyzer\"; // @"..\..\..";
             //const string input = root + @"\bin\Debug\ILAnalyzer.exe";
 
-            const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
-            const string input = root + @"__scopecodegen__.dll";
+            //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
+            
+            //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
+
+            const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -49,7 +52,8 @@ namespace ScopeProgramAnalysis
             AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer);
 
             //AnalyzeScopeScript(new string[] { @"D:\ScriptExamples\Files", @"D:\Temp\", "Reducer" } );
-            //AnalyzeScopeScript(new string[] { @"D:\MadanExamples\", @"D:\Temp\", "Reducer" });
+
+            // AnalyzeScopeScript(new string[] { @"D:\MadanExamples\", @"D:\Temp\", "Reducer" });
             
             System.Console.ReadKey();
 
@@ -72,6 +76,7 @@ namespace ScopeProgramAnalysis
 
             var loader = new Loader(host);
             var scopeGenAssembly = loader.LoadAssembly(inputPath);
+            loader.SetMainAssembly(inputPath);
 
             // LoadExternalReferences(referenceFiles, loader);
             //loader.LoadCoreAssembly();
@@ -241,13 +246,12 @@ namespace ScopeProgramAnalysis
                 var ins = factoryMethdod.Body.Instructions.OfType<Model.Bytecode.CreateObjectInstruction>().Single();
                 var reducerClass = ins.Constructor.ContainingType;
 
-                if (!referencesLoaded)
-                {
-                    LoadExternalReferences(this.ReferenceFiles, loader);
-                    referencesLoaded = true;
-                }
-
-                var resolvedEntryClass = host.ResolveReference(reducerClass) as ClassDefinition;
+                //if (!referencesLoaded)
+                //{
+                //    LoadExternalReferences(this.ReferenceFiles, loader);
+                //    referencesLoaded = true;
+                //}
+                ClassDefinition resolvedEntryClass = ResolveClass(reducerClass);
                 if (resolvedEntryClass != null)
                 {
                     var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
@@ -255,18 +259,30 @@ namespace ScopeProgramAnalysis
                     var methods = candidateClousures.SelectMany(t => t.Members.OfType<MethodDefinition>())
                                                 .Where(md => md.Body != null
                                                 && md.Name.Equals(this.MethodUnderAnalysisName));
-                    foreach(var moveNextMethod in methods)
+                    foreach (var moveNextMethod in methods)
                     {
                         //var moveNextMethod = methods.Single();
                         var entryMethodDef = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
                         scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition>(entryMethodDef, moveNextMethod));
-                        this.factoryReducerMap.Add(factoryMethdod.Name, entryMethodDef.ContainingType as ClassDefinition);
+                        var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                        this.factoryReducerMap.Add(processID, entryMethodDef.ContainingType as ClassDefinition);
                     }
                 }
                 else
                 { }
             }
             return scopeMethodPairsToAnalyze;
+        }
+
+        private ClassDefinition ResolveClass(IBasicType reducerClass)
+        {
+            var resolvedClass = host.ResolveReference(reducerClass) as ClassDefinition;
+            if(resolvedClass == null)
+            {
+                loader.TryToLoadReferencedAssembly(reducerClass.ContainingAssembly);
+                resolvedClass = host.ResolveReference(reducerClass) as ClassDefinition;
+            }
+            return resolvedClass;
         }
 
         private void ValidateInputSchema(string inputPath, MethodDefinition method, Backend.Analyses.DependencyDomain dependencyResults)
@@ -277,10 +293,10 @@ namespace ScopeProgramAnalysis
             {
                 XElement x = XElement.Load(xmlFile);
                 var operators = x.Descendants("operator");
-                foreach (var scopeClassName in this.factoryReducerMap.Keys)
+                foreach (var processId in this.factoryReducerMap.Keys)
                 {
-                    var reducers = operators.Where(op => op.Attribute("className") != null && op.Attribute("className").Value.StartsWith("ScopeReducer"));
-
+                    //var reducers = operators.Where(op => op.Attribute("className") != null && op.Attribute("className").Value.StartsWith("ScopeReducer"));
+                    var reducers = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value==processId);
                     var inputSchemas = reducers.SelectMany(r => r.Descendants("input").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
                     var outputSchemas = reducers.SelectMany(r => r.Descendants("output").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
                 }
@@ -321,6 +337,7 @@ namespace ScopeProgramAnalysis
             string[] files = Directory.GetFiles(inputFolder, inputDllName, SearchOption.AllDirectories);
             foreach (var dllToAnalyze in files)
             {
+                System.Console.WriteLine("=========================================================================");
                 System.Console.WriteLine("Analyzing {0}", dllToAnalyze);
                 var folder = Path.GetDirectoryName(dllToAnalyze);
                 var referencesPath = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where( fp => Path.GetFileName(fp)!= inputDllName).ToList();
@@ -332,6 +349,7 @@ namespace ScopeProgramAnalysis
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
                 AnalyzeDll(dllToAnalyze, referencesPath, outputPath, ScopeMethodKind.Reducer);
+                System.Console.WriteLine("=========================================================================");
             }
             System.Console.WriteLine("Done!");
             System.Console.ReadKey();
