@@ -78,7 +78,7 @@ namespace ScopeProgramAnalysis
             return resultDepAnalysis[node.Id].Output;
         }
 
-        private static Backend.Model.ControlFlowGraph DoAnalysisPhases(MethodDefinition method, Host host, bool inline = true)
+        private static Backend.Model.ControlFlowGraph DoAnalysisPhases(MethodDefinition method, Host host, bool inline = false)
         {
             var disassembler = new Disassembler(method);
             var methodBody = disassembler.Execute();
