@@ -83,7 +83,7 @@ namespace ScopeAnalyzer
             get { return outputPath; }
         }
 
-        private List<string> CollectAssemblies(string path)
+        public static List<string> CollectAssemblies(string path)
         {
             DirectoryInfo dir;
             try

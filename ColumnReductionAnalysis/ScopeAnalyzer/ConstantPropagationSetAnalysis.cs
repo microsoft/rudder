@@ -335,6 +335,7 @@ namespace ScopeAnalyzer
         HashSet<IVariable> variables = new HashSet<IVariable>();
         HashSet<IFieldReference> fields = new HashSet<IFieldReference>();
         IMetadataHost host;
+        bool unsupported = false;
 
         Dictionary<Instruction, ConstantPropagationDomain> preResults = new Dictionary<Instruction, ConstantPropagationDomain>();
         Dictionary<Instruction, ConstantPropagationDomain> postResults = new Dictionary<Instruction, ConstantPropagationDomain>();
@@ -354,12 +355,25 @@ namespace ScopeAnalyzer
 
             fields = cfg.Fields();
             fields = new HashSet<IFieldReference>(fields.Where(f => IsConstantType(f.Type, host)).ToList());
+
+
+            var instructions = new List<Instruction>();
+            foreach (var block in cfg.Nodes)
+                instructions.AddRange(block.Instructions);
+
+            if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
+                unsupported = true;
         }
 
 
         public IMetadataHost Host
         {
             get { return host; }
+        }
+
+        public bool Unsupported
+        {
+            get { return unsupported; }
         }
 
         public Dictionary<Instruction, ConstantPropagationDomain> PreResults
@@ -392,9 +406,16 @@ namespace ScopeAnalyzer
 
         protected override ConstantPropagationDomain InitialValue(CFGNode node)
         {
-            var iv =  ConstantPropagationDomain.Bottom(variables, fields);
-            //iv.SetFieldNonConstant();
-            return iv;
+            if (unsupported)
+            {
+                return ConstantPropagationDomain.Top(variables, fields);
+            }
+            else
+            {
+                var iv = ConstantPropagationDomain.Bottom(variables, fields);
+                //iv.SetFieldNonConstant();
+                return iv;
+            }          
         }
 
         protected override ConstantPropagationDomain Join(ConstantPropagationDomain left, ConstantPropagationDomain right)
@@ -510,7 +531,6 @@ namespace ScopeAnalyzer
 
             private void DefaultVarTop(Instruction instruction, IVariable v)
             {
-                //TODO: very imprecise, can be done much better.
                 SavePreState(instruction, FreshCurrent());
                 var nstate = FreshCurrent();
 

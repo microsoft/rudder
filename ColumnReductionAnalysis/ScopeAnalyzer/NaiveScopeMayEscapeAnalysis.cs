@@ -406,8 +406,8 @@ namespace ScopeAnalyzer
                     }
                     else
                     {
-                        Utils.WriteLine("WARNING: too many closure environments found!");
                         unsupported = true;
+                        Utils.WriteLine("WARNING: too many closure environments found!");                       
                     }
                 }
 

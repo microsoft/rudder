@@ -22,8 +22,11 @@ namespace ScopeAnalyzer
     {
         public ScopeEscapeDomain EscapeSummary { get; set; }
         public ConstantPropagationDomain CPropagationSummary { get; set; }
+        public ColumnsDomain UsedColumnsSummary { get; set; }
 
         public bool Failed { get; set; }
+
+        public bool Interesting { get; set; }
 
         public bool Unsupported { get; set; }
 
@@ -32,6 +35,9 @@ namespace ScopeAnalyzer
         public ScopeMethodAnalysisResult (IMethodDefinition m)
         {
             Method = m;
+            Failed = false;
+            Interesting = true;
+            Unsupported = false;
         } 
     }
 
@@ -119,17 +125,12 @@ namespace ScopeAnalyzer
 
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
-            var methodResults = new ScopeMethodAnalysisResult(methodDefinition);
-            methodResults.Failed = false;
-            results.Add(methodResults);
-
+            var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
+            
             //if (!methodDefinition.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serializ"))
             //{
             //    return;
             //}
-
-            Utils.WriteLine("\n--------------------------------------------------\n");
-            Utils.WriteLine("Preparing method: " + methodDefinition.FullName());
 
             try
             {
@@ -137,43 +138,42 @@ namespace ScopeAnalyzer
 
                 if (IsProcessor(methodDefinition))
                 {
-                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);              
-
-                    var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResults);
-                    var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResults);
+                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
+                    Utils.WriteLine("\n--------------------------------------------------\n");
+                    Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
+                                 
+                    var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
+                    var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
 
                     var escInfo = new NaiveScopeEscapeInfoProvider(escAnalysis.PostResults, mhost, rowTypes, rowsetTypes);
                     var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
 
+                    var clsAnalysis = DoUsedColumnsAnalysis(cfg, escInfo, cspInfo, methodResult);
 
-                    Utils.WriteLine("Running used columns anaysis...");
-                    var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, escInfo, cspInfo, rowTypes, columnTypes);
-                    var outcome = clsAnalysis.Analyze();
-                    Utils.WriteLine("Used columns results:\n" + outcome.ToString());
+                    methodResult.Unsupported = escAnalysis.Unsupported | cspAnalysis.Unsupported | clsAnalysis.Unsupported;
 
-                    Utils.WriteLine("Method has unsupported features: " + escAnalysis.Unsupported);
+                    Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
+                    Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
+                    Utils.WriteLine("\n--------------------------------------------------\n");
                 } 
                 else
                 {
-                    Utils.WriteLine("Not an interesting method.");
-                    // Not an interesting method, so we don't need to keep her results.
-                    results.Remove(methodResults);
+                    methodResult.Interesting = false;
                 }
             }
             catch (ScopeAnalysis.NotInterestingScopeScript e)
             {
-                Utils.WriteLine("METHOD WARNING: " + e.Message);
-                // Not an interesting method, so we don't need to keep her results.
-                results.Remove(methodResults);
+                Utils.WriteLine(String.Format("{0} METHOD WARNING: {1}", methodDefinition.FullName(), e.Message));
+                methodResult.Interesting = false;
             }
             catch (Exception e)
             {
-                Utils.WriteLine("METHOD FAILURE: " + e.Message);
+                Utils.WriteLine(String.Format("{0} METHOD FAILURE: {1}", methodDefinition.FullName(), e.Message));
                 Utils.WriteLine(e.StackTrace);
-                // Our analysis failed; save this info.
-                methodResults.Failed = true;
+                methodResult.Failed = true;
             }
 
+            results.Add(methodResult);
             return;
         }
 
@@ -183,7 +183,6 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running escape analysis...");
             var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
-            results.Unsupported = escAnalysis.Unsupported;
             Utils.WriteLine(results.EscapeSummary.ToString());
             Utils.WriteLine("Done with escape analysis\n");
             return escAnalysis;
@@ -194,13 +193,21 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running constant propagation set analysis...");
             var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost);
             results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
-
             Utils.WriteLine(results.CPropagationSummary.ToString());
             Utils.WriteLine("Done with constant propagation set analysis\n");
             return cpsAnalysis;
         }
 
-
+        private UsedColumnsAnalysis DoUsedColumnsAnalysis(ControlFlowGraph cfg, EscapeInfoProvider escInfo, ConstantsInfoProvider cspInfo, ScopeMethodAnalysisResult results)
+        {
+            Utils.WriteLine("Running used columns analysis...");
+            var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, escInfo, cspInfo, rowTypes, columnTypes);
+            var outcome = clsAnalysis.Analyze();
+            results.UsedColumnsSummary = outcome;
+            Utils.WriteLine(results.UsedColumnsSummary.ToString());
+            Utils.WriteLine("Done with used columns analysis\n");
+            return clsAnalysis;
+        }
 
 
 
@@ -222,7 +229,7 @@ namespace ScopeAnalyzer
             splitter.Transform();
 
             methodBody.UpdateVariables();
-            //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", methodBody.ToString());
+
             var typeAnalysis = new TypeInferenceAnalysis(cfg);
             typeAnalysis.Analyze();
 
@@ -249,11 +256,8 @@ namespace ScopeAnalyzer
             //var dot = DOTSerializer.Serialize(cfg);
             //var dgml = DGMLSerializer.Serialize(cfg);
             //_code = methodBody.ToString();
-            //return new Tuple<ControlFlowGraph, IMethodDefinition>(cfg, methodBody);
             return cfg;
         }
-
-    
 
         /// <summary>
         /// Check if a method is a processor (reducer) method.
@@ -288,6 +292,9 @@ namespace ScopeAnalyzer
 
             return true;
         }
+
+
+
 
         private class NaiveScopeEscapeInfoProvider : EscapeInfoProvider
         {

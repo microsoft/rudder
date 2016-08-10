@@ -11,7 +11,7 @@ using Microsoft.Cci;
 
 namespace ScopeAnalyzer
 {
-    class ColumnsDomain : SetDomain<Constant>
+    public class ColumnsDomain : SetDomain<Constant>
     {
         private ColumnsDomain(List<Constant> columns)
         {
@@ -60,6 +60,7 @@ namespace ScopeAnalyzer
         List<ITypeDefinition> rowTypes;
         List<ITypeDefinition> columnTypes;
         IMetadataHost host;
+        bool unsupported = false;
 
         public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, EscapeInfoProvider e, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
         {
@@ -69,10 +70,40 @@ namespace ScopeAnalyzer
             constInfo = ci;
             rowTypes = r;
             columnTypes = cd;
+
+            Initialize();
         }
+
+        private void Initialize()
+        {
+            var instructions = new List<Instruction>();
+            foreach (var block in cfg.Nodes)
+                instructions.AddRange(block.Instructions);
+
+            if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
+                unsupported = true;
+        }
+
+
+
+        public IMetadataHost Host
+        {
+            get { return host; }
+        }
+
+        public bool Unsupported
+        {
+            get { return unsupported; }
+        }
+
+
 
         public ColumnsDomain Analyze()
         {
+            if (unsupported)
+                return ColumnsDomain.Top;
+
+
             var cd = ColumnsDomain.Bottom;
 
             foreach(var node in cfg.Nodes)
@@ -81,7 +112,7 @@ namespace ScopeAnalyzer
                 {
                     if (!(instruction is MethodCallInstruction || instruction is IndirectMethodCallInstruction)) continue;
 
-                    bool isStatic; bool isVirt; string name; IList<IVariable> args; IVariable result;
+                    bool isStatic; bool isVirt; bool hasResult;  string name; IList<IVariable> args; IVariable result;
                     if (instruction is MethodCallInstruction)
                     {
                         var ins = instruction as MethodCallInstruction;
@@ -90,6 +121,7 @@ namespace ScopeAnalyzer
                         name = ins.Method.Name.Value;
                         args = ins.Arguments;
                         result = ins.Result;
+                        hasResult = ins.HasResult;
                     }
                     else
                     {
@@ -98,11 +130,12 @@ namespace ScopeAnalyzer
                         isVirt = true;
                         name = null;
                         args = ins.Arguments;
-                        result = ins.Result;               
+                        result = ins.Result;
+                        hasResult = ins.HasResult;           
                     }
 
 
-                    cd.Join(GetCols(instruction, isStatic, isVirt, name, args, result));
+                    cd.Join(GetCols(instruction, isStatic, isVirt, hasResult, name, args, result));
 
                     // This is a doomed point, no point in continuing the analysis.
                     if (cd.IsTop)
@@ -122,8 +155,12 @@ namespace ScopeAnalyzer
         /// <param name="fullName"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        private ColumnsDomain GetCols(Instruction instruction, bool isStatic, bool isVirt, string name, IList<IVariable> arguments, IVariable result)
+        private ColumnsDomain GetCols(Instruction instruction, bool isStatic, bool isVirt, bool hasResult, string name, IList<IVariable> arguments, IVariable result)
         {
+            // We are interested in Row methods returning columns.
+            if (!hasResult)
+                return ColumnsDomain.Bottom;
+
             // Row does not have static methods that return columns. Also, the methods of interest 
             // have at most two arguments in SSA form.
             if (isStatic || arguments.Count > 2 || arguments.Count == 0) return ColumnsDomain.Bottom;

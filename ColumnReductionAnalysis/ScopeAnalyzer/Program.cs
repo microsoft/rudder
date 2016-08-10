@@ -35,6 +35,11 @@ namespace ScopeAnalyzer
             Output = new StreamWriter(fs);
         }
 
+        public static void OutputClose()
+        {
+            if (Output == null) return;
+            Output.Close();
+        }
     }
 
     /// <summary>
@@ -44,20 +49,31 @@ namespace ScopeAnalyzer
     {
         public int Assemblies;
         public int AssembliesLoaded;
+
         public int Methods;
         public int FailedMethods;
         public int UnsupportedMethods;
+        public int InterestingMethods;
+
         public int NotEscapeDummies;
+        public int NotCPropagationDummies;
+        public int NotColumnDummies;
 
         public ScopeAnalysisStats(int assemblies = 0, int assembliesLoaded = 0, int methods = 0, int failedMethods = 0,
-                                    int methodsWithExceptions = 0, int notEscapeDummies = 0)
+                                    int interestingMethods = 0, int unsupportedMethods = 0, int notEscapeDummies = 0,
+                                    int notCPropagationDummies = 0, int notColumnDummies = 0)
         {
             Assemblies = assemblies;
             AssembliesLoaded = assembliesLoaded;
+
             Methods = methods;
             FailedMethods = failedMethods;
-            UnsupportedMethods = methodsWithExceptions;
+            UnsupportedMethods = unsupportedMethods;
+            InterestingMethods = interestingMethods;
+
             NotEscapeDummies = notEscapeDummies;
+            NotCPropagationDummies = notCPropagationDummies;
+            NotColumnDummies = notColumnDummies;
         }
     }
 
@@ -69,6 +85,9 @@ namespace ScopeAnalyzer
         {
             var stats = AnalyzeAssemblies(args);
             PrintScopeAnalysisStats(stats);
+
+            Utils.WriteLine("SUCCESS");
+            Utils.OutputClose();
         }
 
 
@@ -83,8 +102,8 @@ namespace ScopeAnalyzer
             }
             catch (Exception e)
             {
-                Utils.WriteLine("Problems with parsing the command line arguments:");
-                Utils.WriteLine(e.ToString());
+                Console.WriteLine("Problems with parsing the command line arguments:");
+                Console.WriteLine(e.ToString());
                 throw new ParsingOptionsException(e.Message);
             }
 
@@ -107,10 +126,15 @@ namespace ScopeAnalyzer
 
                     // Save the stats.
                     stats.Methods += results.Count();
-                    var goodMethods = results.Where(r => !r.Failed).ToList();
-                    stats.FailedMethods += (results.Count() - goodMethods.Count);
-                    stats.UnsupportedMethods += goodMethods.Where(r => r.Unsupported).ToList().Count;
-                    stats.NotEscapeDummies += goodMethods.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
+                    stats.FailedMethods += results.Where(r => r.Failed).ToList().Count;
+                    
+                    var interestingMethods = results.Where(r => !r.Failed && r.Interesting).ToList();
+                    stats.InterestingMethods += interestingMethods.Count;
+                    stats.UnsupportedMethods += interestingMethods.Where(r => r.Unsupported).ToList().Count;
+                    
+                    stats.NotEscapeDummies += interestingMethods.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
+                    stats.NotCPropagationDummies += interestingMethods.Where(r => !r.CPropagationSummary.IsTop).ToList().Count;
+                    stats.NotColumnDummies += interestingMethods.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom).ToList().Count;
 
                     Utils.WriteLine("\n====== Done analyzing the assembly  =========\n");
                 }
@@ -187,11 +211,13 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Assemblies: " + stats.Assemblies);
             Utils.WriteLine("Assemblies loaded: " + stats.AssembliesLoaded);
             Utils.WriteLine("");
+            Utils.WriteLine("Methods: " + stats.Methods);
             Utils.WriteLine("Methods failed: " + stats.FailedMethods);
-            Utils.WriteLine("Interesting methods (not failed): " + (stats.Methods - stats.FailedMethods));           
             Utils.WriteLine("");
-            Utils.WriteLine("Unsupported feature: " + stats.UnsupportedMethods);
-            Utils.WriteLine("Not escape dummies: " + stats.NotEscapeDummies);
+            Utils.WriteLine("Interesting methods (not failed): " + stats.InterestingMethods);
+            Utils.WriteLine("Unsupported feature methods: " + stats.UnsupportedMethods);
+            Utils.WriteLine("");          
+            Utils.WriteLine("Concrete-columns-found methods: " + stats.NotColumnDummies);
         }
 
     }
