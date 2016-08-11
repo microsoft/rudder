@@ -65,6 +65,8 @@ namespace ScopeAnalyzer
         IMetadataHost host;
         bool unsupported = false;
 
+        private HashSet<string> trustedRowMethods = new HashSet<string>() { "get_Item", "get_Schema" };
+
         public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
         {
             host = h;
@@ -114,29 +116,16 @@ namespace ScopeAnalyzer
                 {
                     if (!(instruction is MethodCallInstruction || instruction is IndirectMethodCallInstruction)) continue;
 
-                    bool isStatic; bool isVirt; bool hasResult;  string name; IList<IVariable> args; IVariable result;
                     if (instruction is MethodCallInstruction)
                     {
                         var ins = instruction as MethodCallInstruction;
-                        isStatic = ins.Method.IsStatic;
-                        isVirt = false;
-                        name = ins.Method.Name.Value;
-                        args = ins.Arguments;
-                        result = ins.Result;
-                        hasResult = ins.HasResult;
+                        cd.Join(GetCols(ins, false, ins.Method.Name.Value, ins.Arguments));
                     }
                     else
                     {
                         var ins = instruction as IndirectMethodCallInstruction;
-                        isStatic = false;
-                        isVirt = true;
-                        name = null;
-                        args = ins.Arguments;
-                        result = ins.Result;
-                        hasResult = ins.HasResult;           
+                        cd.Join(GetCols(ins, true, null, ins.Arguments));
                     }
-
-                    cd.Join(GetCols(instruction, isStatic, isVirt, hasResult, name, args, result));
 
                     // This is a doomed point, no point in continuing the analysis.
                     if (cd.IsTop)
@@ -149,91 +138,45 @@ namespace ScopeAnalyzer
 
 
         /// <summary>
-        /// We only care about two methods Row::get_Item(*) and Row::get_Columns()
+        /// If the caller is a row, then we only accept get_Item method.
         /// </summary>
-        /// <param name="isStatic"></param>
-        /// <param name="isVirt"></param>
-        /// <param name="fullName"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        private ColumnsDomain GetCols(Instruction instruction, bool isStatic, bool isVirt, bool hasResult, string name, IList<IVariable> arguments, IVariable result)
+        private ColumnsDomain GetCols(Instruction instruction, bool isVirtual, string name, IList<IVariable> arguments)
         {
-            // We are interested in Row methods returning something (columns).
-            if (!hasResult)
-                return ColumnsDomain.Bottom;
-
-            // Row does not have static methods that return columns. Also, the methods of interest 
-            // have at most two arguments in SSA form.
-            if (isStatic || arguments.Count > 2 || arguments.Count == 0) return ColumnsDomain.Bottom;
-
             var _this = arguments.ElementAt(0);
 
             // The methods must belong to Row.
             if (rowTypes.All(rt => !_this.Type.SubtypeOf(rt, host))) return ColumnsDomain.Bottom;
 
-            // The method must return column type in some form.
-            if (!IsResultColumn(result)) return ColumnsDomain.Bottom;
-
-            if (isVirt)
+            if (isVirtual)
             {
-                if (arguments.Count == 2)
-                {
-                    var arg = arguments.ElementAt(1);
-                    if (ConstantPropagationSetAnalysis.IsConstantType(arg.Type, host))
-                    {
-                        var cons = constInfo.GetConstants(instruction, arg);
-                        if (cons == null)
-                        {
-                            return ColumnsDomain.Top;
-                        }
-                        else
-                        {
-                            var cols = ColumnsDomain.Bottom;
-                            foreach (var c in cons) cols.Add(c);
-                            return cols;
-                        }
-                    }
-                    else
-                    {
-                        // Essentially, we don't know what is exactly happening so we overapproximate.
-                        return ColumnsDomain.Top;
-                    }
-                }
-                else
-                {
-                    // for safety.
-                    return ColumnsDomain.Top;
-                }
+                return ColumnsDomain.Top;
             }
             else
             {
-                if (!(name == "get_Item" || name == "get_Columns"))
-                    return ColumnsDomain.Bottom;
-
-                if (name == "get_Columns")
+                if (!trustedRowMethods.Contains(name))
                     return ColumnsDomain.Top;
+
+                var arg = arguments.ElementAt(1);
+                var cons = constInfo.GetConstants(instruction, arg);
+                if (cons == null)
+                {
+                    return ColumnsDomain.Top;
+                }
                 else
                 {
-                    var arg = arguments.ElementAt(1);
-                    var cons = constInfo.GetConstants(instruction, arg);
-                    if (cons == null)
-                    {
-                        return ColumnsDomain.Top;
-                    }
-                    else
-                    {
-                        var cols = ColumnsDomain.Bottom;
-                        foreach (var c in cons) cols.Add(c);
-                        return cols;
-                    }
-                }
+                    var cols = ColumnsDomain.Bottom;
+                    foreach (var c in cons) cols.Add(c);
+                    return cols;
+                }             
             }
         }
 
 
-        private bool IsResultColumn(IVariable result)
-        {
-            return columnTypes.Any(ct => result.Type.IncludesType(ct, host));
-        }
+        //private bool IsResultColumn(IVariable result)
+        //{
+        //    return columnTypes.Any(ct => result.Type.IncludesType(ct, host));
+        //}
     }
 }
