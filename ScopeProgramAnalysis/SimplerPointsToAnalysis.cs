@@ -169,7 +169,7 @@ namespace Backend.Analyses
 					var kind = isThisParameter ? PTGNodeKind.Object : PTGNodeKind.Unknown;
 
                     var ptgId = new PTGID(new MethodContex(this.method), counter--);
-                    var node = new ParameterNode(ptgId, variable.Name);
+                    var node = new ParameterNode(ptgId, variable.Name, variable.Type);
                     ptg.Add(node);
 					ptg.PointsTo(variable, node);
 				}
