@@ -10,6 +10,7 @@ using Model.ThreeAddressCode.Expressions;
 using static Backend.Analyses.IteratorState;
 using Backend.Utils;
 using Model.Types;
+using Model;
 
 namespace Backend.Analyses
 {
@@ -538,18 +539,19 @@ namespace Backend.Analyses
         internal class ScopeInfo
         {
             internal IDictionary<IVariable, IExpression> schemaMap = new Dictionary<IVariable, IExpression>();
+            internal MapSet<IVariable, string> schemaTableMap = new MapSet<IVariable, string>();
             internal IDictionary<IVariable, string> columnMap = new Dictionary<IVariable, string>();
-            internal IDictionary<IFieldReference, string> columnFIeldMap = new Dictionary<IFieldReference, string>();
+            internal IDictionary<IFieldReference, string> columnFieldMap = new Dictionary<IFieldReference, string>();
             // Maybe a map for IEpression to IVariable?
             internal IVariable row = null;
-            internal IVariable rowEnum = null;
+            //internal IVariable rowEnum = null;
 
             internal ScopeInfo()
             {
                 schemaMap = new Dictionary<IVariable, IExpression>();
                 columnMap = new Dictionary<IVariable, string>();
-                row = null;
-                rowEnum = null;
+                //row = null;
+                //rowEnum = null;
             }
         }
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
@@ -578,7 +580,7 @@ namespace Backend.Analyses
             private bool IsClousureParamerField(IFieldAccess fieldAccess)
             {
                 var result = true;
-                result = this.iteratorDependencyAnalysis.specialFields.Keys.Contains(fieldAccess.FieldName);
+                // result = this.iteratorDependencyAnalysis.specialFields.Keys.Contains(fieldAccess.FieldName);
                 return result;
             }
 
@@ -676,9 +678,9 @@ namespace Backend.Analyses
                     ProcessLoad(loadStmt, fieldAccess);
 
                     // TODO: Filter for columns only
-                    if (scopeData.columnFIeldMap.ContainsKey(fieldAccess.Field))
+                    if (scopeData.columnFieldMap.ContainsKey(fieldAccess.Field))
                     {
-                        scopeData.columnMap[loadStmt.Result] = scopeData.columnFIeldMap[fieldAccess.Field];
+                        scopeData.columnMap[loadStmt.Result] = scopeData.columnFieldMap[fieldAccess.Field];
                     }
                 }
                 else if (loadStmt.Operand is ArrayElementAccess)
@@ -830,7 +832,7 @@ namespace Backend.Analyses
                     if (scopeData.columnMap.ContainsKey(instruction.Operand))
                     {
                         var columnLiteral = scopeData.columnMap[instruction.Operand];
-                        scopeData.columnFIeldMap[fieldAccess.Field] = columnLiteral;
+                        scopeData.columnFieldMap[fieldAccess.Field] = columnLiteral;
                     }
                 }
                 else if(instruction.Result is ArrayElementAccess)
@@ -880,10 +882,10 @@ namespace Backend.Analyses
 
                 // We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
                 // to maintain a mapping between column numbers and literals 
-                var isSchemaMethod = AnalyzeSchemaRelatedMethod(methodCallStmt, methodInvoked, callResult);
+                var isSchemaMethod = AnalyzeSchemaRelatedMethod(methodCallStmt, methodInvoked);
                 if (!isSchemaMethod)
                 {
-                    var isScopeRowMethod = AnalyzeScopeRowMethods(methodCallStmt, methodInvoked, callResult);
+                    var isScopeRowMethod = AnalyzeScopeRowMethods(methodCallStmt, methodInvoked);
 
                     if (!isScopeRowMethod)
                     {
@@ -1023,7 +1025,7 @@ namespace Backend.Analyses
                 this.State.A2_Variables.Add(destination, union);
             }
 
-            private bool  AnalyzeScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked, IVariable callResult)
+            private bool  AnalyzeScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
                 if(methodInvoked.ContainingType.ContainingAssembly.Name!="ScopeRuntime")
@@ -1038,9 +1040,7 @@ namespace Backend.Analyses
                     AssignTraceables(arg, methodCallStmt.Result);
 
                     // TODO: I don't know I need this
-                    var inputTable = equalities.GetValue(arg);
-                    scopeData.row = callResult;
-                    scopeData.schemaMap[callResult] = inputTable;
+                    UpdateSchemaMap(methodCallStmt.Result, arg);
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
@@ -1053,13 +1053,16 @@ namespace Backend.Analyses
                     
                     // TODO: Do I need this?
                     var rows = equalities.GetValue(arg) as MethodCallExpression;
-                    var inputTable = equalities.GetValue(rows.Arguments[0]);
-                    if (arg == scopeData.row)
-                    {
-                        scopeData.rowEnum = methodCallStmt.Result;
-                    }
-                    var access = scopeData.schemaMap[arg] as InstanceFieldAccess;
-                    scopeData.schemaMap[methodCallStmt.Result] = inputTable;
+                    //var inputTable = equalities.GetValue(rows.Arguments[0]);
+                    //if (arg == scopeData.row)
+                    //{
+                    //    scopeData.rowEnum = methodCallStmt.Result;
+                    //}
+                    //var access = scopeData.schemaMap[arg] as InstanceFieldAccess;
+
+                    UpdateSchemaMap(methodCallStmt.Result, rows.Arguments[0]);
+                    
+                    // scopeData.schemaMap[methodCallStmt.Result] = inputTable;
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1093,9 +1096,10 @@ namespace Backend.Analyses
                     this.State.A2_Variables[methodCallStmt.Result] = new HashSet<Traceable>(tableColumns); ;
 
                     // Do I still need this
-                    var table = equalities.GetValue(arg);
-                    scopeData.row = callResult;
-                    scopeData.schemaMap[callResult] = table;
+                    //scopeData.row = callResult;
+                    //var table = equalities.GetValue(arg);
+                    //scopeData.schemaMap[methodCallStmt.Result] = table;
+                    UpdateSchemaMap(methodCallStmt.Result, arg);
                 }
                 // arg.Set(arg1)
                 // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
@@ -1117,6 +1121,12 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     this.State.A2_Variables[methodCallStmt.Result] = new HashSet<Traceable>(GetTraceablesFromA2_Variables(arg)); ;
                 }
+                else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.Name == "RowList")
+                {
+                    var receiver = methodCallStmt.Arguments[0];
+                    var arg1 = methodCallStmt.Arguments[1];
+                    this.State.A2_Variables[receiver] = new HashSet<Traceable>(GetTraceablesFromA2_Variables(arg1)); 
+                }
                 else if(methodInvoked.ContainingType.ContainingNamespace=="ScopeRuntime")
                 {
                     this.UpdateUsingDefUsed(methodCallStmt);
@@ -1127,6 +1137,25 @@ namespace Backend.Analyses
                 }
                 return result;
 
+            }
+
+            private void UpdateSchemaMap(IVariable callResult, IVariable arg)
+            {
+                var inputTable = equalities.GetValue(arg);
+                //scopeData.row = callResult;
+                scopeData.schemaMap[callResult] = inputTable;
+                var nodes = ptg.GetTargets(arg, false);
+                if(nodes.Any())
+                {
+                    var tables = nodes.Where(n => n.Type is IBasicType && (n.Type as IBasicType).GetFullName()!="").SelectMany(n => n.Sources.Select(kv => kv.Key.Name));
+                    scopeData.schemaTableMap[callResult] = new HashSet<string>(tables);
+                }
+
+            }
+            private IEnumerable<string> GetTableFromSchemaMap(IVariable arg)
+            {
+                //return scopeData.schemaMap[arg];
+                return scopeData.schemaTableMap[arg];
             }
 
             private ColumnDomain ObtainColumnLiteral(IVariable col)
@@ -1188,7 +1217,7 @@ namespace Backend.Analyses
             /// <param name="methodInvoked"></param>
             /// <param name="callResult"></param>
             /// <returns></returns>
-            private bool AnalyzeSchemaRelatedMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked, IVariable callResult)
+            private bool AnalyzeSchemaRelatedMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
                 // this is callResult = arg.Schema(...)
@@ -1196,19 +1225,21 @@ namespace Backend.Analyses
                 if (IsSchemaMethod(methodInvoked))
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    var table = equalities.GetValue(arg);
-                    scopeData.schemaMap[callResult] = table;
+                    //var table = equalities.GetValue(arg);
+                    //scopeData.schemaMap[callResult] = table;
+                    UpdateSchemaMap(methodCallStmt.Result, arg);
                 }
                 // callResult = arg.IndexOf(colunm)
                 // we recover the table from arg and associate the column number with the call result
                 else if (IsIndexOfMethod(methodInvoked))
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    var table = scopeData.schemaMap[arg];
+                    var table = GetTableFromSchemaMap(arg);
                     var columnLiteral = ObtainColumnLiteral(methodCallStmt.Arguments[1]);
 
-                    scopeData.columnMap[callResult] = columnLiteral.ColumnName;
-                    this.State.A2_Variables.Add(callResult, new TraceableColumn(table.ToString(), columnLiteral));
+                    scopeData.columnMap[methodCallStmt.Result] = columnLiteral.ColumnName;
+                    // this.State.A2_Variables.AddRange(methodCallStmt.Result, new TraceableColumn(table.ToString(), columnLiteral));
+                    this.State.A2_Variables.AddRange(methodCallStmt.Result, table.Select( t => new TraceableColumn(t, columnLiteral)));
                     // Y have the bidingVar that refer to the column, now I can find the "field"
                 }
                 else
@@ -1217,6 +1248,7 @@ namespace Backend.Analyses
                 }
                 return result;
             }
+          
 
             /// <summary>
             /// Get all "traceacbles" for a variable and all it aliases
@@ -1253,20 +1285,20 @@ namespace Backend.Analyses
             }
         }
 
-
         private IDictionary<IVariable, IExpression> equalities;
         DataFlowAnalysisResult<PointsToGraph>[] ptgs;
         private ScopeInfo scopeData;
-        private IDictionary<string, IVariable> specialFields;
+        // private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
         private MethodDefinition method;
 
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
-                                            IDictionary<string, IVariable> specialFields, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
+                                            // IDictionary<string, IVariable> specialFields, 
+                                            IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
         {
             this.method = method;
             this.iteratorClass = method.ContainingType;
-            this.specialFields = specialFields;
+            // this.specialFields = specialFields;
             this.ptgs = ptgs;
             this.equalities = equalitiesMap;
             this.scopeData = new ScopeInfo();

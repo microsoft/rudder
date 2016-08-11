@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using Backend.Analyses;
 
 namespace ScopeProgramAnalysis
 {
@@ -27,6 +28,7 @@ namespace ScopeProgramAnalysis
         public string EntryMethod { get; private set; }
         public string ClousureFilter { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
+        public static MethodCFGCache MethodCFGCache { get; private set; }
 
         public Program(Host host, Loader loader)
         {
@@ -78,6 +80,8 @@ namespace ScopeProgramAnalysis
             var scopeGenAssembly = loader.LoadAssembly(inputPath);
             loader.SetMainAssembly(inputPath);
 
+            Program.MethodCFGCache = new Backend.Analyses.MethodCFGCache(host);
+
             // LoadExternalReferences(referenceFiles, loader);
             //loader.LoadCoreAssembly();
 
@@ -115,8 +119,9 @@ namespace ScopeProgramAnalysis
                 {
                     var entryMethodDef = methodPair.Item1;
                     var moveNextMethod = methodPair.Item2;
+                    var getEnumMethod= methodPair.Item3;
                     System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
-                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, moveNextMethod, entryMethodDef);
+                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, moveNextMethod, entryMethodDef, getEnumMethod);
                     var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                     System.Console.WriteLine("Done!");
 
@@ -229,9 +234,9 @@ namespace ScopeProgramAnalysis
             }
         }
 
-        private IEnumerable<Tuple<MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze()
+        private IEnumerable<Tuple<MethodDefinition, MethodDefinition,MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
-            var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition>>();
+            var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
             var operationFactoryClass = this.ScopeGenAssembly.RootNamespace.GetAllTypes().OfType<ClassDefinition>()
                                         .Where(c => c.Name == "__OperatorFactory__" && c.ContainingType != null & c.ContainingType.Name == "___Scope_Generated_Classes___").Single();
@@ -256,16 +261,22 @@ namespace ScopeProgramAnalysis
                 {
                     var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
                                    .Where(c => c.Name.StartsWith(this.ClousureFilter));
-                    var methods = candidateClousures.SelectMany(t => t.Members.OfType<MethodDefinition>())
-                                                .Where(md => md.Body != null
-                                                && md.Name.Equals(this.MethodUnderAnalysisName));
-                    foreach (var moveNextMethod in methods)
+                    foreach (var candidateClousure in candidateClousures)
                     {
-                        //var moveNextMethod = methods.Single();
-                        var entryMethodDef = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
-                        scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition>(entryMethodDef, moveNextMethod));
-                        var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
-                        this.factoryReducerMap.Add(processID, entryMethodDef.ContainingType as ClassDefinition);
+                        var moveNextMethods = candidateClousure.Methods
+                                                    .Where(md => md.Body != null
+                                                    && md.Name.Equals(this.MethodUnderAnalysisName));
+                        var getEnumMethods = candidateClousure.Methods
+                                                    .Where(m => m.Name == "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>.GetEnumerator");
+                        foreach (var moveNextMethod in moveNextMethods)
+                        {
+                            //var moveNextMethod = methods.Single();
+                            var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
+                            var getEnumeratorMethod = getEnumMethods.Single();
+                            scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
+                            var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                            this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                        }
                     }
                 }
                 else
