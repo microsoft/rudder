@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Backend.Analyses;
+using System.Globalization;
 
 namespace ScopeProgramAnalysis
 {
@@ -66,7 +67,7 @@ namespace ScopeProgramAnalysis
         private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind)
         {
             var folder = Path.GetDirectoryName(input);
-            var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower()!= Path.GetFileName(input).ToLower()).ToList();
+            var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture)!= Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
             AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer);
         }
@@ -242,7 +243,7 @@ namespace ScopeProgramAnalysis
                                         .Where(c => c.Name == "__OperatorFactory__" && c.ContainingType != null & c.ContainingType.Name == "___Scope_Generated_Classes___").Single();
 
             // Hack: use actual ScopeRuntime Types
-            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_") && m.ReturnType.ToString() == this.ClassFilter);
+            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal) && m.ReturnType.ToString() == this.ClassFilter);
 
             var referencesLoaded = false;
 
@@ -260,7 +261,7 @@ namespace ScopeProgramAnalysis
                 if (resolvedEntryClass != null)
                 {
                     var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
-                                   .Where(c => c.Name.StartsWith(this.ClousureFilter));
+                                   .Where(c => c.Name.StartsWith(this.ClousureFilter, StringComparison.Ordinal));
                     foreach (var candidateClousure in candidateClousures)
                     {
                         var moveNextMethods = candidateClousure.Methods
@@ -274,7 +275,7 @@ namespace ScopeProgramAnalysis
                             var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
                             var getEnumeratorMethod = getEnumMethods.Single();
                             scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
-                            var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                            var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_", StringComparison.Ordinal));
                             this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
                         }
                     }
