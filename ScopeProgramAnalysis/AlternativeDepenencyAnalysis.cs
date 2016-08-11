@@ -432,7 +432,7 @@ namespace ScopeProgramAnalysis
         }
         public override string ToString()
         {
-            return String.Format("{0}:{1}.{2}", SymbolicObject.Offset, SymbolicObject.Type, Traceable);
+            return String.Format("{0}:{1}.{2}", SymbolicObject.Id, SymbolicObject.Type, Traceable);
         }
     }
 
