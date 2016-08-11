@@ -52,21 +52,23 @@ namespace ScopeAnalyzer
         }
     }
 
+    /// <summary>
+    /// Analysis assumes no rows can escape. If some rows can indeed escape,
+    /// then this analysis should not be used.
+    /// </summary>
     class UsedColumnsAnalysis
     {
         ControlFlowGraph cfg;
-        EscapeInfoProvider escInfo;
         ConstantsInfoProvider constInfo;
         List<ITypeDefinition> rowTypes;
         List<ITypeDefinition> columnTypes;
         IMetadataHost host;
         bool unsupported = false;
 
-        public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, EscapeInfoProvider e, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
+        public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
         {
             host = h;
             cfg = c;
-            escInfo = e;
             constInfo = ci;
             rowTypes = r;
             columnTypes = cd;
@@ -134,7 +136,6 @@ namespace ScopeAnalyzer
                         hasResult = ins.HasResult;           
                     }
 
-
                     cd.Join(GetCols(instruction, isStatic, isVirt, hasResult, name, args, result));
 
                     // This is a doomed point, no point in continuing the analysis.
@@ -157,7 +158,7 @@ namespace ScopeAnalyzer
         /// <returns></returns>
         private ColumnsDomain GetCols(Instruction instruction, bool isStatic, bool isVirt, bool hasResult, string name, IList<IVariable> arguments, IVariable result)
         {
-            // We are interested in Row methods returning columns.
+            // We are interested in Row methods returning something (columns).
             if (!hasResult)
                 return ColumnsDomain.Bottom;
 
@@ -168,10 +169,7 @@ namespace ScopeAnalyzer
             var _this = arguments.ElementAt(0);
 
             // The methods must belong to Row.
-            if (rowTypes.All(rt => !_this.Type.SubtypeOf(rt))) return ColumnsDomain.Bottom;
-
-            // If the row escapes, we are done.
-            if (escInfo.Escaped(instruction, _this)) return ColumnsDomain.Top;
+            if (rowTypes.All(rt => !_this.Type.SubtypeOf(rt, host))) return ColumnsDomain.Bottom;
 
             // The method must return column type in some form.
             if (!IsResultColumn(result)) return ColumnsDomain.Bottom;
@@ -235,45 +233,7 @@ namespace ScopeAnalyzer
 
         private bool IsResultColumn(IVariable result)
         {
-            var type = result.Type;
-            while (type.IsAlias) type = type.AliasForType.AliasedType;
-
-            var toCheck = new List<ITypeReference>();
-            if (result.Type is IArrayTypeReference)
-            {
-                var t = result.Type as IArrayTypeReference;
-                toCheck.Add(t.ElementType);
-            }
-            else if (result.Type is INamedTypeReference)
-            {
-                var t = result.Type as INamedTypeReference;
-                toCheck.Add(t);
-            }
-            else if (result.Type is IGenericTypeInstanceReference)
-            {
-                var t = result.Type as IGenericTypeInstanceReference;
-                foreach (var tgi in t.GenericArguments)
-                {
-                    toCheck.Add(tgi);
-                }   
-            }
-            else if (result.Type is IGenericParameterReference)
-            {
-                // generics
-                return false;
-            }
-            else
-            {
-                //TODO: is this worth analyzing in more depth?
-                return true;
-            }
-
-            foreach(var t in toCheck)
-            {
-                if (columnTypes.Any(ct => t.SubtypeOf(ct))) return true;
-            }
-
-            return false;
+            return columnTypes.Any(ct => result.Type.IncludesType(ct, host));
         }
     }
 }

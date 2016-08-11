@@ -9,59 +9,184 @@ using Microsoft.Cci;
 
 namespace ScopeAnalyzer
 {
+
+    //public class VarEscapeSet : SetDomain<IVariable>
+    //{
+    //    public VarEscapeSet(List<IVariable> vesc)
+    //    {
+    //        elements = vesc;
+    //    }
+
+    //    public static VarEscapeSet Bottom
+    //    {
+    //        get { return new VarEscapeSet(new List<IVariable>()); }
+    //    }
+
+    //    public static VarEscapeSet Top
+    //    {
+    //        get { return new VarEscapeSet(null); }
+    //    }
+
+
+    //    public void SetAllEscaped()
+    //    {
+    //        base.SetTop();
+    //    }
+
+    //    public void Escape(IVariable v)
+    //    {
+    //        base.Add(v);
+    //    }
+
+
+    //    public void Return(IVariable v)
+    //    {
+    //        if (IsTop)
+
+    //        base.elements.Remove(v);
+    //    }
+
+    //    public bool Escaped(IVariable v)
+    //    {
+    //        return base.Contains(v);
+    //    }
+
+    //    public VarEscapeSet Clone()
+    //    {
+    //        var nvesc = elements == null ? elements : new List<IVariable>(elements);
+    //        return new VarEscapeSet(nvesc);
+    //    }
+
+    //    public override string ToString()
+    //    {
+    //        string summary = String.Empty;
+    //        if (IsTop) summary += "All variables may escape.";
+    //        else
+    //        {
+    //            summary += "May escaped variables:\n";
+    //            foreach (var v in elements)
+    //            {
+    //                summary += String.Format("\t{0} ({1})\n", v.ToString(), v.Type);
+    //            }
+    //        }
+    //        return summary;
+    //    }
+
+    //    public override int GetHashCode()
+    //    {
+    //        return base.GetHashCode();
+    //    }
+    //}
+
+
     /// <summary>
     /// Domain that keeps track of which variables may have escaped.
     /// </summary>
-    public class VarEscapeSet : SetDomain<IVariable>
+    public class VarEscapeSet
     {
-        public VarEscapeSet(List<IVariable> vesc)
+        Dictionary<IVariable, Boolean> varsEscaped;
+
+        private VarEscapeSet(Dictionary<IVariable, Boolean> vs)
         {
-            elements = vesc;
+            varsEscaped = vs;
         }
 
-        public static VarEscapeSet Bottom
+        public static VarEscapeSet Bottom(IEnumerable<IVariable> vars)
         {
-            get { return new VarEscapeSet(new List<IVariable>()); }
+            Dictionary<IVariable, Boolean> vs = new Dictionary<IVariable, Boolean>();
+            foreach (var v in vars)
+            {
+                vs[v] = false;
+            }
+            return new VarEscapeSet(vs);
         }
 
-        public static VarEscapeSet Top
+        public static VarEscapeSet Top(IEnumerable<IVariable> vars)
         {
-            get { return new VarEscapeSet(null); }
+            Dictionary<IVariable, Boolean> vs = new Dictionary<IVariable, bool>();
+            foreach (var v in vars)
+            {
+                vs[v] = true;
+            }
+            return new VarEscapeSet(vs);
         }
 
-
-        public void SetAllEscaped()
+        public bool IsTop
         {
-            base.SetTop();
+            get { return varsEscaped.Values.All(b => b); }
+        }
+
+        public bool IsBottom
+        {
+            get { return varsEscaped.Values.All(b => !b); }
         }
 
         public void Escape(IVariable v)
         {
-            base.Add(v);
+            if (!varsEscaped.ContainsKey(v)) throw new InvalidVarsDomainOperation("Variable not in the domain!");
+            varsEscaped[v] = true;
         }
+
+        public void Return(IVariable v)
+        {
+            if (!varsEscaped.ContainsKey(v)) throw new InvalidVarsDomainOperation("Variable not in the domain!");
+            varsEscaped[v] = false;
+        }
+
 
         public bool Escaped(IVariable v)
         {
-            return base.Contains(v);
+            if (!varsEscaped.ContainsKey(v)) throw new InvalidVarsDomainOperation("Field not in the domain!");
+            return varsEscaped[v];
+        }
+
+        public void SetAllEscaped()
+        {
+            for (int i = 0; i < varsEscaped.Count; i++)
+            {
+                varsEscaped[varsEscaped.Keys.ElementAt(i)] = true;
+            }
+        }
+
+        public int Count
+        {
+            get { return varsEscaped.Count; }
+        }
+
+        public override bool Equals(object obj)
+        {
+            var other = obj as VarEscapeSet;
+            if (this.Count != other.Count) return false;
+
+            foreach (var f in varsEscaped.Keys)
+            {
+                if (this.Escaped(f) != other.Escaped(f)) return false;
+            }
+
+            return true;
+        }
+
+        public void Join(VarEscapeSet vs)
+        {
+            if (this.Count != vs.Count) throw new InvalidVarsDomainOperation("Variable not in the domain!");
+            for (int i = 0; i < varsEscaped.Keys.Count; i++)
+            {
+                var v = varsEscaped.Keys.ElementAt(i);
+                varsEscaped[v] |= vs.Escaped(v);
+            }
         }
 
         public VarEscapeSet Clone()
         {
-            var nvesc = elements == null ? elements : new List<IVariable>(elements);
-            return new VarEscapeSet(nvesc);
+            return new VarEscapeSet(new Dictionary<IVariable, Boolean>(varsEscaped));
         }
 
         public override string ToString()
         {
-            string summary = String.Empty;
-            if (IsTop) summary += "All variables may escape.";
-            else
+            string summary = "May escape information about variables:\n";
+            foreach (var v in varsEscaped.Keys)
             {
-                summary += "May escaped variables:\n";
-                foreach (var v in elements)
-                {
-                    summary += String.Format("\t{0} ({1})\n", v.ToString(), v.Type);
-                }
+                summary += String.Format("\t{0}: {1}\t{2}\n", v.Type.FullName() + "::" + v.Name, varsEscaped[v], v.Type);
             }
             return summary;
         }
@@ -70,7 +195,13 @@ namespace ScopeAnalyzer
         {
             return base.GetHashCode();
         }
+
+        class InvalidVarsDomainOperation : Exception
+        {
+            public InvalidVarsDomainOperation(string message) : base(message) { }
+        }
     }
+
 
     /// <summary>
     /// Domain that keeps track of which fields may have escaped, fields being fixed.
@@ -118,6 +249,12 @@ namespace ScopeAnalyzer
         {
             if (!fieldsEscaped.ContainsKey(f)) throw new InvalidFieldsDomainOperation("Field not in the domain!");
             fieldsEscaped[f] = true;
+        }
+
+        public void Return(IFieldReference f)
+        {
+            if (!fieldsEscaped.ContainsKey(f)) throw new InvalidFieldsDomainOperation("Field not in the domain!");
+            fieldsEscaped[f] = false;
         }
 
         public bool Escaped(IFieldReference f)
@@ -203,14 +340,14 @@ namespace ScopeAnalyzer
         }
 
 
-        public static ScopeEscapeDomain Top(IEnumerable<IFieldReference> fdefs)
+        public static ScopeEscapeDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
         {
-            return new ScopeEscapeDomain(VarEscapeSet.Top, FieldEscapeSet.Top(fdefs));
+            return new ScopeEscapeDomain(VarEscapeSet.Top(vars), FieldEscapeSet.Top(fields));
         }
 
-        public static ScopeEscapeDomain Bottom(IEnumerable<IFieldReference> fdefs)
+        public static ScopeEscapeDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
         {
-            return new ScopeEscapeDomain(VarEscapeSet.Bottom, FieldEscapeSet.Bottom(fdefs));
+            return new ScopeEscapeDomain(VarEscapeSet.Bottom(vars), FieldEscapeSet.Bottom(fields));
         }
 
         public bool IsTop
@@ -241,6 +378,16 @@ namespace ScopeAnalyzer
         public void Escape(IFieldReference f)
         {
             fset.Escape(f);
+        }
+
+        public void Return(IVariable v)
+        {
+            vset.Return(v);
+        }
+
+        public void Return(IFieldReference f)
+        {
+            fset.Return(f);
         }
 
         public bool Escaped(IVariable v)
@@ -307,13 +454,18 @@ namespace ScopeAnalyzer
     public class NaiveScopeMayEscapeAnalysis : ForwardDataFlowAnalysis<ScopeEscapeDomain>
     {
         IMethodDefinition method;
+        IMetadataHost host;
         List<ITypeDefinition> rowTypes;
         List<ITypeDefinition> rowsetTypes;
+
         Dictionary<Instruction, ScopeEscapeDomain> preResults = new Dictionary<Instruction, ScopeEscapeDomain>();
         Dictionary<Instruction, ScopeEscapeDomain> postResults = new Dictionary<Instruction, ScopeEscapeDomain>();
         HashSet<IFieldReference> fieldsToTrack = new HashSet<IFieldReference>();
-        IMetadataHost host;
+        HashSet<IVariable> varsToTrack = new HashSet<IVariable>();
+      
         bool unsupported = false;
+        bool interestingRowEscaped = false;
+
 
         public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, List<ITypeDefinition> rowtype, List<ITypeDefinition> rowsettype) : base(cfg)
         {
@@ -326,7 +478,139 @@ namespace ScopeAnalyzer
             Initialize();
         }
 
-    
+
+        public IMetadataHost Host
+        {
+            get { return host; }
+        }
+
+        public bool Unsupported
+        {
+            get { return unsupported; }
+        }
+
+        public Dictionary<Instruction, ScopeEscapeDomain> PreResults
+        {
+            get { return preResults; }
+        }
+
+        public Dictionary<Instruction, ScopeEscapeDomain> PostResults
+        {
+            get { return preResults; }
+        }
+
+        public List<ITypeDefinition> RowTypes
+        {
+            get { return rowTypes; }
+        }
+
+        public IEnumerable<IFieldReference> TrackedFields
+        {
+            get { return fieldsToTrack; }
+        }
+
+        public IEnumerable<IVariable> TrackedVariables
+        {
+            get { return varsToTrack; }
+        }
+
+        /// <summary>
+        /// Tells if some Row(ish) type escaped at any point.
+        /// </summary>
+        public bool InterestingRowEscaped
+        {
+            get { return interestingRowEscaped; }
+        }
+
+
+        private void Initialize()
+        {
+            var fieldDefinitions = new List<IFieldDefinition>();
+            var mtype = (method.ContainingType as INamedTypeReference).Resolve(host);
+
+            IFieldDefinition env = null;
+            // Now we find fields to track.
+            foreach (var field in mtype.Fields)
+            {
+                // Skip this, as it references an escaped "environment".
+                if (field.Type.Resolve(host).Equals((mtype as INestedTypeDefinition).ContainingType.Resolve(host)))
+                {
+                    if (env == null)
+                    {
+                        env = field;
+                    }
+                    else
+                    {
+                        unsupported = true;
+                        Utils.WriteLine("WARNING: too many closure environments found!");
+                    }
+                }
+
+                if (!field.IsStatic && PossiblyRow(field.Type)) fieldDefinitions.Add(field);
+            }
+
+            if (env == null)
+            {
+                unsupported = true;
+                Utils.WriteLine("WARNING: no closure environment found!");
+            }
+
+            var frefs = cfg.Fields();
+            fieldsToTrack = new HashSet<IFieldReference>(frefs.Where(f => fieldDefinitions.Contains(f.Resolve(host))).ToList());
+
+            var vars = cfg.Variables();
+            varsToTrack = new HashSet<IVariable>(vars.Where(v => PossiblyRow(v.Type)).ToList());
+
+            var instructions = new List<Instruction>();
+            foreach (var block in cfg.Nodes)
+                instructions.AddRange(block.Instructions);
+
+            if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
+                unsupported = true;
+        }
+
+        private void UpdateResults(EscapeTransferVisitor visitor)
+        {
+            interestingRowEscaped |= visitor.SomeRowEscaped;
+
+            foreach (var key in visitor.PreStates.Keys)
+            {
+                preResults[key] = visitor.PreStates[key];
+            }
+
+            foreach (var key in visitor.PostStates.Keys)
+            {
+                postResults[key] = visitor.PostStates[key];
+            }
+        }
+
+
+        #region Checking for a row
+
+        public bool PossiblyRow(ITypeReference type)
+        {
+            foreach (var rt in rowTypes)
+            {
+                if (PossiblyRow(type, rt, host)) return true;
+            }
+
+            foreach (var rst in rowsetTypes)
+            {
+                if (PossiblyRow(type, rst, host)) return true;
+            }
+            return false;
+        }
+
+        public bool PossiblyRow(ITypeReference type, ITypeDefinition rowishType, IMetadataHost host)
+        {
+            if (type.IsEnum || type.IsValueType) return false;
+            if (type.IncludesType(rowishType, host)) return true;
+
+            return false;
+        }
+
+        #endregion checking for a row
+
 
         #region Dataflow interface implementation
 
@@ -334,11 +618,11 @@ namespace ScopeAnalyzer
         {
             if (unsupported)
             {
-                return ScopeEscapeDomain.Top(fieldsToTrack);
+                return ScopeEscapeDomain.Top(varsToTrack, fieldsToTrack);
             }
             else
             {
-                return ScopeEscapeDomain.Bottom(fieldsToTrack);
+                return ScopeEscapeDomain.Bottom(varsToTrack, fieldsToTrack);
             }
         }
 
@@ -366,134 +650,7 @@ namespace ScopeAnalyzer
         #endregion
 
 
-        public IMetadataHost Host
-        {
-            get { return host; }
-        }
-
-        public bool Unsupported
-        {
-            get { return unsupported; }
-        }
-
-        public Dictionary<Instruction, ScopeEscapeDomain> PreResults
-        {
-            get { return preResults; }
-        }
-
-        public Dictionary<Instruction, ScopeEscapeDomain> PostResults
-        {
-            get { return preResults; }
-        }
-
-
-
-        private void Initialize()
-        {
-            var fieldDefinitions = new List<IFieldDefinition>();
-            var mtype = (method.ContainingType as INamedTypeReference).Resolve(host);
-
-            IFieldDefinition env = null;
-            // Now we find fields to track.
-            foreach (var field in mtype.Fields)
-            {
-                // Skip this, as it references an escaped "environment".
-                if (field.Type.Resolve(host).Equals((mtype as INestedTypeDefinition).ContainingType.Resolve(host)))
-                {
-                    if (env == null)
-                    {
-                        env = field;               
-                    }
-                    else
-                    {
-                        unsupported = true;
-                        Utils.WriteLine("WARNING: too many closure environments found!");                       
-                    }
-                }
-
-                if (!field.IsStatic && PossiblyRow(field.Type)) fieldDefinitions.Add(field);
-            }
-
-            if (env == null)
-            {
-                unsupported = true;
-                Utils.WriteLine("WARNING: no closure environment found!");
-            }
-
-            var frefs = cfg.Fields();
-            fieldsToTrack = new HashSet<IFieldReference>(frefs.Where(f => fieldDefinitions.Contains(f.Resolve(host))).ToList());
-
-            var instructions = new List<Instruction>();
-            foreach(var block in cfg.Nodes)
-                instructions.AddRange(block.Instructions);
-
-            if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
-                unsupported = true;
-        }
-
-        private void UpdateResults(EscapeTransferVisitor visitor)
-        {
-            foreach (var key in visitor.PreStates.Keys)
-            {
-                preResults[key] = visitor.PreStates[key];
-            }
-
-            foreach (var key in visitor.PostStates.Keys)
-            {
-                postResults[key] = visitor.PostStates[key];
-            }
-        }
-
-        public List<ITypeDefinition> RowTypes
-        {
-            get { return rowTypes; }
-        }
-
-        public IEnumerable<IFieldReference> TrackedFields
-        {
-            get { return fieldsToTrack; }
-        }
-
-        public bool PossiblyRow(ITypeReference type)
-        {
-            return PossiblyRow(type, rowTypes, rowsetTypes, host);
-        }
-
-
-        public static bool PossiblyRow(ITypeReference type, List<ITypeDefinition> rowTypes, List<ITypeDefinition> rowsetTypes, IMetadataHost host)
-        {
-            foreach(var rt in rowTypes)
-            {
-                foreach(var rst in rowsetTypes)
-                {
-                    if (PossiblyRow(type, rt, rst, host)) return true;
-                }
-            }
-            return false;
-        }
-
-        public static bool PossiblyRow(ITypeReference type, ITypeDefinition rowType, ITypeDefinition rowsetType, IMetadataHost host)
-        {
-            if (!(type is INamedTypeReference)) return false;
-
-            var ntr = type as INamedTypeReference;
-            if (ntr.IsValueType || ntr.IsEnum) return false;
-
-            var resolved = ntr.Resolve(host);
-            //return true for soundness!
-            if (resolved == null || resolved.IsDummy()) return true;
-            if (!resolved.IsReferenceType) return false;
-
-            if (resolved.SubtypeOf(rowType)) return true;
-            if (resolved.SubtypeOf(rowsetType)) return true;
-
-            return false;
-        }
-
-
-
-
-
+     
 
         /* 
         * All reference variables except Row/Rowset are assumed to be escaped. A Row(set) variable is set as escaped if (1) 
@@ -509,6 +666,8 @@ namespace ScopeAnalyzer
 
             Dictionary<Instruction, ScopeEscapeDomain> preState = new Dictionary<Instruction, ScopeEscapeDomain>();
             Dictionary<Instruction, ScopeEscapeDomain> postState = new Dictionary<Instruction, ScopeEscapeDomain>();
+
+            bool someRowEscaped = false;
 
             public EscapeTransferVisitor(ScopeEscapeDomain start, NaiveScopeMayEscapeAnalysis dad)
             {
@@ -557,20 +716,14 @@ namespace ScopeAnalyzer
                     if (result is InstanceFieldAccess)
                     {             
                         var r = result as InstanceFieldAccess;
-
-                        if (IsFieldTracked(r.Field))
+                        if (!IsFieldTracked(r.Field))
                         {
-                            if (nstate.Escaped(operand))
-                                UpdateState(nstate, r.Field, instruction);
-                        }
-                        else
-                        {
-                            UpdateState(nstate, operand, instruction);
+                            SetEscaped(nstate, operand, instruction);
                         }
                     }
                     else
                     {
-                        UpdateState(nstate, operand, instruction);
+                        SetEscaped(nstate, operand, instruction);
                     }
                 }
 
@@ -580,65 +733,69 @@ namespace ScopeAnalyzer
 
             public override void Visit(LoadInstruction instruction)
             {
-                SavePreState(instruction, FreshCurrent());
-                var nstate = FreshCurrent();
-                var result = instruction.Result;
-                var operand = instruction.Operand;
+                #region deprecated
+                //SavePreState(instruction, FreshCurrent());
+                //var nstate = FreshCurrent();
+                //var result = instruction.Result;
+                //var operand = instruction.Operand;
 
-                // If the operand has anything to do with pointers, then we set result as escaped.
-                if (operand is Dereference || operand is Reference)
-                {
-                    //TODO: make more precise
-                    UpdateStateEscaped(nstate);
-                }
-                else if (PossiblyRow(result.Type))
-                {    
-                    if (operand is InstanceFieldAccess)
-                    {
-                        var op = operand as InstanceFieldAccess;
-                        if (!IsFieldTracked(op.Field))
-                        {
-                            UpdateState(nstate, result, instruction);
-                        } else
-                        {
-                            if (nstate.Escaped(op.Field))
-                                UpdateState(nstate, result, instruction);
-                            else if (nstate.Escaped(result))
-                                UpdateState(nstate, op.Field, instruction);
-                        }
-                    }
-                    // Set resuls as escaped in this case
-                    else if (operand is UnknownValue || operand is StaticFieldAccess || operand is ArrayElementAccess)
-                    {
-                        UpdateState(nstate, result, instruction);
-                    }
-                    // TODO: should this case even occur? Typing should not allow this.
-                    else if (operand is VirtualMethodReference || operand is StaticMethodReference)
-                    {
-                        UpdateState(nstate, result, instruction);
-                    }
-                    // We add result as escaped only if the operand variable is escaped too.
-                    else if (operand is IVariable)
-                    {
-                        var op = operand as IVariable;
-                        if (nstate.Escaped(op))
-                            UpdateState(nstate, result, instruction);
-                    }
-                    // Other cases either don't occur (expressions) at this code layer or don't do much.                
-                }
+                //if (PossiblyRow(result.Type))
+                //{
+                //    // If the operand has anything to do with (de)referencing a pointer, then we set
+                //    // everything as escaped.
+                //    if (operand is Dereference || operand is Reference)
+                //    {
+                //        SetAllEscaped(nstate);
+                //    }
+                //    else if (operand is InstanceFieldAccess)
+                //    {
+                //        var op = operand as InstanceFieldAccess;
+                //        if (!IsFieldTracked(op.Field))
+                //        {
+                //            SetEscaped(nstate, result, instruction, false);
+                //        }
+                //        else
+                //        {
+                //            ProjectState(nstate, result, op.Field, false);
 
-                SetCurrent(nstate);
-                SavePostState(instruction, FreshCurrent());
+                //            //if (nstate.Escaped(op.Field))
+                //            //    SetEscaped(nstate, result, instruction);
+                //            //else if (nstate.Escaped(result))
+                //            //    SetEscaped(nstate, op.Field, instruction);
+                //        }
+                //    }
+                //    // Set results as escaped in this case
+                //    else if (operand is UnknownValue || operand is StaticFieldAccess || operand is ArrayElementAccess)
+                //    {
+                //        SetEscaped(nstate, result, instruction, false);
+                //    }
+                //    // TODO: should this case even occur? Typing should not allow this.
+                //    else if (operand is VirtualMethodReference || operand is StaticMethodReference)
+                //    {
+                //        SetEscaped(nstate, result, instruction, false);
+                //    }
+                //    // We add result as escaped only if the operand variable is escaped too.
+                //    else if (operand is IVariable)
+                //    {
+                //        var op = operand as IVariable;
+                //        ProjectState(nstate, result, op, false);
+                //    }
+                //    // Other cases either don't occur (expressions) at this code layer or don't do much.                
+                //}
+
+                //SetCurrent(nstate);
+                //SavePostState(instruction, FreshCurrent());
+                #endregion
+                Default(instruction);
             }
+
 
             public override void Visit(MethodCallInstruction instruction)
             {
-                if (IsWrapAroundCurrent(instruction))
+                if (IsClearlySafe(instruction))
                 {
                     SavePreState(instruction, FreshCurrent());
-                    var nstate = FreshCurrent();
-                    if (nstate.Escaped(instruction.Arguments.ElementAt(0))) UpdateState(nstate, instruction.Result, instruction);
-                    SetCurrent(nstate);
+                    SetCurrent(FreshCurrent());
                     SavePostState(instruction, FreshCurrent());
                 }
                 else
@@ -658,75 +815,128 @@ namespace ScopeAnalyzer
                 var nstate = FreshCurrent();
 
                 var beginIndex = isStatic ? 0 : 1; // to avoid "this".
+                bool escaped = false;
                 for (int i = beginIndex; i < arguments.Count; i++)
                 {
                     var v = arguments[i];
                     if (PossiblyRow(v.Type))
-                        UpdateState(nstate, v, instruction);
+                    {
+                        escaped = true;
+                        SetEscaped(nstate, v, instruction);
+                    }
                 }
 
-                if (hasResult && PossiblyRow(result.Type))
+                //if (hasResult && PossiblyRow(result.Type))
+                //{
+                //    escaped = true;
+                //    SetEscaped(nstate, result, instruction);
+                //}
+
+                if (escaped && !isStatic)
                 {
-                    UpdateState(nstate, result, instruction);
+                    SetEscaped(nstate, arguments[0], instruction);
                 }
 
                 SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
             }
 
-            private bool IsWrapAroundCurrent(MethodCallInstruction instruction)
+            private bool IsClearlySafe(MethodCallInstruction instruction)
             {
-                var method = instruction.Method;
                 //TODO: can this be done better?
-                if (method.Name.Value == "get_Current" && instruction.Arguments.Count == 1 && 
-                   method.ContainingType.FullName() == "System.Collections.Generic.IEnumerator<ScopeRuntime.Row>") return true;
+                var method = instruction.Method;
+                var mtype = method.ContainingType;
+
+                if (mtype.FullName() == "ScopeRuntime.Row" || mtype.FullName() == "ScopeRuntime.RowSet"
+                    || mtype.FullName() == "ScopeRuntime.ColumnData")
+                    return true;
+
+                if (instruction.Arguments.Count != 1)
+                    return false;
+
+                // TODO: can we do this better?
+                var name = mtype.NestedName();
+                if (name.StartsWith("IEnumerator<") || name.StartsWith("IEnumerable<") ||
+                    name.StartsWith("List<") || name.StartsWith("HashSet<") ||
+                    name.StartsWith("Dictionary<") || name.StartsWith("Queue<") ||
+                    name.StartsWith("Stack<") || name.StartsWith("LinkedList<") ||
+                    name.StartsWith("SortedList<") || name.StartsWith("SortedSet<"))
+                    return true;
+
+                //if (method.Name.Value == "get_Current" && instruction.Arguments.Count == 1
+                //    && method.ContainingType.FullName() == "System.Collections.Generic.IEnumerator<ScopeRuntime.Row>")
+                //    return true;
+
+                //if (method.Name.Value == "get_Rows" && instruction.Arguments.Count == 1
+                //    && method.ContainingType.FullName() == "ScopeRuntime.RowSet")
+                //    return true;
+
+                //if (method.Name.Value == "GetEnumerator" && instruction.Arguments.Count == 1
+                //    && method.ContainingType.FullName() == "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>")
+                //    return true;
+
+                //if (method.ContainingType.FullName() == "ScopeRuntime.Row" &&
+                //    (method.Name.Value == "CopyTo" || method.Name.Value == "CopyScopeCEPStatusTo"))
+                //    return true;
+
                 return false;
             }
+
+
 
 
             public override void Visit(CopyMemoryInstruction instruction)
             {
                 SavePreState(instruction, FreshCurrent());
-                SetCurrent(ScopeEscapeDomain.Top(parent.TrackedFields));
+                var nstate = FreshCurrent();
+                SetAllEscaped(nstate);
+                SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
             }
 
             public override void Visit(CopyObjectInstruction instruction)
             {
                 SavePreState(instruction, FreshCurrent());
-                SetCurrent(ScopeEscapeDomain.Top(parent.TrackedFields));
+                var nstate = FreshCurrent();
+                SetAllEscaped(nstate);
+                SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
             }
 
             public override void Visit(LocalAllocationInstruction instruction)
             {
                 SavePreState(instruction, FreshCurrent());
-                SetCurrent(ScopeEscapeDomain.Top(parent.TrackedFields));
+                var nstate = FreshCurrent();
+                SetAllEscaped(nstate);
+                SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
             }
 
             public override void Visit(ConvertInstruction instruction)
             {
-                SavePreState(instruction, FreshCurrent());
-                var nstate = FreshCurrent();
+                #region deprecated
+                //SavePreState(instruction, FreshCurrent());
+                //var nstate = FreshCurrent();
+                
+                //if (instruction.HasResult && PossiblyRow(instruction.Result.Type))
+                //{
+                //    ProjectState(nstate, instruction.Result, instruction.Operand);
+                //}
 
-                if (PossiblyRow(instruction.Result.Type))
-                {
-                    if (nstate.Escaped(instruction.Operand))
-                        UpdateState(nstate, instruction.Result, instruction);
-                }
+                //SetCurrent(nstate);
+                //SavePostState(instruction, FreshCurrent());
+                #endregion
 
-                SetCurrent(nstate);
-                SavePostState(instruction, FreshCurrent());
+                Default(instruction);
             }
 
             public override void Visit(InitializeMemoryInstruction instruction)
             {
                 SavePreState(instruction, FreshCurrent());
                 var nstate = FreshCurrent();
-
+                
                 if (PossiblyRow(instruction.Value.Type))
-                    UpdateState(nstate, instruction.Value, instruction);
+                    SetEscaped(nstate, instruction.Value, instruction);
 
                 SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
@@ -734,38 +944,30 @@ namespace ScopeAnalyzer
 
             public override void Visit(PhiInstruction instruction)
             {
-                SavePreState(instruction, FreshCurrent());
-                var nstate = FreshCurrent();
+                #region deprecated
+                //SavePreState(instruction, FreshCurrent());
+                //var nstate = FreshCurrent();
 
-                if (instruction.HasResult && PossiblyRow(instruction.Result.Type))
-                {
-                    foreach (var v in instruction.Arguments)
-                    {
-                        if (nstate.Escaped(v))
-                        {
-                            UpdateState(nstate, instruction.Result, instruction);
-                            break;
-                        }
-                    }
-                }
+                //if (instruction.HasResult && PossiblyRow(instruction.Result.Type))
+                //{
+                //    foreach (var v in instruction.Arguments)
+                //    {
+                //        if (nstate.Escaped(v))
+                //        {
+                //            SetEscaped(nstate, instruction.Result, instruction);
+                //            break;
+                //        }
+                //    }
+                //}
 
-                SetCurrent(nstate);
-                SavePostState(instruction, FreshCurrent());
+                //SetCurrent(nstate);
+                //SavePostState(instruction, FreshCurrent());
+                #endregion
+                Default(instruction);
             }
 
             #endregion
 
-
-            //private IFieldDefinition MatchFieldDefinition(IFieldReference fref)
-            //{
-            //    foreach (var fdef in parent.TrackedFields)
-            //    {
-            //        if (fref.Name != fdef.Name) continue;
-            //        var resolved = fref.Resolve(parent.Host);
-            //        if (resolved.Equals(fdef)) return fdef;
-            //    }
-            //    return null;
-            //}
 
             private bool IsFieldTracked(IFieldReference field)
             {
@@ -781,36 +983,88 @@ namespace ScopeAnalyzer
             }
 
 
+
+            private void SetEscaped(ScopeEscapeDomain state, IVariable v, Instruction instruction)
+            {
+                someRowEscaped = true;
+                state.SetAllEscaped();
+                // TODO: refine the above with aliasing information.
+            }
+
+
+            private void SetAllEscaped(ScopeEscapeDomain state)
+            {
+                someRowEscaped = true;
+                state.SetAllEscaped();
+                // TODO: refine the above with aliasing information.
+            }
+
+
+            #region deprecated
+            private void SetEscaped(ScopeEscapeDomain state, IFieldReference fdef, Instruction instruction, bool definiteEscaped = true)
+            {
+                someRowEscaped = definiteEscaped;
+                state.SetAllEscaped();
+                // TODO: refine the above with the following line of code and aliasing information.
+                //state.Escape(fdef);
+            }
+
+            private void ProjectState(ScopeEscapeDomain state, IVariable dest, IFieldReference src, bool definiteEscaped = true)
+            {
+                if (state.Escaped(src))
+                {
+                    someRowEscaped = definiteEscaped;
+                    state.Escape(dest);
+                }
+                else
+                {
+                    state.Return(dest);
+                }
+            }
+
+            private void ProjectState(ScopeEscapeDomain state, IFieldReference dest, IVariable src, bool definiteEscaped = true)
+            {
+                if (state.Escaped(src))
+                {
+                    someRowEscaped = definiteEscaped;
+                    state.Escape(dest);
+                }
+                else
+                {
+                    state.Return(dest);
+                }
+            }
+
+            private void ProjectState(ScopeEscapeDomain state, IVariable dest, IVariable src, bool definiteEscaped = true)
+            {
+                if (state.Escaped(src))
+                {
+                    someRowEscaped = definiteEscaped;
+                    state.Escape(dest);
+                }
+                else
+                {
+                    state.Return(dest);
+                }
+            }
+            #endregion
+
+
             private bool PossiblyRow(ITypeReference type)
             {
                 return parent.PossiblyRow(type);
+            }
+
+
+            public bool SomeRowEscaped
+            {
+                get { return someRowEscaped; }
             }
 
             public ScopeEscapeDomain State
             {
                 get { return currentState; }
                 set { currentState = value; }
-            }
-
-            private void UpdateState(ScopeEscapeDomain state, IVariable v, Instruction instruction)
-            {
-                state.SetAllEscaped();
-                // TODO: refine the above with the following line of code
-                // and aliasing information.
-                //state.Escape(fdef);
-            }
-
-            private void UpdateState(ScopeEscapeDomain state, IFieldReference fdef, Instruction instruction)
-            {
-                state.SetAllEscaped();
-                // TODO: refine the above with the following line of code
-                // and aliasing information.
-                //state.Escape(fdef);
-            }
-
-            private void UpdateStateEscaped(ScopeEscapeDomain state)
-            {
-                state.SetAllEscaped();
             }
 
             private void SetCurrent(ScopeEscapeDomain state)

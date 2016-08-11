@@ -19,13 +19,13 @@ namespace BulkScopeAnalyzer
 
         static void DoParallel()
         {
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
-            string mainFolder = @"\\MADANM2\parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug";
+            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            //string mainFolder = @"\\MADANM2\parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug";
             var subdirs = SubDirectoryPaths(mainFolder);
             var dlls = new List<string>();
             foreach (var subdir in subdirs) dlls.AddRange(LibraryPaths(subdir));
 
-            string libPath = @"\\MADANM2\\parasail\\ScopeSurvey\\ScopeMapAccess\\bin\\LocalDebug";
+            string libPath = @"\\MADANM2\\parasail\\ScopeSurvey\\ScopeMapAccess\\bin\\LocalDebug2";
             string scopeAnalyzer = @"C:\\Users\\t-zpavli\\Desktop\\dfa-analysis\\zvonimir\\analysis-net\\ScopeAnalyzer\\bin\\Debug\\ScopeAnalyzer.exe";
             string outputPrefix = @"C:\\Users\\t-zpavli\\Desktop\\test output\\";
             Console.WriteLine(String.Format("Analyzing {0} Scope projects with {1} dlls\n", subdirs.Length, dlls.Count));

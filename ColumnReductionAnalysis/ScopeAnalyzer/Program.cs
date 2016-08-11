@@ -133,12 +133,12 @@ namespace ScopeAnalyzer
                     stats.UnsupportedMethods += interestingMethods.Where(r => r.Unsupported).ToList().Count;
                     
                     stats.NotEscapeDummies += interestingMethods.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
-                    stats.NotCPropagationDummies += interestingMethods.Where(r => !r.CPropagationSummary.IsTop).ToList().Count;
+                    stats.NotCPropagationDummies += interestingMethods.Where(r => r.CPropagationSummary != null && !r.CPropagationSummary.IsTop).ToList().Count;
                     stats.NotColumnDummies += interestingMethods.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom).ToList().Count;
 
                     Utils.WriteLine("\n====== Done analyzing the assembly  =========\n");
                 }
-                catch (ScopeAnalysis.NotInterestingScopeScript e)
+                catch (ScopeAnalysis.MissingScopeMetadataException e)
                 {
                     Utils.WriteLine("ASSEMBLY WARNING: " + e.Message);
                 }

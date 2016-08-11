@@ -45,9 +45,9 @@ namespace ScopeAnalyzer
     class ScopeAnalysis : MetadataTraverser
     {
 
-        public class NotInterestingScopeScript : Exception
+        public class MissingScopeMetadataException : Exception
         {
-            public NotInterestingScopeScript(string message) : base(message) { }
+            public MissingScopeMetadataException(string message) : base(message) { }
         }
 
 
@@ -91,12 +91,10 @@ namespace ScopeAnalyzer
                     else if (type.FullName() == "ScopeRuntime.RowSet") rowsetTypes.Add(type);
                     else if (type.FullName() == "ScopeRuntime.ColumnData") columnTypes.Add(type);
                 }
-
-                if (reducerTypes.Any() && processorTypes.Any() && rowsetTypes.Any() && rowTypes.Any() && columnTypes.Any()) continue;
             }
 
             if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || !rowTypes.Any() || !columnTypes.Any())
-                throw new NotInterestingScopeScript(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}",
+                throw new MissingScopeMetadataException(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}",
                                                       reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count));
         }
 
@@ -143,15 +141,23 @@ namespace ScopeAnalyzer
                     Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
                                  
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
-                    var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
+                    methodResult.Unsupported = escAnalysis.Unsupported;
 
-                    var escInfo = new NaiveScopeEscapeInfoProvider(escAnalysis.PostResults, mhost, rowTypes, rowsetTypes);
-                    var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
+                    // If some row has escaped, there is nothing do afterwards.
+                    if (escAnalysis.InterestingRowEscaped)
+                    {
+                        Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
+                        methodResult.UsedColumnsSummary = ColumnsDomain.Top;                     
+                    }
+                    else
+                    {
+                        var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
+                        var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
 
-                    var clsAnalysis = DoUsedColumnsAnalysis(cfg, escInfo, cspInfo, methodResult);
-
-                    methodResult.Unsupported = escAnalysis.Unsupported | cspAnalysis.Unsupported | clsAnalysis.Unsupported;
-
+                        var clsAnalysis = DoUsedColumnsAnalysis(cfg, cspInfo, methodResult);
+                        methodResult.Unsupported = cspAnalysis.Unsupported | clsAnalysis.Unsupported;
+                    }
+                  
                     Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
                     Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
                     Utils.WriteLine("\n--------------------------------------------------\n");
@@ -160,11 +166,6 @@ namespace ScopeAnalyzer
                 {
                     methodResult.Interesting = false;
                 }
-            }
-            catch (ScopeAnalysis.NotInterestingScopeScript e)
-            {
-                Utils.WriteLine(String.Format("{0} METHOD WARNING: {1}", methodDefinition.FullName(), e.Message));
-                methodResult.Interesting = false;
             }
             catch (Exception e)
             {
@@ -183,8 +184,8 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running escape analysis...");
             var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
-            Utils.WriteLine(results.EscapeSummary.ToString());
-            Utils.WriteLine("Done with escape analysis\n");
+            Utils.WriteLine("Something escaped: " + escAnalysis.InterestingRowEscaped);
+            Utils.WriteLine("Done with escape analysis\n");          
             return escAnalysis;
         }
 
@@ -198,11 +199,11 @@ namespace ScopeAnalyzer
             return cpsAnalysis;
         }
 
-        private UsedColumnsAnalysis DoUsedColumnsAnalysis(ControlFlowGraph cfg, EscapeInfoProvider escInfo, ConstantsInfoProvider cspInfo, ScopeMethodAnalysisResult results)
+        private UsedColumnsAnalysis DoUsedColumnsAnalysis(ControlFlowGraph cfg, ConstantsInfoProvider cspInfo, ScopeMethodAnalysisResult results)
         {
-            Utils.WriteLine("Running used columns analysis...");
-            var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, escInfo, cspInfo, rowTypes, columnTypes);
-            var outcome = clsAnalysis.Analyze();
+            Utils.WriteLine("Running used columns analysis...");         
+            var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowTypes, columnTypes);
+            var outcome = clsAnalysis.Analyze();      
             results.UsedColumnsSummary = outcome;
             Utils.WriteLine(results.UsedColumnsSummary.ToString());
             Utils.WriteLine("Done with used columns analysis\n");
@@ -278,17 +279,13 @@ namespace ScopeAnalyzer
             // Method needs to be contained in nested Reducer or Processor subclass.
             if (!(rmtype is INestedTypeDefinition)) return false;
             var type = (rmtype as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
-            if (reducerTypes.All(rt => !type.SubtypeOf(rt)) && processorTypes.All(pt => !type.SubtypeOf(pt))) return false;
+            if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && processorTypes.All(pt => !type.SubtypeOf(pt, mhost))) return false;
             // We are currently focusing on MoveNext methods only.
             if (!method.FullName().EndsWith(".MoveNext()")) return false;
            
             // This is just a sanity check. TODO: too specific? What if compiler changes?
             var name = method.ContainingType.Name();           
             if (!name.StartsWith("<Reduce>") && !name.StartsWith("<Process>")) return false;
-
-            //CVS specific, only for initial developement.
-            //var fname = method.ContainingType.FullName();
-            //if (!fname.Contains("CVBase")) return false;
 
             return true;
         }
@@ -299,24 +296,17 @@ namespace ScopeAnalyzer
         private class NaiveScopeEscapeInfoProvider : EscapeInfoProvider
         {
             Dictionary<Instruction, ScopeEscapeDomain> info;
-            IMetadataHost host;
-            List<ITypeDefinition> rowType;
-            List<ITypeDefinition> rowsetType;
+            NaiveScopeMayEscapeAnalysis analysis;
 
-            public NaiveScopeEscapeInfoProvider(Dictionary<Instruction, ScopeEscapeDomain> results, IMetadataHost h,
-                                         List<ITypeDefinition> rowt, List<ITypeDefinition> rowsett)
+            public NaiveScopeEscapeInfoProvider(NaiveScopeMayEscapeAnalysis ans)
             {
-                info = results;
-                host = h;
-
-                rowType = rowt;
-                rowsetType = rowsett;
+                analysis = ans;
+                info = analysis.PostResults;           
             }
 
             public bool Escaped(Instruction instruction, IVariable var)
             {
-                var rtype = var.Type.Resolve(host);
-                if (!NaiveScopeMayEscapeAnalysis.PossiblyRow(rtype, rowType, rowsetType, host)) return true;
+                if (!analysis.PossiblyRow(var.Type)) return true;
 
                 var domain = info[instruction];
                 if (domain.IsTop) return true;
@@ -325,8 +315,7 @@ namespace ScopeAnalyzer
 
             public bool Escaped(Instruction instruction, IFieldReference field)
             {
-                var rtype = field.Type.Resolve(host);
-                if (!NaiveScopeMayEscapeAnalysis.PossiblyRow(rtype, rowType, rowsetType, host)) return true;
+                if (!analysis.PossiblyRow(field.Type)) return true;
 
                 var domain = info[instruction];
                 if (domain.IsTop) return true;
