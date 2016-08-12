@@ -1,19 +1,22 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using Model;
 using Model.Types;
 using Backend.Analyses;
 using Backend.Serialization;
-using Backend.Transformations;
 using Backend.Model;
 using Backend.Utils;
 using Model.ThreeAddressCode.Instructions;
 using Model.ThreeAddressCode.Values;
 using Model.ThreeAddressCode.Expressions;
-using System;
 
 namespace ScopeProgramAnalysis
 {
+
+    class ScopeAnalysisConstants
+    {
+        public const string SCOPE_ROW_ENUMERATOR_METHOD = "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>.GetEnumerator";
+    }
+
     class SongTaoDependencyAnalysis
     {
         private Host host;
@@ -23,12 +26,15 @@ namespace ScopeProgramAnalysis
         private MethodDefinition entryMethod;
         // private IDictionary<string,IVariable> specialFields;
         private MethodDefinition getEnumMethod;
+        private InterproceduralManager interprocManager;
 
         public SongTaoDependencyAnalysis(Host host,
+                                        InterproceduralManager interprocManager,
                                         MethodDefinition method,
                                         MethodDefinition entryMethod,
                                         MethodDefinition getEnumMethod)
         {
+            this.interprocManager = interprocManager;
             this.host = host;
             this.moveNextMethod = method;
             this.entryMethod = entryMethod;
@@ -38,24 +44,27 @@ namespace ScopeProgramAnalysis
 
         public DependencyDomain AnalyzeMoveNextMethod()
         {
+            // 1) Analyze the entry method that creates, populates  and return the clousure 
             var cfgEntry = entryMethod.DoAnalysisPhases(host);
             var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, this.entryMethod); // , this.specialFields);
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
-            var myIteratorResult = new LocalVariable("_temp_it") { Type = getEnumMethod.ReturnType };
 
-            IteratorPointsToAnalysis.DoInterProcWithCallee(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable}, myIteratorResult, this.getEnumMethod);
+            // 2) Call the GetEnumerator that may create a new clousure and polulate it
+            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.ReturnType };
+            ptgOfEntry.Add(myGetEnumResult);
+            var ptgAfterEnum = this.interprocManager.DoInterProcWithCallee(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
             //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
             //this.specialFields = specialFields.ToDictionary(item => item.Key, item => item.Value);
 
 
-            var cfg = Program.MethodCFGCache.GetCFG(this.moveNextMethod);
-            //Backend.Model.ControlFlowGraph cfg = this.moveNextMethod.DoAnalysisPhases(this.host);
-
-            this.ptAnalysisResult = IteratorPointsToAnalysis.RunInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, this.moveNextMethod, cfg).Result;
+            /// Now do MoveNext on the clousure
+            var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
+            // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
+            this.ptAnalysisResult = this.interprocManager.BindAndRunInterProcPTAAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg).Result;
 
             //var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields);
             //this.ptAnalysisResult = pointsTo.Analyze();

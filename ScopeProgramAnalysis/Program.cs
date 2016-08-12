@@ -16,11 +16,172 @@ using Backend.Analyses;
 
 namespace ScopeProgramAnalysis
 {
-    class Program
+    class MyLoader : Loader
+    {
+        private string assemblyFolder;
+        private string assemblyParentFolder;
+        private HashSet<IAssemblyReference> failedAssemblies;
+        private Assembly mainAssemably;
+
+        public MyLoader(Host host) : base(host)
+        {
+            this.failedAssemblies = new HashSet<IAssemblyReference>();
+        }
+        public Assembly LoadMainAssembly(string fileName)
+        {
+            this.assemblyFolder = Path.GetDirectoryName(fileName);
+            this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
+            cciHost.AddLibPath(assemblyFolder);
+            cciHost.AddLibPath(assemblyParentFolder);
+            this.mainAssemably = base.LoadAssembly(fileName);
+            return this.mainAssemably;
+        }
+
+
+        public Assembly TryToLoadReferencedAssembly(IAssemblyReference reference)
+        {
+            var assembly = this.ourHost.Assemblies.SingleOrDefault(a => a.MatchReference(reference));
+            if (assembly == null && !failedAssemblies.Contains(reference))
+            {
+                try
+                {
+                    AnalysisStats.TotalDllsFound++;
+                    assembly = TryToLoadAssembly(reference.Name);
+                }
+                catch (Exception e)
+                {
+                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
+                    failedAssemblies.Add(reference);
+                    throw e;
+                }
+            }
+            return assembly;
+        }
+
+        private Assembly TryToLoadAssembly(string assemblyReferenceName)
+        {
+            if(assemblyReferenceName=="mscorlib")
+            {
+                return LoadCoreAssembly();
+            }
+
+            var extensions = new string[] { ".dll", ".exe" };
+            var referencePath = "";
+            foreach (var extension in extensions)
+            {
+                referencePath = Path.Combine(assemblyFolder, assemblyReferenceName) + extension;
+                if (File.Exists(referencePath))
+                    break;
+                referencePath = Path.Combine(assemblyParentFolder, assemblyReferenceName) + extension;
+                if (File.Exists(referencePath))
+                    break;
+            }
+            //var cciAssemblyFromReference = cciHost.LoadUnitFrom(referencePath) as Cci.IModule;
+            //// var cciAssemblyFromReference = cciHost.LoadUnit(assemblyReference.AssemblyIdentity) as Cci.IAssembly;
+            //return cciAssemblyFromReference;
+            return LoadAssembly(referencePath);
+        }
+        //public Assembly LoadAssemblyAndReferences(string fileName)
+        //{
+        //    var module = cciHost.LoadUnitFrom(fileName) as Cci.IModule;
+
+        //    if (module == null || module == Cci.Dummy.Module || module == Cci.Dummy.Assembly)
+        //        throw new Exception("The input is not a valid CLR module or assembly.");
+
+        //    var pdbFileName = Path.ChangeExtension(fileName, "pdb");
+        //    Cci.PdbReader pdbReader = null;
+
+        //    if (File.Exists(pdbFileName))
+        //    {
+        //        using (var pdbStream = File.OpenRead(pdbFileName))
+        //        {
+        //            pdbReader = new Cci.PdbReader(pdbStream, cciHost);
+        //        }
+        //    }
+        //    var assembly = this.ExtractAssembly(module, pdbReader);
+
+        //    if (pdbReader != null)
+        //    {
+        //        pdbReader.Dispose();
+        //    }
+
+        //    ourHost.Assemblies.Add(assembly);
+        //    this.assemblyFolder = Path.GetDirectoryName(fileName);
+        //    this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
+        //    cciHost.AddLibPath(assemblyFolder);
+        //    cciHost.AddLibPath(assemblyParentFolder);
+
+        //    foreach (var assemblyReference in module.AssemblyReferences)
+        //    {
+        //        try
+        //        {
+        //            Cci.IModule cciAssemblyFromReference = TryToLoadCCIAssembly(assemblyReference);
+
+        //            if (cciAssemblyFromReference == null || cciAssemblyFromReference == Cci.Dummy.Assembly)
+        //                throw new Exception("The input is not a valid CLR module or assembly.");
+
+        //            var pdbLocation = cciAssemblyFromReference.DebugInformationLocation;
+        //            if (File.Exists(pdbFileName))
+        //            {
+        //                using (var pdbStream = File.OpenRead(pdbFileName))
+        //                {
+        //                    pdbReader = new Cci.PdbReader(pdbStream, cciHost);
+        //                }
+        //            }
+        //            var assemblyFromRef = this.ExtractAssembly(cciAssemblyFromReference, pdbReader);
+        //            ourHost.Assemblies.Add(assemblyFromRef);
+        //            if (pdbReader != null)
+        //            {
+        //                pdbReader.Dispose();
+        //            }
+        //        }
+        //        catch (Exception e)
+        //        {
+
+        //        }
+        //    }
+        //    return assembly;
+
+        //}
+
+
+    }
+
+    class MyHost : Host
+    {
+        public MyLoader Loader { get; set ;}
+
+        public override ITypeDefinition ResolveReference(IBasicType typeToResolve)
+        {
+            var resolvedType = base.ResolveReference(typeToResolve);
+            if (resolvedType == null)
+            {
+                try
+                {
+                    Loader.TryToLoadReferencedAssembly(typeToResolve.ContainingAssembly);
+                    resolvedType = base.ResolveReference(typeToResolve);
+                }
+                catch (Exception e)
+                {
+                    AnalysisStats.DllThatFailedToLoad.Add(typeToResolve.ContainingAssembly.Name);
+                    AnalysisStats.TotalDllsFailedToLoad++;
+                }
+
+            }
+            return resolvedType;
+        }
+        public override ITypeMemberDefinition ResolveReference(ITypeMemberReference member)
+        {
+            return base.ResolveReference(member);
+        }
+
+    }
+    public class Program
     {
         private Host host;
         private IDictionary<string, ClassDefinition> factoryReducerMap;
         private Loader loader;
+        private InterproceduralManager interprocAnalysisManager;
 
         public Assembly ScopeGenAssembly { get; private set; }
         public IEnumerable<string> ReferenceFiles { get; private set; }
@@ -35,33 +196,33 @@ namespace ScopeProgramAnalysis
             this.host = host;
             this.loader = loader;
             this.factoryReducerMap = new Dictionary<string, ClassDefinition>();
+            this.interprocAnalysisManager = new InterproceduralManager(host);
         }
 
         static void Main(string[] args)
         {
-            //const string root = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ILAnalyzer\"; // @"..\..\..";
-            //const string input = root + @"\bin\Debug\ILAnalyzer.exe";
-
-            //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
+            const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
+            // const string input = root+ @"__ScopeCodeGen__.dll";
             
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
 
+            // Mike example: FileChunker
             const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+
+            //const string input = @"D:\MadanExamples\137eda33-5443-4217-94a4-35d416fc30a9\__ScopeCodeGen__.dll";
+
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer);
 
-            //AnalyzeScopeScript(new string[] { @"D:\ScriptExamples\Files", @"D:\Temp\", "Reducer" } );
-
-            // AnalyzeScopeScript(new string[] { @"D:\MadanExamples\", @"D:\Temp\", "Reducer" });
-            
+            AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();
 
         }
 
-        enum ScopeMethodKind { Producer, Reducer };
+        public enum ScopeMethodKind { Producer, Reducer };
 
         private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind)
         {
@@ -71,43 +232,39 @@ namespace ScopeProgramAnalysis
             AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer);
         }
 
-        private static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind)
+        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind)
         {
-            var host = new Host();
+            AnalysisStats.TotalNumberFolders++;
+
+            var host = new MyHost();
             PlatformTypes.Resolve(host);
 
-            var loader = new Loader(host);
-            var scopeGenAssembly = loader.LoadAssembly(inputPath);
-            loader.SetMainAssembly(inputPath);
+            var loader = new MyLoader(host);
+            host.Loader = loader;
 
-            Program.MethodCFGCache = new Backend.Analyses.MethodCFGCache(host);
+            var scopeGenAssembly = loader.LoadMainAssembly(inputPath);
+            AnalysisStats.TotalDllsFound++;
 
             // LoadExternalReferences(referenceFiles, loader);
             //loader.LoadCoreAssembly();
 
             var program = new Program(host, loader);
 
+            program.interprocAnalysisManager = new InterproceduralManager(host);
             program.ScopeGenAssembly = scopeGenAssembly;
             program.ReferenceFiles = referenceFiles;
 
-            program.ClassFilter = "";
+            program.ClassFilter = "Reducer";
             program.ClousureFilter = "<Reduce>d__";
             program.EntryMethod = "Reduce";
 
-            //var classUnderAnalysisPrefix = "<Reduce>d__";
-
-            if (kind == ScopeMethodKind.Reducer)
-            {
-                program.ClassFilter = "Reducer";
-                //classUnderAnalysisPrefix = "<Reduce>d__";
-            }
-            else
+            if (kind == ScopeMethodKind.Producer)
             {
                 program.ClassFilter = "Producer";
                 program.ClousureFilter = "<Produce>d__";
                 program.EntryMethod = "Produce";
-                //classUnderAnalysisPrefix = "<Produce>d__";
             }
+
             program.MethodUnderAnalysisName = "MoveNext";
 
             var scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
@@ -121,7 +278,7 @@ namespace ScopeProgramAnalysis
                     var moveNextMethod = methodPair.Item2;
                     var getEnumMethod= methodPair.Item3;
                     System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
-                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, moveNextMethod, entryMethodDef, getEnumMethod);
+                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                     var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                     System.Console.WriteLine("Done!");
 
@@ -134,11 +291,14 @@ namespace ScopeProgramAnalysis
                         foreach (var outColum in depAnalysisResult.A4_Ouput.Keys)
                         {
                             var result = new Result();
-                            var columnString = depAnalysisResult.A2_Variables[outColum].SingleOrDefault().ToString();
-                            var dependsOn = depAnalysisResult.A4_Ouput[outColum].Select(traceable => traceable.ToString());
-                            result.SetProperty("column", columnString);
-                            result.SetProperty("depends", dependsOn.Union(escapes));
-                            results.Add(result);
+                            foreach(var column in depAnalysisResult.A2_Variables[outColum])
+                            {
+                                var columnString = column.ToString();
+                                var dependsOn = depAnalysisResult.A4_Ouput[outColum].Select(traceable => traceable.ToString());
+                                result.SetProperty("column", columnString);
+                                result.SetProperty("depends", dependsOn.Union(escapes));
+                                results.Add(result);
+                            }
                         }
                     }
                     else
@@ -233,7 +393,14 @@ namespace ScopeProgramAnalysis
                 }
             }
         }
-
+        /// <summary>
+        /// Analyze the ScopeFactory class to get all the Processor/Reducer classes to analyze
+        /// For each one obtain:
+        /// 1) entry point method that creates the class with the iterator clousure and populated with some data)
+        /// 2) the GetEnumerator method that creates and enumerator and polulated with data
+        /// 3) the MoveNextMethod that contains the actual reducer/producer code
+        /// </summary>
+        /// <returns></returns>
         private IEnumerable<Tuple<MethodDefinition, MethodDefinition,MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
@@ -244,7 +411,7 @@ namespace ScopeProgramAnalysis
             // Hack: use actual ScopeRuntime Types
             var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_") && m.ReturnType.ToString() == this.ClassFilter);
 
-            var referencesLoaded = false;
+            // var referencesLoaded = false;
 
             foreach (var factoryMethdod in factoryMethods)
             {
@@ -256,45 +423,62 @@ namespace ScopeProgramAnalysis
                 //    LoadExternalReferences(this.ReferenceFiles, loader);
                 //    referencesLoaded = true;
                 //}
-                ClassDefinition resolvedEntryClass = ResolveClass(reducerClass);
-                if (resolvedEntryClass != null)
+                ClassDefinition resolvedEntryClass = null;
+                try
                 {
-                    var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
-                                   .Where(c => c.Name.StartsWith(this.ClousureFilter));
-                    foreach (var candidateClousure in candidateClousures)
+                    resolvedEntryClass = host.ResolveReference(reducerClass) as ClassDefinition;
+
+                    if (resolvedEntryClass != null)
                     {
-                        var moveNextMethods = candidateClousure.Methods
-                                                    .Where(md => md.Body != null
-                                                    && md.Name.Equals(this.MethodUnderAnalysisName));
-                        var getEnumMethods = candidateClousure.Methods
-                                                    .Where(m => m.Name == "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>.GetEnumerator");
-                        foreach (var moveNextMethod in moveNextMethods)
+                        var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
+                                       .Where(c => c.Name.StartsWith(this.ClousureFilter));
+                        foreach (var candidateClousure in candidateClousures)
                         {
-                            //var moveNextMethod = methods.Single();
-                            var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
-                            var getEnumeratorMethod = getEnumMethods.Single();
-                            scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
-                            var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
-                            this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                            var moveNextMethods = candidateClousure.Methods
+                                                        .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));
+                            var getEnumMethods = candidateClousure.Methods
+                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                            foreach (var moveNextMethod in moveNextMethods)
+                            {
+                                AnalysisStats.TotalReducers++;
+
+                                var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
+                                var getEnumeratorMethod = getEnumMethods.Single();
+                                scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
+                                var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                                this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                            }
                         }
                     }
                 }
-                else
-                { }
+                catch(Exception e)
+                {
+                    AnalysisStats.TotalofDepAnalysisErrors++;
+                }
             }
             return scopeMethodPairsToAnalyze;
         }
 
-        private ClassDefinition ResolveClass(IBasicType reducerClass)
-        {
-            var resolvedClass = host.ResolveReference(reducerClass) as ClassDefinition;
-            if(resolvedClass == null)
-            {
-                loader.TryToLoadReferencedAssembly(reducerClass.ContainingAssembly);
-                resolvedClass = host.ResolveReference(reducerClass) as ClassDefinition;
-            }
-            return resolvedClass;
-        }
+        //private ClassDefinition ResolveClass(IBasicType classToResolve)
+        //{
+        //    var resolvedClass = host.ResolveReference(classToResolve) as ClassDefinition;
+        //    if(resolvedClass == null)
+        //    {
+        //        try
+        //        {
+        //            AnalysisStats.TotalDllsFound++;
+        //            loader.TryToLoadReferencedAssembly(classToResolve.ContainingAssembly);
+        //            resolvedClass = host.ResolveReference(classToResolve) as ClassDefinition;
+        //        }
+        //        catch (Exception e)
+        //        {
+        //            AnalysisStats.DllThatFailedToLoad.Add(classToResolve.ContainingAssembly.Name);
+        //            AnalysisStats.TotalDllsFailedToLoad++;
+        //        }
+                
+        //    }
+        //    return resolvedClass;
+        //}
 
         private void ValidateInputSchema(string inputPath, MethodDefinition method, Backend.Analyses.DependencyDomain dependencyResults)
         {
@@ -339,34 +523,6 @@ namespace ScopeProgramAnalysis
             File.WriteAllText(outputFilePath, sarifText);
         }
 
-        public static void AnalyzeScopeScript(string[] args)
-        {
-            var inputFolder = args[0];
-            var outputFolder = args[1];
-            var kind = args[2];
-            const string inputDllName = "__ScopeCodeGen__.dll";
-            string[] files = Directory.GetFiles(inputFolder, inputDllName, SearchOption.AllDirectories);
-            foreach (var dllToAnalyze in files)
-            {
-                System.Console.WriteLine("=========================================================================");
-                System.Console.WriteLine("Analyzing {0}", dllToAnalyze);
-                var folder = Path.GetDirectoryName(dllToAnalyze);
-                var referencesPath = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where( fp => Path.GetFileName(fp)!= inputDllName).ToList();
-                referencesPath.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-
-                string[] directories = folder.Split(Path.DirectorySeparatorChar);
-                var outputPath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".sarif");
-                
-                //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
-
-                AnalyzeDll(dllToAnalyze, referencesPath, outputPath, ScopeMethodKind.Reducer);
-                System.Console.WriteLine("=========================================================================");
-            }
-            System.Console.WriteLine("Done!");
-            System.Console.ReadKey();
-
-
-        }
     }
 
 

@@ -14,32 +14,6 @@ using Model.ThreeAddressCode.Visitor;
 
 namespace Backend.Analyses
 {
-    public class MethodCFGCache
-    {
-        private IDictionary<MethodDefinition, ControlFlowGraph> methodCFGMap;
-        private Host host;
-
-        public MethodCFGCache(Host host)
-        {
-            this.host = host;
-            this.methodCFGMap = new Dictionary<MethodDefinition, ControlFlowGraph>();
-        }
-
-        public ControlFlowGraph GetCFG(MethodDefinition method)
-        {
-            ControlFlowGraph methodCFG = null;
-            if (!this.methodCFGMap.ContainsKey(method))
-            {
-                methodCFG = method.DoAnalysisPhases(this.host);
-                this.methodCFGMap[method] = methodCFG;
-            }
-            else
-            {
-                methodCFG = this.methodCFGMap[method];
-            }
-            return methodCFG;
-        }
-    }
     // May Points-To Analysis
     public class IteratorPointsToAnalysis : ForwardDataFlowAnalysis<PointsToGraph>
     {
@@ -47,10 +21,13 @@ namespace Backend.Analyses
         {
             private PointsToGraph ptg;
             private IteratorPointsToAnalysis ptAnalysis;
+            private bool analyzeNextDelegateCtor;
+
             internal PTAVisitor(PointsToGraph ptgNode, IteratorPointsToAnalysis ptAnalysis)
             {
                 this.ptg = ptgNode;
                 this.ptAnalysis = ptAnalysis;
+                this.analyzeNextDelegateCtor = false;
             }
             public override void Visit(LoadInstruction instruction)
             {
@@ -76,6 +53,21 @@ namespace Backend.Analyses
                     var access = load.Operand as InstanceFieldAccess;
                     ptAnalysis.ProcessLoad(ptg, offset, load.Result, access);
                 }
+                else if (instruction.Operand is VirtualMethodReference)
+                {
+                    var loadDelegateStmt = instruction.Operand as VirtualMethodReference;
+                    var methodRef = loadDelegateStmt.Method;
+                    var instance = loadDelegateStmt.Instance;
+                    ptAnalysis.ProcessDelegateAddr(ptg, instruction.Offset, load.Result, methodRef, instance);
+
+                }
+                else if (instruction.Operand is StaticMethodReference)
+                {
+                    var loadDelegateStmt = instruction.Operand as StaticMethodReference;
+                    var methodRef = loadDelegateStmt.Method;
+                    ptAnalysis.ProcessDelegateAddr(ptg, instruction.Offset, load.Result, methodRef, null);
+                }
+
             }
             public override void Visit(StoreInstruction instruction)
             {
@@ -91,6 +83,12 @@ namespace Backend.Analyses
                 if (instruction is CreateObjectInstruction)
                 {
                     var allocation = instruction as CreateObjectInstruction;
+                    // hack for handling delegates
+                    if (allocation.AllocationType.IsDelegateType())
+                    {
+                        this.analyzeNextDelegateCtor = true;
+                    }
+                    // TODO: Check if we can avoid adding the node in case of delegate (it was already added in load address for method)
                     ptAnalysis.ProcessObjectAllocation(ptg, allocation.Offset, allocation.Result);
                 }
             }
@@ -107,7 +105,44 @@ namespace Backend.Analyses
             public override void Visit(MethodCallInstruction instruction)
             {
                 var methodCall = instruction as MethodCallInstruction;
+                // Hack for mapping delegates to nodes
+                if (methodCall.Method.Name == ".ctor" && this.analyzeNextDelegateCtor)
+                {
+                    ProcessDelegateCtor(methodCall);
+                    this.analyzeNextDelegateCtor = false;
+                }
             }
+
+            private void ProcessDelegateCtor(MethodCallInstruction methodCall)
+            {
+                if (methodCall.Arguments.Any())
+                {
+                    var arg0Type = methodCall.Arguments[0].Type;
+                    if (arg0Type.IsDelegateType())
+                    {
+                        ptg.RemoveEdges(methodCall.Arguments[0]);
+                        if (methodCall.Arguments.Count == 3)
+                        {
+                            // instance delegate
+                            foreach (var dn in ptg.GetTargets(methodCall.Arguments[2]).OfType<DelegateNode>())
+                            {
+                                dn.Instance = methodCall.Arguments[1];
+                                ptg.PointsTo(methodCall.Arguments[0], dn);
+                            }
+                        }
+                        else
+                        {
+                            foreach (var dn in ptg.GetTargets(methodCall.Arguments[1]).OfType<DelegateNode>())
+                            {
+                                ptg.PointsTo(methodCall.Arguments[0], dn);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
             public override void Visit(PhiInstruction instruction)
             {
                 foreach(var v in instruction.Arguments)
@@ -214,7 +249,9 @@ namespace Backend.Analyses
             PTGNode thisNode = null;
 			foreach (var variable in variables)
 			{
-				if (variable.Type.TypeKind == TypeKind.ValueType) continue;
+                // TODO: replace when Egdardo fixes type inferece
+                if (variable.Type==null || variable.Type.TypeKind == TypeKind.ValueType) continue;
+                // if (variable.Type.TypeKind == TypeKind.ValueType) continue;
 
 				if (variable.IsParameter)
 				{
@@ -313,7 +350,11 @@ namespace Backend.Analyses
                 if (!hasField)
 				{
                     // ptg.PointsTo(node, access.Field, ptg.Null);
-                    if (MayReacheableFromParameter(ptg, node))
+                    if (!MayReacheableFromParameter(ptg, node))
+                    {
+                        System.Console.WriteLine("In {0}:{1:X4} there is of something not parameter and has no node", this.method, offset);
+                    }
+
                     {
                         var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
                         // TODO: Should be a LOAD NODE
@@ -353,68 +394,21 @@ namespace Backend.Analyses
 				}
         }
 
-		private PTGNode NewNode(PointsToGraph ptg, PTGID ptgID, IType type, PTGNodeKind kind = PTGNodeKind.Object)
+        protected void ProcessDelegateAddr(PointsToGraph ptg, uint offset, IVariable dst, IMethodReference methodRef, IVariable instance)
+        {
+            var ptgID = new PTGID(new MethodContex(this.method), (int)offset);
+            var delegateNode = new DelegateNode(ptgID, methodRef, instance);
+            ptg.Add(delegateNode);
+            ptg.RemoveEdges(dst);
+            ptg.PointsTo(dst, delegateNode);
+        }
+
+
+        private PTGNode NewNode(PointsToGraph ptg, PTGID ptgID, IType type, PTGNodeKind kind = PTGNodeKind.Object)
 		{
 			PTGNode node;
             node = ptg.GetNode(ptgID, type, kind);
             return node;
 		}
-
-
-        public static  void DoInterProcWithCallee(PointsToGraph ptg, IList<IVariable> arguments, IVariable result, MethodDefinition resolvedCallee)
-        {
-            if (resolvedCallee.Body.Instructions.Any())
-            {
-                ControlFlowGraph calleeCFG = ScopeProgramAnalysis.Program.MethodCFGCache.GetCFG(resolvedCallee);
-                InterproceduralAnalysis(ptg, arguments, result, resolvedCallee, calleeCFG);
-            }
-        }
-
-        /// <summary> 	Backend.dll!Backend.Analyses.ForwardDataFlowAnalysis<Program.PropagatedInput>.Analyze() Line 86	C#
-
-        /// This does the interprocedural analysis. 
-        /// It (currently) does NOT support recursive method invocations
-        /// </summary>
-        /// <param name="instruction"></param>
-        /// <param name="resolvedCallee"></param>
-        /// <param name="calleeCFG"></param>
-        private static void InterproceduralAnalysis(PointsToGraph ptg,  IList<IVariable> arguments, IVariable result,  MethodDefinition resolvedCallee,
-                                             ControlFlowGraph calleeCFG)
-        {
-            IteratorPointsToAnalysis pta = RunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
-
-            BindInterProcAnalysisWithCaller(result, calleeCFG, pta);
-        }
-
-        private static void BindInterProcAnalysisWithCaller(IVariable result, ControlFlowGraph calleeCFG, IteratorPointsToAnalysis pta)
-        {
-            var exitPTG = pta.Result[calleeCFG.Exit.Id].Output;
-            if (result != null)
-            {
-                //this.State.VarTraceables.AddRange(instruction.Result, exitResult.VarTraceables[pta.ReturnVariable]);
-                exitPTG.RestoreFrame(pta.ReturnVariable, result);
-            }
-            else
-            {
-                exitPTG.RestoreFrame();
-            }
-        }
-
-        public static IteratorPointsToAnalysis RunInterProcAnalysis(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
-        {
-            var bindPtg = ptg.Clone();
-            var argParamMap = new Dictionary<IVariable, IVariable>();
-            // Bind parameters with arguments in PTA
-            for (int i = 0; i < arguments.Count(); i++)
-            {
-                argParamMap[arguments[i]] = resolvedCallee.Body.Parameters[i];
-            }
-            bindPtg.NewFrame(argParamMap);
-
-            // Compute PT analysis for callee
-            var pta = new IteratorPointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
-            pta.Analyze();
-            return pta;
-        }
     }
 }
