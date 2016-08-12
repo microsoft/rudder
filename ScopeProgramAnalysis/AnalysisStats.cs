@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Backend.Utils;
+using Model;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +8,23 @@ using System.Threading.Tasks;
 
 namespace ScopeProgramAnalysis
 {
+    public struct AnalysisReason
+    {
+        public AnalysisReason(string methodName, IInstruction ins, string reason)
+        {
+            this.MethodName = methodName;
+            this.Instruction = ins;
+            this.Reason = reason;
+        }
+        public string MethodName { get; set; }
+        public IInstruction Instruction { get; set; }
+        public string Reason { get; set; }
+        public override string ToString()
+        {
+            return String.Format("{0}:{1} = [{2}]", MethodName, Instruction.ToString(), Reason);
+        }
+
+    }
     public class AnalysisStats
     {
         public static int TotalNumberFolders { get; set; }
@@ -19,8 +38,16 @@ namespace ScopeProgramAnalysis
         public static int TotalofPTAErrors{ get; set; }
         public static int TotalofDepAnalysisErrors { get; set; }
 
+        public static string CurrentScript = "NoSet";
+
         //public static Dictionary<string, int> DllThatFailedToLoad = new Dictionary<string, int>();
         public static ISet<string> DllThatFailedToLoad = new HashSet<string> ();
+
+        public static MapSet<string, AnalysisReason> AnalysisReasons = new MapSet<string, AnalysisReason>();
+        public static void AddAnalysisReason(AnalysisReason reason)
+        {
+            AnalysisReasons.Add(CurrentScript, reason);
+        }
 
         public static void  PrintStats(System.IO.TextWriter output)
         {

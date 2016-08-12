@@ -54,7 +54,7 @@ namespace ScopeProgramAnalysis
             // 2) Call the GetEnumerator that may create a new clousure and polulate it
             var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.ReturnType };
             ptgOfEntry.Add(myGetEnumResult);
-            var ptgAfterEnum = this.interprocManager.DoInterProcWithCallee(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
+            var ptgAfterEnum = this.interprocManager.PTADoInterProcWithCallee(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
             //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
@@ -64,14 +64,14 @@ namespace ScopeProgramAnalysis
             /// Now do MoveNext on the clousure
             var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
-            this.ptAnalysisResult = this.interprocManager.BindAndRunInterProcPTAAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg).Result;
+            this.ptAnalysisResult = this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg).Result;
 
             //var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields);
             //this.ptAnalysisResult = pointsTo.Analyze();
 
             // var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields, ptgOfEntry);
 
-            this.PropagateExpressions(cfg);
+            PropagateExpressions(cfg, this.equalities);
             var result = this.AnalyzeScopeMethods(cfg, ptAnalysisResult);
 
             //var sorted_nodes = cfg.ForwardOrder;
@@ -91,7 +91,7 @@ namespace ScopeProgramAnalysis
             var result = iteratorAnalysis.Analyze();
 
             // var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.equalities);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.equalities, this.interprocManager);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;
@@ -106,23 +106,23 @@ namespace ScopeProgramAnalysis
         }
 
         #region Methods to Compute a sort of propagation of Equalities (should be moved to extensions or utils)
-        private void PropagateExpressions(ControlFlowGraph cfg)
+        public static void PropagateExpressions(ControlFlowGraph cfg, IDictionary<IVariable, IExpression> equalities)
         {
             foreach (var node in cfg.ForwardOrder)
             {
-                this.PropagateExpressions(node);
+                PropagateExpressions(node, equalities);
             }
         }
 
-        private void PropagateExpressions(CFGNode node)
+        private static void PropagateExpressions(CFGNode node, IDictionary<IVariable, IExpression> equalities)
         {
             foreach (var instruction in node.Instructions)
             {
-                this.PropagateExpressions(instruction);
+                PropagateExpressions(instruction, equalities);
             }
         }
 
-        private void PropagateExpressions(IInstruction instruction)
+        private static void PropagateExpressions(IInstruction instruction, IDictionary<IVariable, IExpression> equalities)
         {
             var definition = instruction as DefinitionInstruction;
 

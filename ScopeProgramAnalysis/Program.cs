@@ -204,11 +204,12 @@ namespace ScopeProgramAnalysis
         {
             const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
             // const string input = root+ @"__ScopeCodeGen__.dll";
-            
+
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
 
             // Mike example: FileChunker
-            const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+            const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+            //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
 
             //const string input = @"D:\MadanExamples\137eda33-5443-4217-94a4-35d416fc30a9\__ScopeCodeGen__.dll";
 
@@ -251,7 +252,7 @@ namespace ScopeProgramAnalysis
 
             var program = new Program(host, loader);
 
-            program.interprocAnalysisManager = new InterproceduralManager(host);
+            // program.interprocAnalysisManager = new InterproceduralManager(host);
             program.ScopeGenAssembly = scopeGenAssembly;
             program.ReferenceFiles = referenceFiles;
 
@@ -521,7 +522,13 @@ namespace ScopeProgramAnalysis
             };
 
             var sarifText = JsonConvert.SerializeObject(log, settings);
-            File.WriteAllText(outputFilePath, sarifText);
+            try {
+                File.WriteAllText(outputFilePath, sarifText);
+            }
+            catch (Exception e)
+            {
+                System.Console.Out.Write("Could not write the file: {0}", outputFilePath);
+            }
         }
 
     }

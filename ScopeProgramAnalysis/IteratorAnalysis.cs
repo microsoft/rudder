@@ -12,6 +12,7 @@ using Backend.Utils;
 using Model.Types;
 using Model;
 using System.Globalization;
+using ScopeProgramAnalysis;
 
 namespace Backend.Analyses
 {
@@ -565,7 +566,7 @@ namespace Backend.Analyses
             internal DependencyDomain State { get; private set; }
             private PointsToGraph ptg;
             private CFGNode cfgNode;
-            
+            private MethodDefinition method;
 
             public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
                                    ScopeInfo scopeData, PointsToGraph ptg, DependencyDomain oldInput)
@@ -577,6 +578,7 @@ namespace Backend.Analyses
                 this.State = oldInput;
                 this.ptg = ptg;
                 this.cfgNode = cfgNode;
+                this.method = this.iteratorDependencyAnalysis.method;
             }
 
             private bool IsClousureParamerField(IFieldAccess fieldAccess)
@@ -613,10 +615,10 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                if(IsClousureParamerField(fieldAccess))
-                {
-                    return true;
-                }
+                //if(IsClousureParamerField(fieldAccess))
+                //{
+                //    return true;
+                //}
 
                 if (fieldAccess.Instance.Type.ToString()== this.iteratorDependencyAnalysis.iteratorClass.Name) 
                     // && !fieldAccess.FieldName.StartsWith.Contains("<>1__state"))
@@ -723,14 +725,23 @@ namespace Backend.Analyses
                 // These cases should be handled with care (escape?)
                 else if (loadStmt.Operand is Reference)
                 {
-                    this.State.IsTop = true;
+                    if (IsScopeType((loadStmt.Operand as Reference).Type))
+                    {
+                        this.State.IsTop = true;
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Reference not Supported"));
+                     }
                 }
                 else if (loadStmt.Operand is Dereference)
                 {
-                    this.State.IsTop = true;
+                    if (IsScopeType((loadStmt.Operand as Dereference).Reference.Type))
+                    {
+                        this.State.IsTop = true;
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Dereference not Supported"));
+                    }
                 }
                 else if(loadStmt.Operand is IndirectMethodCallExpression)
                 {
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Indirect method invocation not Supported"));
                     this.State.IsTop = true;
                 }
                 else if (loadStmt.Operand is StaticMethodReference || loadStmt.Operand is VirtualMethodReference)
@@ -740,17 +751,19 @@ namespace Backend.Analyses
                     // TODO: Hack. I need to check for private fields and properly model 
                     if (this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == delegateRef.Method.ContainingType.Name)
                     {
-
                         // this is an internal static field for holding lambdas 
                         // I should track this in the future
                     }
                     else
                     {
-                        this.State.IsTop = true;
+                        // I will accept load delegate. I will complain in the invocation if cannot handle it 
+                        //AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load delegate"));
+                        //this.State.IsTop = true;
                     }
                 }
                 else
                 {
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load"));
                     this.State.IsTop = true;
                 }
             }
@@ -800,6 +813,7 @@ namespace Backend.Analyses
                 {
                     if (!fieldAccess.Field.ContainingType.Equals(PlatformTypes.String))
                     {
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Static store insturuction not Supported"));
                         this.State.IsTop = true;
                     }
                 }
@@ -866,6 +880,12 @@ namespace Backend.Analyses
                 }
                 else if(instruction.Result is Dereference)
                 {
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store Deference"));
+                    this.State.IsTop = true;
+                }
+                else
+                {
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store"));
                     this.State.IsTop = true;
                 }
 
@@ -902,8 +922,17 @@ namespace Backend.Analyses
                             else
                             {
                                 // Should I do this?
-                                UpdateUsingDefUsed(methodCallStmt);
 
+                                var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
+                                foreach (var resolvedCallee in computedCalles.Item1)
+                                {
+                                    var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(this.State,ptg, 
+                                                    instruction.Arguments, instruction.Result, resolvedCallee);
+                                    this.State = interProcResult.Item1;
+                                    ptg = interProcResult.Item2;
+                                }
+
+                                UpdateUsingDefUsed(methodCallStmt);
 
                                 foreach (var arg  in methodCallStmt.Arguments)
                                 {
@@ -914,6 +943,8 @@ namespace Backend.Analyses
                                         if (escapingPT)
                                         {
                                             this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(arg));
+                                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Method not analyzed"));
+                                            this.State.IsTop = true;
                                         }
                                     }
                                 }
@@ -937,7 +968,11 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                if(containingType is BasicType && metodCallStmt.Method.Name==".ctor")
+                if (containingType.Name == "Tuple")
+                {
+                    return true;
+                }
+                if (containingType is BasicType && metodCallStmt.Method.Name==".ctor")
                 {
                     return true;
                 }
@@ -973,7 +1008,7 @@ namespace Backend.Analyses
             private bool AnalyzeCollectionMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count" };
-                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count" };
+                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy"};
                  
 
                 var result = true;
@@ -1008,6 +1043,24 @@ namespace Backend.Analyses
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
                     this.State.A2_Variables.AddRange(arg0, new HashSet<Traceable>(GetTraceablesFromA2_Variables(arg1)));
+                }
+                else if (methodInvoked.Name == "get_Current" 
+                    && (methodInvoked.ContainingType.Name == "IEnumerator"))
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    AssignTraceables(arg, methodCallStmt.Result);
+                }
+                else if (methodInvoked.Name == "MoveNext"
+                    && (methodInvoked.ContainingType.Name == "IEnumerator"))
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    AssignTraceables(arg, methodCallStmt.Result);
+                }
+                else if (methodInvoked.Name == "GetEnumerator"
+                    && (methodInvoked.ContainingType.Name == "IEnumerable"))
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    AssignTraceables(arg, methodCallStmt.Result);
                 }
                 else
                 {
@@ -1054,21 +1107,16 @@ namespace Backend.Analyses
                     AssignTraceables(arg, methodCallStmt.Result);
                     
                     // TODO: Do I need this?
-                    var rows = equalities.GetValue(arg) as MethodCallExpression;
-                    //var inputTable = equalities.GetValue(rows.Arguments[0]);
-                    //if (arg == scopeData.row)
-                    //{
-                    //    scopeData.rowEnum = methodCallStmt.Result;
-                    //}
-                    //var access = scopeData.schemaMap[arg] as InstanceFieldAccess;
-
+                    var rows = equalities.GetValue(arg) as MethodCallExpression; 
                     UpdateSchemaMap(methodCallStmt.Result, rows.Arguments[0]);
                     
                     // scopeData.schemaMap[methodCallStmt.Result] = inputTable;
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "get_Current" && methodInvoked.ContainingType.GenericName == "IEnumerator<Row>")
+                else if (methodInvoked.Name == "get_Current" 
+                    && ( methodInvoked.ContainingType.GenericName == "IEnumerator<Row>")
+                         || methodInvoked.ContainingType.GenericName == "IEnumerator<ScopeMapUsage>")
                 {
                     var arg = methodCallStmt.Arguments[0];
                     AssignTraceables(arg, methodCallStmt.Result);
@@ -1293,10 +1341,14 @@ namespace Backend.Analyses
         // private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
         private MethodDefinition method;
+        private InterproceduralManager interproceduralManager;
+
+        public DataFlowAnalysisResult<DependencyDomain>[] Result { get; private set; }
 
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
                                             // IDictionary<string, IVariable> specialFields, 
-                                            IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
+                                            IDictionary<IVariable, IExpression> equalitiesMap,
+                                            InterproceduralManager interprocManager) : base(cfg)
         {
             this.method = method;
             this.iteratorClass = method.ContainingType;
@@ -1304,6 +1356,13 @@ namespace Backend.Analyses
             this.ptgs = ptgs;
             this.equalities = equalitiesMap;
             this.scopeData = new ScopeInfo();
+            this.interproceduralManager = interprocManager;
+        }
+
+        public override DataFlowAnalysisResult<DependencyDomain>[] Analyze()
+        {
+            this.Result = base.Analyze();
+            return this.Result;
         }
 
         protected override DependencyDomain InitialValue(CFGNode node)
