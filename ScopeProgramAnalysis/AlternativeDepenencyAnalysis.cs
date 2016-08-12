@@ -14,6 +14,7 @@ using Backend.Analyses;
 using Model.ThreeAddressCode.Expressions;
 using Backend.Serialization;
 using Backend.Utils;
+using System.Globalization;
 
 namespace ScopeProgramAnalysis
 {
@@ -285,7 +286,7 @@ namespace ScopeProgramAnalysis
                     if (access.Field.Name == "<>1__state")
                     {
                         res = true;
-                        state = int.Parse(this.equalities[storeStmt.Operand].ToString());
+                        state = int.Parse(this.equalities[storeStmt.Operand].ToString(), CultureInfo.InvariantCulture);
 
                     }
                 }
@@ -432,7 +433,7 @@ namespace ScopeProgramAnalysis
         }
         public override string ToString()
         {
-            return String.Format("{0}:{1}.{2}", SymbolicObject.Id, SymbolicObject.Type, Traceable);
+            return String.Format(CultureInfo.InvariantCulture, "{0}:{1}.{2}", SymbolicObject.Id, SymbolicObject.Type, Traceable);
         }
     }
 
@@ -458,7 +459,7 @@ namespace ScopeProgramAnalysis
             var result = "";
             foreach (var n in graph.Nodes)
             {
-                result += String.Format("{0}->{1}\n", n.Data, n.Successors.Select(n2 => n2.Data).ToArray());
+                result += String.Format(CultureInfo.InvariantCulture, "{0}->{1}\n", n.Data, n.Successors.Select(n2 => n2.Data).ToArray());
             }
             return result;
         }

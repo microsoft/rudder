@@ -11,6 +11,7 @@ using static Backend.Analyses.IteratorState;
 using Backend.Utils;
 using Model.Types;
 using Model;
+using System.Globalization;
 
 namespace Backend.Analyses
 {
@@ -109,7 +110,7 @@ namespace Backend.Analyses
                     var access = storeStmt.Result as InstanceFieldAccess;
                     if (access.Field.Name == "<>1__state")
                     {
-                        State.IntState = (IteratorInternalState)int.Parse(this.equalities.GetValue(storeStmt.Operand).ToString());
+                        State.IntState = (IteratorInternalState)int.Parse(this.equalities.GetValue(storeStmt.Operand).ToString(), CultureInfo.InvariantCulture);
                     }
                 }
             }
@@ -182,13 +183,14 @@ namespace Backend.Analyses
         }
         public override string ToString()
         {
-            return String.Format("Table({0})", TableName);
+            return String.Format(CultureInfo.InvariantCulture, "Table({0})", TableName);
         }
 
     }
 
     public class ColumnDomain
     {
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
         public static readonly ColumnDomain TOP = new ColumnDomain(-2) { ColumnName = "__TOP__", IsTOP = true }; 
         public string ColumnName { get; private set; }
         public int ColumnPosition { get; private set; }
@@ -223,7 +225,7 @@ namespace Backend.Analyses
             }
             else
             {
-                return ColumnPosition.ToString();
+                return ColumnPosition.ToString(CultureInfo.InvariantCulture);
             }
         }
         public override bool Equals(object obj)
@@ -254,7 +256,7 @@ namespace Backend.Analyses
         }
         public override string ToString()
         {
-            return String.Format("Col({0},{1})", TableName, Column);
+            return String.Format(CultureInfo.InvariantCulture, "Col({0},{1})", TableName, Column);
         }
         public override bool Equals(object obj)
         {
@@ -275,7 +277,7 @@ namespace Backend.Analyses
         }
         public override string ToString()
         {
-            return String.Format("Col({0},{1})",TableName, Column);
+            return String.Format(CultureInfo.InvariantCulture, "Col({0},{1})", TableName, Column);
         }
         public override bool Equals(object obj)
         {
@@ -297,7 +299,7 @@ namespace Backend.Analyses
         }
         public override string ToString()
         {
-            return String.Format("Col({0},{1})", TableName, Column);
+            return String.Format(CultureInfo.InvariantCulture, "Col({0},{1})", TableName, Column);
         }
         public override bool Equals(object obj)
         {
@@ -318,7 +320,7 @@ namespace Backend.Analyses
         }
         public override string ToString()
         {
-            return String.Format("RC({0})" , TableName);
+            return String.Format(CultureInfo.InvariantCulture, "RC({0})", TableName);
         }
         public override int GetHashCode()
         {
@@ -515,12 +517,12 @@ namespace Backend.Analyses
             result += "A3\n";
             foreach (var var in this.A3_Clousures.Keys)
             {
-                result += String.Format("{0}:{1}\n", var, ToString(A3_Clousures[var]));
+                result += String.Format(CultureInfo.InvariantCulture, "{0}:{1}\n", var, ToString(A3_Clousures[var]));
             }
             result += "A4\n";
             foreach (var var in this.A4_Ouput.Keys)
             {
-                result += String.Format("({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput[var]));
+                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput[var]));
                 //result += String.Format("{0}:{1}\n", var, ToString(A4_Ouput[var]));
             }
             result += "Escape\n";
