@@ -133,17 +133,30 @@ namespace ScopeProgramAnalysis
             {
                 if (exitResult.A2_Variables.ContainsKey(resolvedCallee.Body.Parameters[i]))
                 {
-                    callerDepDomain.A2_Variables[arguments[i]].AddRange(exitResult.A2_Variables[resolvedCallee.Body.Parameters[i]]);
+                    callerDepDomain.A2_Variables.AddRange(arguments[i], exitResult.A2_Variables[resolvedCallee.Body.Parameters[i]]);
                 }
                 if (exitResult.A4_Ouput.ContainsKey(resolvedCallee.Body.Parameters[i]))
                 {
-                    callerDepDomain.A4_Ouput[arguments[i]].AddRange(exitResult.A4_Ouput[resolvedCallee.Body.Parameters[i]]);
+                    callerDepDomain.A4_Ouput.AddRange(arguments[i], exitResult.A4_Ouput[resolvedCallee.Body.Parameters[i]]);
                 }
                 callerDepDomain.A1_Escaping.AddRange(exitResult.A1_Escaping);
                 callerDepDomain.A3_Clousures.UnionWith(exitResult.A3_Clousures);
+
+            }
+            if (result != null)
+            {
+                // Need to bind the return value
+                if (exitResult.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
+                {
+                    callerDepDomain.A2_Variables.AddRange(result, exitResult.A2_Variables[depAnalysis.ReturnVariable]);
+                }
+                if (exitResult.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
+                {
+                    callerDepDomain.A4_Ouput.AddRange(result, exitResult.A4_Ouput[depAnalysis.ReturnVariable]);
+                }
             }
 
-            return exitResult;
+            return callerDepDomain;
 
         }
 

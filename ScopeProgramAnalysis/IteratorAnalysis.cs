@@ -895,6 +895,14 @@ namespace Backend.Analyses
                 this.State.ControlVariables.UnionWith(instruction.UsedVariables.Where( v => GetTraceablesFromA2_Variables(v).Any()));
 
             }
+            public override void Visit(ReturnInstruction instruction)
+            {
+                if (instruction.HasOperand)
+                {
+                    var rv = this.iteratorDependencyAnalysis.ReturnVariable;
+                    this.State.A2_Variables.AddRange(this.iteratorDependencyAnalysis.ReturnVariable, GetTraceablesFromA2_Variables(rv));
+                }
+            }
             public override void Visit(MethodCallInstruction instruction)
             {
                 var methodCallStmt = instruction;
@@ -1334,6 +1342,7 @@ namespace Backend.Analyses
                 }
             }
         }
+        public IVariable ReturnVariable { get; private set; }
 
         private IDictionary<IVariable, IExpression> equalities;
         DataFlowAnalysisResult<PointsToGraph>[] ptgs;
@@ -1367,6 +1376,9 @@ namespace Backend.Analyses
 
         protected override DependencyDomain InitialValue(CFGNode node)
         {
+            this.ReturnVariable = new LocalVariable("$RV");
+            this.ReturnVariable.Type = PlatformTypes.Object;
+
             var depValues = new DependencyDomain();
             var currentPTG = ptgs[cfg.Exit.Id].Output;
             var thisVar = currentPTG.Variables.Single(v => v.Name == "this");
