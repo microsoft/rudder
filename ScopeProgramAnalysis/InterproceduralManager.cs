@@ -45,6 +45,8 @@ namespace ScopeProgramAnalysis
     {
         private int stackDepth;
         private Host host;
+        private const int MaxStackDepth = 100;
+        private Stack<MethodDefinition> callStack;
 
         public MethodCFGCache CFGCache { get; set; }
         public InterproceduralManager(Host host)
@@ -52,6 +54,7 @@ namespace ScopeProgramAnalysis
             this.host = host;
             this.CFGCache = new MethodCFGCache(host);
             this.stackDepth = 0;
+            this.callStack = new Stack<MethodDefinition>();
         }
 
         public ControlFlowGraph GetCFG(MethodDefinition method)
@@ -83,13 +86,18 @@ namespace ScopeProgramAnalysis
         /// <param name="resolvedCallee"></param>
         /// <param name="calleeCFG"></param>
         private Tuple<DependencyDomain, PointsToGraph> InterproceduralAnalysis(DependencyDomain depDomain, PointsToGraph callerPTG,
-                                             IList<IVariable> arguments, IVariable result, MethodDefinition resolvedCallee,
+                                             IList<IVariable> arguments, IVariable methodResult, MethodDefinition resolvedCallee,
                                              ControlFlowGraph calleeCFG)
         {
-            stackDepth++;
-            // 1) Bind PTG and call PT analysis on callee. In pta.Result[node.Exit] is the PTG at exit of the callee
-            IteratorPointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(callerPTG, arguments, resolvedCallee, calleeCFG);
+            if (stackDepth > InterproceduralManager.MaxStackDepth)
+                return new Tuple<DependencyDomain, PointsToGraph>(depDomain, callerPTG);
 
+            stackDepth++;
+            this.callStack.Push(resolvedCallee);   
+            System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + resolvedCallee.ToSignatureString(), stackDepth);
+            // 1) Bind PTG and call PT analysis on callee. In pta.Result[node.Exit] is the PTG at exit of the callee
+
+            IteratorPointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(callerPTG, arguments, resolvedCallee, calleeCFG);
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
             SongTaoDependencyAnalysis.PropagateExpressions(calleeCFG, equalities);
 
@@ -97,16 +105,17 @@ namespace ScopeProgramAnalysis
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDepDomain = BindCallerCallee(depDomain, callerPTG, arguments, resolvedCallee);
             var dependencyAnalysis = new IteratorDependencyAnalysis(resolvedCallee, calleeCFG, pta.Result, equalities, this, calleeDepDomain);
-            var depAnalysisResult = dependencyAnalysis.Analyze();
+            dependencyAnalysis.Analyze();
             stackDepth--;
+            this.callStack.Pop();
 
             // 3) Bind callee with caller
             // Should I need the PTG of caller and callee?
             var exitCalleePTG = pta.Result[calleeCFG.Exit.Id].Output;
-            var exitResult = BindCaleeCalleer(result, arguments, resolvedCallee, calleeCFG, calleeDepDomain, dependencyAnalysis);
+            var exitResult = BindCaleeCaller(methodResult, arguments, resolvedCallee, calleeCFG, calleeDepDomain, dependencyAnalysis);
 
             // Recover the frame of the original Ptg and bind ptg results
-            PointsToGraph bindPtg = PTABindCaleeCalleer(result, calleeCFG, pta);
+            PointsToGraph bindPtg = PTABindCaleeCalleer(methodResult, calleeCFG, pta);
 
             return new Tuple<DependencyDomain, PointsToGraph>(exitResult, bindPtg);
         }
@@ -115,6 +124,7 @@ namespace ScopeProgramAnalysis
                                                          IList<IVariable> arguments, MethodDefinition resolvedCallee)
         {
             var calleeDepDomain = new DependencyDomain();
+            calleeDepDomain.IsTop = depDomain.IsTop;
             // Bind parameters with arguments 
             for (int i = 0; i < arguments.Count(); i++)
             {
@@ -130,11 +140,12 @@ namespace ScopeProgramAnalysis
                 }
                 if (depDomain.A4_Ouput.ContainsKey(arg))
                 {
-                    calleeDepDomain.A4_Ouput[param] = depDomain.A2_Variables[arg];
+                    calleeDepDomain.A4_Ouput[param] = depDomain.A4_Ouput[arg];
                 }
-                calleeDepDomain.A1_Escaping.AddRange(depDomain.A1_Escaping);
-                calleeDepDomain.A3_Clousures.UnionWith(depDomain.A3_Clousures);
             }
+            // calleeDepDomain.A3_Clousures = depDomain.A3_Clousures;
+            calleeDepDomain.A1_Escaping.UnionWith(depDomain.A1_Escaping);
+            calleeDepDomain.A3_Clousures.UnionWith(depDomain.A3_Clousures);
             return calleeDepDomain;
         }
 
@@ -152,7 +163,7 @@ namespace ScopeProgramAnalysis
             return arg;
         }
 
-        private DependencyDomain BindCaleeCalleer(IVariable result, IList<IVariable> arguments,
+        private DependencyDomain BindCaleeCaller(IVariable result, IList<IVariable> arguments,
                                                     MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG,
                                                    DependencyDomain callerDepDomain, IteratorDependencyAnalysis depAnalysis)
         {
@@ -167,16 +178,19 @@ namespace ScopeProgramAnalysis
 
                 if (exitResult.A2_Variables.ContainsKey(param))
                 {
-                    callerDepDomain.A2_Variables.AddRange(arg,  exitResult.A2_Variables[param]);
+                    callerDepDomain.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
                 }
                 if (exitResult.A4_Ouput.ContainsKey(param))
                 {
                     callerDepDomain.A4_Ouput.AddRange(arg, exitResult.A4_Ouput[param]);
                 }
-                callerDepDomain.A1_Escaping.AddRange(exitResult.A1_Escaping);
-                callerDepDomain.A3_Clousures.UnionWith(exitResult.A3_Clousures);
-
             }
+            callerDepDomain.A1_Escaping.UnionWith(exitResult.A1_Escaping);
+            callerDepDomain.A3_Clousures.UnionWith(exitResult.A3_Clousures);
+
+            callerDepDomain.IsTop = exitResult.IsTop;
+            // callerDepDomain.A3_Clousures = exitResult.A3_Clousures;
+
             if (result != null)
             {
                 // Need to bind the return value

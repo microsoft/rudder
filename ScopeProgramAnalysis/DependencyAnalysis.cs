@@ -64,6 +64,7 @@ namespace ScopeProgramAnalysis
             /// Now do MoveNext on the clousure
             var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
+            
             this.ptAnalysisResult = this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg).Result;
 
             //var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields);
@@ -87,8 +88,8 @@ namespace ScopeProgramAnalysis
         DependencyDomain AnalyzeScopeMethods(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs)
         {
 
-            var iteratorAnalysis = new IteratorStateAnalysis(cfg, ptgs, this.equalities);
-            var result = iteratorAnalysis.Analyze();
+            //var iteratorAnalysis = new IteratorStateAnalysis(cfg, ptgs, this.equalities);
+            //var result = iteratorAnalysis.Analyze();
 
             // var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
             var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.equalities, this.interprocManager);

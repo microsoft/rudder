@@ -209,7 +209,8 @@ namespace Backend.Analyses
 
         protected override PointsToGraph Join(PointsToGraph left, PointsToGraph right)
         {
-            //var result = left.Clone();
+            //var result = new PointsToGraph();
+            //result.Union(left);
             var result = left;
             result.Union(right);
 			return result;
@@ -353,7 +354,7 @@ namespace Backend.Analyses
                     // ptg.PointsTo(node, access.Field, ptg.Null);
                     if (!MayReacheableFromParameter(ptg, node))
                     {
-                        System.Console.WriteLine("In {0}:{1:X4} there is of something not parameter and has no node", this.method, offset);
+                        System.Console.WriteLine("In {0}:{1:X4} there is variable that is not a parameter and has no object to load.", this.method.ToSignatureString(), offset);
                     }
 
                     {
