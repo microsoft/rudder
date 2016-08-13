@@ -147,7 +147,7 @@ namespace ScopeAnalyzer
             var _this = arguments.ElementAt(0);
 
             // The methods must belong to Row.
-            if (rowTypes.All(rt => !_this.Type.SubtypeOf(rt, host))) return ColumnsDomain.Bottom;
+            if (rowTypes.All(rt => _this.Type != null && !_this.Type.SubtypeOf(rt, host))) return ColumnsDomain.Bottom;
 
             if (isVirtual)
             {
@@ -157,6 +157,11 @@ namespace ScopeAnalyzer
             {
                 if (!trustedRowMethods.Contains(name))
                     return ColumnsDomain.Top;
+
+                if (arguments.Count == 1)
+                {
+                    return ColumnsDomain.Bottom;
+                }
 
                 var arg = arguments.ElementAt(1);
                 var cons = constInfo.GetConstants(instruction, arg);

@@ -23,6 +23,7 @@ namespace ScopeAnalyzer
         public ScopeEscapeDomain EscapeSummary { get; set; }
         public ConstantPropagationDomain CPropagationSummary { get; set; }
         public ColumnsDomain UsedColumnsSummary { get; set; }
+        public ITypeReference ProcessorType { get; set; }
 
         public bool Failed { get; set; }
 
@@ -139,7 +140,9 @@ namespace ScopeAnalyzer
                     //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
                     Utils.WriteLine("\n--------------------------------------------------\n");
                     Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
-                                 
+
+                    methodResult.ProcessorType = (methodDefinition.ContainingType.Resolve(mhost) as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
+                                    
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
                     methodResult.Unsupported = escAnalysis.Unsupported;
 

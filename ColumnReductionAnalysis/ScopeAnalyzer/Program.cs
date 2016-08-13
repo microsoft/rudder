@@ -9,39 +9,10 @@ using System.Text;
 using Microsoft.Cci;
 using Frontend;
 using Backend;
+using System.Xml.Linq;
 
 namespace ScopeAnalyzer
 {
-    /// <summary>
-    /// Utilities for double-printing and similar.
-    /// </summary>
-    public static class Utils
-    {
-        public static StreamWriter Output;
-
-        public static void WriteLine(string message)
-        {
-            Console.WriteLine(message);
-            if (Output != Console.Out)
-            {
-                Output.WriteLine(message);
-                Output.Flush();
-            }
-        }
-
-        public static void SetOutput(string path)
-        {
-            var fs = new FileStream(path, FileMode.Create);
-            Output = new StreamWriter(fs);
-        }
-
-        public static void OutputClose()
-        {
-            if (Output == null) return;
-            Output.Close();
-        }
-    }
-
     /// <summary>
     /// Struct that saves basic statistics about Scope analysis.
     /// </summary>
@@ -59,21 +30,22 @@ namespace ScopeAnalyzer
         public int NotCPropagationDummies;
         public int NotColumnDummies;
 
-        public ScopeAnalysisStats(int assemblies = 0, int assembliesLoaded = 0, int methods = 0, int failedMethods = 0,
-                                    int interestingMethods = 0, int unsupportedMethods = 0, int notEscapeDummies = 0,
-                                    int notCPropagationDummies = 0, int notColumnDummies = 0)
+
+        public int Mapped;
+
+        public int ColumnsContained;
+        public int ColumnsEqual;
+        public int ColumnsErrors;
+        public int ColumnsDiff;
+
+        public ScopeAnalysisStats(int assemblies = 0)
         {
             Assemblies = assemblies;
-            AssembliesLoaded = assembliesLoaded;
-
-            Methods = methods;
-            FailedMethods = failedMethods;
-            UnsupportedMethods = unsupportedMethods;
-            InterestingMethods = interestingMethods;
-
-            NotEscapeDummies = notEscapeDummies;
-            NotCPropagationDummies = notCPropagationDummies;
-            NotColumnDummies = notColumnDummies;
+            AssembliesLoaded = 0;
+            Methods = FailedMethods = UnsupportedMethods = InterestingMethods = 0;
+            NotEscapeDummies = NotCPropagationDummies = NotColumnDummies = 0;
+            Mapped = 0;
+            ColumnsContained = ColumnsEqual = ColumnsErrors = ColumnsDiff = 0;
         }
     }
 
@@ -85,7 +57,6 @@ namespace ScopeAnalyzer
         {
             var stats = AnalyzeAssemblies(args);
             PrintScopeAnalysisStats(stats);
-
             Utils.WriteLine("SUCCESS");
             Utils.OutputClose();
         }
@@ -93,20 +64,12 @@ namespace ScopeAnalyzer
 
         public static ScopeAnalysisStats AnalyzeAssemblies(string[] args)
         {
-            Options options;
-            try
-            {
-                options = Options.ParseCommandLineArguments(args);
-                //hack
-                if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Problems with parsing the command line arguments:");
-                Console.WriteLine(e.ToString());
-                throw new ParsingOptionsException(e.Message);
-            }
+            Options options = Options.ParseCommandLineArguments(args);
+            if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
 
+            var vertexDef = LoadVertexDef(options);
+            var processorIdMapping = LoadProcessorMapping(options);
+           
             var host = new PeReader.DefaultHost();
             var assemblies = LoadAssemblies(host, options);
             var stats = new ScopeAnalysisStats();
@@ -122,19 +85,9 @@ namespace ScopeAnalyzer
 
                     ScopeAnalysis analysis = new ScopeAnalysis(host, mAssembly, assemblies.Item2);
                     analysis.Analyze();
-                    var results = analysis.Results;
 
-                    // Save the stats.
-                    stats.Methods += results.Count();
-                    stats.FailedMethods += results.Where(r => r.Failed).ToList().Count;
-                    
-                    var interestingMethods = results.Where(r => !r.Failed && r.Interesting).ToList();
-                    stats.InterestingMethods += interestingMethods.Count;
-                    stats.UnsupportedMethods += interestingMethods.Where(r => r.Unsupported).ToList().Count;
-                    
-                    stats.NotEscapeDummies += interestingMethods.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
-                    stats.NotCPropagationDummies += interestingMethods.Where(r => r.CPropagationSummary != null && !r.CPropagationSummary.IsTop).ToList().Count;
-                    stats.NotColumnDummies += interestingMethods.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom).ToList().Count;
+                    //Update the stats.
+                    UpdateStats(analysis.Results, ref stats, vertexDef, processorIdMapping);
 
                     Utils.WriteLine("\n====== Done analyzing the assembly  =========\n");
                 }
@@ -150,6 +103,128 @@ namespace ScopeAnalyzer
             }
             return stats;
         }
+
+  
+
+
+        private static void UpdateStats(IEnumerable<ScopeMethodAnalysisResult> results, ref ScopeAnalysisStats stats, 
+                                        XElement vDef, Dictionary<string, string> pIdMapping)
+        {
+            stats.Methods += results.Count();
+            stats.FailedMethods += results.Where(r => r.Failed).ToList().Count;
+
+            var interestingResults = results.Where(r => !r.Failed && r.Interesting).ToList();
+            stats.InterestingMethods += interestingResults.Count;
+            stats.UnsupportedMethods += interestingResults.Where(r => r.Unsupported).ToList().Count;
+
+            stats.NotEscapeDummies += interestingResults.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
+            stats.NotCPropagationDummies += interestingResults.Where(r => r.CPropagationSummary != null && !r.CPropagationSummary.IsTop).ToList().Count;
+
+            var concreteResults = interestingResults.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom).ToList();
+            stats.NotColumnDummies += concreteResults.Count;
+
+            foreach (var result in concreteResults)
+            {
+                ComputeImprovementStats(result, ref stats, vDef, pIdMapping);
+            }
+        }
+
+        private static void ComputeImprovementStats(ScopeMethodAnalysisResult result, ref ScopeAnalysisStats stats, 
+                                                    XElement vDef, Dictionary<string, string> pIdMapping)
+        {
+            if (vDef == null || pIdMapping == null)
+                return;
+
+            var column = result.UsedColumnsSummary;
+            if (column.IsBottom || column.IsTop) return;
+
+            var pTypeFullName = result.ProcessorType.FullName();
+
+            if (!pIdMapping.ContainsKey(pTypeFullName))
+            {
+                Utils.WriteLine("WARNING: could not match processor mapping: " + pTypeFullName);
+                return;
+            }
+
+            stats.Mapped += 1;
+            try
+            {
+                var id = pIdMapping[pTypeFullName];
+                var operators = vDef.Descendants("operator");
+                var process = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value.Equals(id)).Single();
+
+                var input_schema = process.Descendants("input").Single().Attribute("schema").Value.Split(',');
+                var inputColumns = new HashSet<string>();
+                foreach (var input in input_schema) inputColumns.Add(input.Split(':')[1].Trim());
+
+                var output_schema = process.Descendants("output").Single().Attribute("schema").Value.Split(',');
+                var outputColumns = new HashSet<string>();
+                foreach (var output in output_schema) inputColumns.Add(output.Split(':')[1].Trim());
+
+                var usedColumns = new HashSet<string>();
+                foreach (var c in column.Elements)
+                {
+                    var val = c.Value;
+                    if (val is string)
+                    {
+                        usedColumns.Add(val as string);
+                    }
+                    else if (val is int)
+                    {
+                        int index = Int32.Parse(val.ToString());
+                        usedColumns.Add(output_schema[index]);
+                        usedColumns.Add(input_schema[index]);
+                    }
+                    else
+                    {
+                        Utils.WriteLine("WARNING: other value type used for indexing besides string and int: " + val);
+                        return;
+                    }
+                }
+
+                var allSchemaColumns = new HashSet<string>(inputColumns.Union(outputColumns));
+                if (usedColumns.IsProperSubsetOf(allSchemaColumns))
+                {
+                    stats.ColumnsContained += 1;
+                    stats.ColumnsDiff += (allSchemaColumns.Count - usedColumns.Count);
+                }
+                else if (allSchemaColumns.SetEquals(usedColumns))
+                {
+                    stats.ColumnsEqual += 1;
+                }
+                else
+                {
+                    Utils.WriteLine("ERROR: redundant used columns: " + usedColumns.ToString());
+                    stats.ColumnsErrors += 1;
+                }
+            } 
+            catch (Exception e)
+            {
+                Utils.WriteLine(String.Format("ERROR: failed to compute column usage for {0} {1}", pTypeFullName, e.Message));
+            }
+        }
+
+
+
+        public static void PrintScopeAnalysisStats(ScopeAnalysisStats stats)
+        {
+            Utils.WriteLine("Assemblies: " + stats.Assemblies);
+            Utils.WriteLine("Assemblies loaded: " + stats.AssembliesLoaded);
+            Utils.WriteLine("");
+            Utils.WriteLine("Methods: " + stats.Methods);
+            Utils.WriteLine("Methods failed: " + stats.FailedMethods);
+            Utils.WriteLine("");
+            Utils.WriteLine("Interesting methods (not failed): " + stats.InterestingMethods);
+            Utils.WriteLine("Unsupported feature methods: " + stats.UnsupportedMethods);
+            Utils.WriteLine("");          
+            Utils.WriteLine("Concrete-columns-found methods: " + stats.NotColumnDummies);
+            Utils.WriteLine("");
+            Utils.WriteLine("Used columns proper subset: " + stats.ColumnsContained);
+            Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
+            Utils.WriteLine("Used columns error: " + stats.ColumnsErrors);
+            Utils.WriteLine("Used columns proper subset avg diff: " + (stats.ColumnsContained > 0? ((double)stats.ColumnsDiff)/stats.ColumnsContained:0));
+        }
+
 
         [HandleProcessCorruptedStateExceptions]
         private static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, Options options)
@@ -197,7 +272,7 @@ namespace ScopeAnalyzer
                 catch (Exception e)
                 {
                     Utils.WriteLine(String.Format("LOAD FAILURE: failed to load main assembly {0} ({1})", assembly, e.Message));
-                } 
+                }
             }
 
             Types.Initialize(host);
@@ -205,20 +280,43 @@ namespace ScopeAnalyzer
             return new Tuple<List<Assembly>, List<Assembly>>(assemblies, refs);
         }
 
-
-        public static void PrintScopeAnalysisStats(ScopeAnalysisStats stats)
+        private static XElement LoadVertexDef(Options options)
         {
-            Utils.WriteLine("Assemblies: " + stats.Assemblies);
-            Utils.WriteLine("Assemblies loaded: " + stats.AssembliesLoaded);
-            Utils.WriteLine("");
-            Utils.WriteLine("Methods: " + stats.Methods);
-            Utils.WriteLine("Methods failed: " + stats.FailedMethods);
-            Utils.WriteLine("");
-            Utils.WriteLine("Interesting methods (not failed): " + stats.InterestingMethods);
-            Utils.WriteLine("Unsupported feature methods: " + stats.UnsupportedMethods);
-            Utils.WriteLine("");          
-            Utils.WriteLine("Concrete-columns-found methods: " + stats.NotColumnDummies);
+            if (File.Exists(options.VertexDefPath))
+            {
+                try
+                {
+                    return XElement.Load(options.VertexDefPath);
+                }
+                catch { }
+            }
+
+            Utils.WriteLine(String.Format("WARNING: could not properly load vertex def: {0}", options.VertexDefPath));
+            return null;
         }
 
+        private static Dictionary<string, string> LoadProcessorMapping(Options options)
+        {
+            if (File.Exists(options.ProcessorIdPath))
+            {
+                try
+                {
+                    var lines = File.ReadAllLines(options.ProcessorIdPath);
+                    var mapping = new Dictionary<string, string>();
+                    foreach(var line in lines)
+                    {
+                        var pair = line.Trim().Split('\t');
+                        if (pair.Length != 2)
+                            throw new Exception("Processor to id mapping not in correct format!");
+                        mapping.Add(pair[0].Trim(), pair[1].Trim());
+                    }
+                    return mapping;
+                }
+                catch { }
+            }
+
+            Utils.WriteLine(String.Format("WARNING: could not properly load processor to id mapping: {0}", options.VertexDefPath));
+            return null;
+        }
     }
 }

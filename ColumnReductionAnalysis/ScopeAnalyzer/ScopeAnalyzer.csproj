@@ -96,6 +96,7 @@
     <Compile Include="ScopeAnalysis.cs" />
     <Compile Include="SetDomain.cs" />
     <Compile Include="UsedColumnsAnalysis.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -22,39 +22,67 @@ namespace ScopeAnalyzer
         private string mainAssembliesPath;
         private List<string> referenceAssemblies = new List<string>();
         private string referenceAssembliesPath;
-        private string outputPath;
 
-        private Options(string asmbPath, string refAssemblyPath, string outPath)
+        private string outputPath;
+        private string processorIdPath;
+        private string vertexDefPath;
+
+
+        private Options(string asmbPath, string refAssemblyPath, string outPath, string prcIdPath, string vrxPath)
         {
             mainAssembliesPath = asmbPath;
 
             if (mainAssembliesPath.EndsWith(".dll") || mainAssembliesPath.EndsWith(".exe"))
             {
-                mainAssemblies = new List<string>() { mainAssembliesPath };
+                mainAssemblies = new List<string>() { Path.GetFullPath(mainAssembliesPath) };
             }
             else
             {
-                mainAssemblies = CollectAssemblies(mainAssembliesPath);
+                mainAssemblies = Utils.CollectAssemblies(mainAssembliesPath);
             }
 
             referenceAssembliesPath = refAssemblyPath;
-            if (referenceAssembliesPath != null) referenceAssemblies = CollectAssemblies(referenceAssembliesPath);
+            if (referenceAssembliesPath != null)
+                referenceAssemblies = Utils.CollectAssemblies(referenceAssembliesPath);
 
             outputPath = outPath;
+
+            if (prcIdPath != null)
+            {
+                processorIdPath = prcIdPath;
+            }
+            else
+            {
+                processorIdPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.PROCESSOR_ID_MAPPING_NAME;
+            }
+
+            if (vrxPath != null)
+            {
+                vertexDefPath = vrxPath;
+            }
+            else
+            {
+                vertexDefPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.VERTEX_DEF_NAME;
+            }
         }
 
         public static Options ParseCommandLineArguments(string[] args)
         {
-            if (args.Length < 2) throw new Exception("Some arguments missing!");
+            string assembly = null, libs = null, output = null, processor = null, vertex = null;
 
-            if (args.Length == 2)
+            foreach(var arg in args)
             {
-                return new Options(args[0], args[1], null);
+                if (arg.StartsWith("/assembly:")) assembly = arg.Split(new string[] { "/assembly:" }, StringSplitOptions.None)[1];
+                else if (arg.StartsWith("/libs:")) libs = arg.Split(new string[] { "/libs:" }, StringSplitOptions.None)[1];
+                else if (arg.StartsWith("/output:")) output = arg.Split(new string[] { "/output:" }, StringSplitOptions.None)[1];
+                else if (arg.StartsWith("/processorIds:")) processor = arg.Split(new string[] { "/processorIds:" }, StringSplitOptions.None)[1];
+                else if (arg.StartsWith("/vertexDef:")) vertex = arg.Split(new string[] { "/vertexDef:" }, StringSplitOptions.None)[1];
             }
-            else
-            {
-                return new Options(args[0], args[1], args[2]);
-            }
+
+            if (assembly == null)
+                throw new ParsingOptionsException("No given assembly to analyze!");
+
+            return new Options(assembly, libs, output, processor, vertex);
         }
 
 
@@ -83,27 +111,14 @@ namespace ScopeAnalyzer
             get { return outputPath; }
         }
 
-        public static List<string> CollectAssemblies(string path)
+        public string VertexDefPath
         {
-            DirectoryInfo dir;
-            try
-            {
-                dir = new DirectoryInfo(path);
-            }
-            catch
-            {
-                throw new Exception(String.Format("Cannot access the directory with assemblies: '{0}'", path));
-            }
-
-            FileInfo[] exeFiles = dir.GetFiles("*.exe");
-            FileInfo[] dllFiles = dir.GetFiles("*.dll");
-
-            var assemblies = new List<string>();
-            foreach (var file in exeFiles) assemblies.Add(file.FullName);
-            foreach (var file in dllFiles) assemblies.Add(file.FullName);
-            return assemblies;
+            get { return vertexDefPath; }
         }
 
-      
+        public string ProcessorIdPath
+        {
+            get { return processorIdPath; }
+        }     
     }
 }

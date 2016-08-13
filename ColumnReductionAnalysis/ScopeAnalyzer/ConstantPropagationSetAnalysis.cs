@@ -289,12 +289,12 @@ namespace ScopeAnalyzer
             string summary = String.Empty;
             foreach(var v in varMapping.Keys)
             {
-                summary += String.Format("{0} ({1}): {2}\n", v.Name, v.Type.ToString(), varMapping[v].ToString());
+                summary += String.Format("{0} ({1}): {2}\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
             }
             summary += "\n";
             foreach (var f in fieldMapping.Keys)
             {
-                summary += String.Format("{0} ({1}): {2}\n", f.Name, f.Type.ToString(), fieldMapping[f].ToString());
+                summary += String.Format("{0} ({1}): {2}\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
             }
             return summary;
         }
@@ -306,14 +306,14 @@ namespace ScopeAnalyzer
             {
                 if (varMapping[v].IsBottom || varMapping[v].IsTop) continue;
 
-                summary += String.Format("{0} ({1}): {2}\n", v.Name, v.Type.ToString(), varMapping[v].ToString());
+                summary += String.Format("{0} ({1}): {2}\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
             }
             summary += "\n";
             foreach (var f in fieldMapping.Keys)
             {
                 if (fieldMapping[f].IsBottom || fieldMapping[f].IsTop) continue;
 
-                summary += String.Format("{0} ({1}): {2}\n", f.Name, f.Type.ToString(), fieldMapping[f].ToString());
+                summary += String.Format("{0} ({1}): {2}\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
             }
             return summary;
         }
@@ -443,6 +443,10 @@ namespace ScopeAnalyzer
 
         public static bool IsConstantType(ITypeReference tref, IMetadataHost host)
         {
+            // when type is unknown.
+            if (tref == null)
+                return true;
+
             var t = tref;
             while (t.IsAlias) t = t.AliasForType.AliasedType;
 
@@ -452,8 +456,8 @@ namespace ScopeAnalyzer
 
         public static bool IsConstantType(ITypeDefinition type)
         {
-            if (type.IsEnum || type.IsGeneric || type.IsAbstract ||
-              type.IsDummy() || type.IsDelegate || type.IsInterface)
+            if (type.IsEnum || type.IsGeneric || type.IsAbstract || type.IsStruct || type.IsComObject ||
+                type.IsDummy() || type.IsDelegate || type.IsInterface || type.IsRuntimeSpecial)
                 return false;
 
             if (!(type is INamedTypeReference))
@@ -465,6 +469,7 @@ namespace ScopeAnalyzer
 
             if (!type.IsValueType && !(type.IsReferenceType && nmtype.FullName() == "System.String"))
                 return false;
+
             return true;
         }
 

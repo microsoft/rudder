@@ -186,7 +186,7 @@ namespace ScopeAnalyzer
             string summary = "May escape information about variables:\n";
             foreach (var v in varsEscaped.Keys)
             {
-                summary += String.Format("\t{0}: {1}\t{2}\n", v.Type.FullName() + "::" + v.Name, varsEscaped[v], v.Type);
+                summary += String.Format("\t{0}: {1}\t{2}\n", (v.Type == null? "unknown": v.Type.FullName()) + "::" + v.Name, varsEscaped[v], v.Type);
             }
             return summary;
         }
@@ -309,7 +309,7 @@ namespace ScopeAnalyzer
             string summary = "May escape information about fields:\n";
             foreach (var f in fieldsEscaped.Keys)
             {
-                summary += String.Format("\t{0}: {1}\t{2}\n", f.ContainingType.FullName() + "::" + f.Name, fieldsEscaped[f], f.Type);
+                summary += String.Format("\t{0}: {1}\t{2}\n", (f.ContainingType == null? "unknown": f.ContainingType.FullName()) + "::" + f.Name, fieldsEscaped[f], f.Type);
             }
             return summary;
         }
@@ -589,6 +589,10 @@ namespace ScopeAnalyzer
 
         public bool PossiblyRow(ITypeReference type)
         {
+            // when type is unknown.
+            if (type == null)
+                return true;
+
             foreach (var rt in rowTypes)
             {
                 if (PossiblyRow(type, rt, host)) return true;
@@ -832,7 +836,7 @@ namespace ScopeAnalyzer
                 //    SetEscaped(nstate, result, instruction);
                 //}
 
-                if (escaped && !isStatic)
+                if (escaped && !isStatic && PossiblyRow(arguments[0].Type))
                 {
                     SetEscaped(nstate, arguments[0], instruction);
                 }
