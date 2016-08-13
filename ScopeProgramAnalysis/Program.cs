@@ -240,11 +240,13 @@ namespace ScopeProgramAnalysis
 
             var host = new MyHost();
             PlatformTypes.Resolve(host);
+            ScopeTypes.Resolve(host);
+
 
             var loader = new MyLoader(host);
             host.Loader = loader;
-
             var scopeGenAssembly = loader.LoadMainAssembly(inputPath);
+
             AnalysisStats.TotalDllsFound++;
 
             // LoadExternalReferences(referenceFiles, loader);

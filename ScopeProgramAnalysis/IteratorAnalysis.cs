@@ -600,11 +600,6 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                // TODO: Remove this, just for debugging
-                else if(scopeTypes.Contains(basicType.Name))
-                {
-
-                }
                 
                 return false;
             }
