@@ -238,7 +238,7 @@ namespace Backend.Analyses
 
 		private void CreateInitialGraph(bool createNodeForParams = true)
 		{
-            this.ReturnVariable = new LocalVariable("$RV");
+            this.ReturnVariable = new LocalVariable(this.method.Name+"_"+"$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
 
             var ptg = new PointsToGraph();
@@ -276,7 +276,8 @@ namespace Backend.Analyses
                 }
 				else
 				{
-					ptg.Add(variable);
+					//ptg.Add(variable);
+                    ptg.PointsTo(variable, PointsToGraph.NullNode);
 				}
 			}
 
@@ -299,7 +300,7 @@ namespace Backend.Analyses
 			if (dst.Type.TypeKind == TypeKind.ValueType) return;
 
 			ptg.RemoveEdges(dst);
-			ptg.PointsTo(dst, ptg.Null);
+			ptg.PointsTo(dst, PointsToGraph.NullNode);
 		}
 
         private void ProcessObjectAllocation(PointsToGraph ptg, uint offset, IVariable dst)

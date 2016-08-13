@@ -393,7 +393,7 @@ namespace Backend.Analyses
     public class AbstractObject : ISymbolicValue
     {
         // private IVariable variable;
-        private PTGNode ptgNode;
+        private PTGNode ptgNode = null;
         public AbstractObject(PTGNode ptgNode)
         {
             //this.variable = variable;
@@ -620,7 +620,7 @@ namespace Backend.Analyses
                 //    return true;
                 //}
 
-                if (fieldAccess.Instance.Type.ToString()== this.iteratorDependencyAnalysis.iteratorClass.Name) 
+                if( ((IBasicType)fieldAccess.Instance.Type).Name == this.iteratorDependencyAnalysis.iteratorClass.Name) 
                     // && !fieldAccess.FieldName.StartsWith.Contains("<>1__state"))
                 {
                     return true;
@@ -656,7 +656,7 @@ namespace Backend.Analyses
             private ISet<IVariable> GetAliases(IVariable v)
             {
                 var res = new HashSet<IVariable>() { v } ;
-                foreach (var ptgNode in GetPtgNodes(v))
+                foreach (var ptgNode in ptg.GetTargets(v, false)) // GetPtgNodes(v))
                 {
                     res.UnionWith(ptgNode.Variables);
                 }
@@ -664,18 +664,86 @@ namespace Backend.Analyses
             }
             public override void Visit(LoadInstruction instruction)
             {
-               //  v = o.f   (v is instruction.Result, o.f is instruction.Operand)
+
+
                 var loadStmt = instruction;
-                if(loadStmt.Operand is StaticFieldAccess)
+                var operand = loadStmt.Operand;
+                // Try to handle a = C.f, a = b.f, a = b, a = K, etc
+                var isHandledLoad = HandleLoadWithOperand(loadStmt, operand);
+                // These cases should be handled with more care (escape?)
+                if (!isHandledLoad)
+                {
+                    if (operand is Reference)
+                    {
+                        var referencedValue = (operand as Reference).Value;
+                        if (IsScopeType(referencedValue.Type))
+                        {
+                            var isHandled = HandleLoadWithOperand(loadStmt, referencedValue);
+                            if (!isHandled)
+                            {
+                                this.State.IsTop = true;
+                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Reference not Supported"));
+                            }
+                        }
+                    }
+                    else if (operand is Dereference)
+                    {
+                        var reference = (operand as Dereference).Reference;
+                        if (IsScopeType(reference.Type))
+                        {
+                            var isHandled = HandleLoadWithOperand(loadStmt, reference);
+                            if (!isHandled)
+                            {
+                                this.State.IsTop = true;
+                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Dereference not Supported"));
+                            }
+                        }
+                    }
+                    else if (operand is IndirectMethodCallExpression)
+                    {
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Indirect method invocation not Supported"));
+                        this.State.IsTop = true;
+                    }
+                    else if (operand is StaticMethodReference || loadStmt.Operand is VirtualMethodReference)
+                    {
+                        var delegateRef = loadStmt.Operand as IFunctionReference;
+                        var method = delegateRef.Method;
+                        // TODO: Hack. I need to check for private fields and properly model 
+                        if (this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == delegateRef.Method.ContainingType.Name)
+                        {
+                            // this is an internal static field for holding lambdas 
+                            // I should track this in the future
+                        }
+                        else
+                        {
+                            // I will accept load delegate. I will complain in the invocation if cannot handle it 
+                            //AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load delegate"));
+                            //this.State.IsTop = true;
+                        }
+                    }
+                    else
+                    {
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load"));
+                        this.State.IsTop = true;
+                    }
+                }
+            }
+
+            private bool HandleLoadWithOperand(LoadInstruction loadStmt, IValue operand)
+            {
+                var result = true;
+                //  v = C.f   
+                if (operand is StaticFieldAccess)
                 {
                     // TODO: Need to properly apply this
                     // First we need to fix PT analysis
                     // Now, I just use the class as one big static field 
-                    ProcessStaticLoad(loadStmt, loadStmt.Operand as StaticFieldAccess);
+                    ProcessStaticLoad(loadStmt, operand as StaticFieldAccess);
                 }
-                else if (loadStmt.Operand is InstanceFieldAccess)
+                //  v = o.f   (v is instruction.Result, o.f is instruction.Operand)
+                else if (operand is InstanceFieldAccess)
                 {
-                    var fieldAccess = loadStmt.Operand as InstanceFieldAccess;
+                    var fieldAccess = operand as InstanceFieldAccess;
                     var o = fieldAccess.Instance;
                     var field = fieldAccess.Field;
 
@@ -687,9 +755,9 @@ namespace Backend.Analyses
                         scopeData.columnMap[loadStmt.Result] = scopeData.columnFieldMap[fieldAccess.Field];
                     }
                 }
-                else if (loadStmt.Operand is ArrayElementAccess)
+                else if (operand is ArrayElementAccess)
                 {
-                    var arrayAccess = loadStmt.Operand as ArrayElementAccess;
+                    var arrayAccess = operand as ArrayElementAccess;
                     var baseArray = arrayAccess.Array;
                     var index = arrayAccess.Index;
                     var union1 = new HashSet<Traceable>();
@@ -710,62 +778,23 @@ namespace Backend.Analyses
                     }
                     this.State.A2_Variables[loadStmt.Result] = union1;
                 }
-                else if (loadStmt.Operand is ArrayLengthAccess)
+                else if (operand is ArrayLengthAccess)
                 {
                     UpdateUsingDefUsed(loadStmt);
                 }
-                else if (loadStmt.Operand is IVariable)
+                else if (operand is IVariable)
                 {
-                    var v = loadStmt.Operand as IVariable;
+                    var v = operand as IVariable;
                     this.State.A2_Variables[loadStmt.Result] = GetTraceablesFromA2_Variables(v);
                 }
                 // For these cases I'm doing nothing
-                else if (loadStmt.Operand is Constant)
-                {}
-                // These cases should be handled with care (escape?)
-                else if (loadStmt.Operand is Reference)
-                {
-                    if (IsScopeType((loadStmt.Operand as Reference).Type))
-                    {
-                        this.State.IsTop = true;
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Reference not Supported"));
-                     }
-                }
-                else if (loadStmt.Operand is Dereference)
-                {
-                    if (IsScopeType((loadStmt.Operand as Dereference).Reference.Type))
-                    {
-                        this.State.IsTop = true;
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Dereference not Supported"));
-                    }
-                }
-                else if(loadStmt.Operand is IndirectMethodCallExpression)
-                {
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Indirect method invocation not Supported"));
-                    this.State.IsTop = true;
-                }
-                else if (loadStmt.Operand is StaticMethodReference || loadStmt.Operand is VirtualMethodReference)
-                {
-                    var delegateRef= loadStmt.Operand as IFunctionReference;
-                    var method = delegateRef.Method;
-                    // TODO: Hack. I need to check for private fields and properly model 
-                    if (this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == delegateRef.Method.ContainingType.Name)
-                    {
-                        // this is an internal static field for holding lambdas 
-                        // I should track this in the future
-                    }
-                    else
-                    {
-                        // I will accept load delegate. I will complain in the invocation if cannot handle it 
-                        //AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load delegate"));
-                        //this.State.IsTop = true;
-                    }
-                }
+                else if (operand is Constant)
+                { }
                 else
                 {
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load"));
-                    this.State.IsTop = true;
+                    result = false;
                 }
+                return result;
             }
 
             private void ProcessLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
@@ -792,8 +821,12 @@ namespace Backend.Analyses
 
             private void ProcessStaticLoad(LoadInstruction loadStmt, StaticFieldAccess fieldAccess)
             {
+                // TODO: Move to IsClousureField()
+                var isClousureField =  this.iteratorDependencyAnalysis.iteratorClass.Name == fieldAccess.Field.ContainingType.Name;
+                var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType!=null 
+                                        && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == fieldAccess.Field.ContainingType.Name;
                 // TODO: Hack. I need to check for private fields and properly model 
-                if (this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == fieldAccess.Field.ContainingType.Name)
+                if (isClousureField || isReducerField)
                 {
                     var union1 = new HashSet<Traceable>();
                     // a2:= [v <- a3[loc(o.f)] if loc(o.f) is CF
@@ -940,19 +973,23 @@ namespace Backend.Analyses
                                     ptg = interProcResult.Item2;
                                 }
 
-                                UpdateUsingDefUsed(methodCallStmt);
-
-                                foreach (var arg  in methodCallStmt.Arguments)
+                                // If there are unresolved calles
+                                if (computedCalles.Item2.Any())
                                 {
-                                    var parameters = this.iteratorDependencyAnalysis.method.Body.Parameters;
-                                    if (arg.Type.IsReferenceType())
+                                    UpdateUsingDefUsed(methodCallStmt);
+
+                                    foreach (var arg in methodCallStmt.Arguments)
                                     {
-                                        var escapingPT = parameters.Any(p => p.Type.TypeKind == TypeKind.ReferenceType && ptg.MayReacheableFromVariable(p, arg));
-                                        if (escapingPT)
+                                        var parameters = this.iteratorDependencyAnalysis.method.Body.Parameters;
+                                        if (arg.Type.IsReferenceType())
                                         {
-                                            this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(arg));
-                                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Method not analyzed"));
-                                            this.State.IsTop = true;
+                                            var escapingPT = parameters.Any(p => p.Type.TypeKind == TypeKind.ReferenceType && ptg.MayReacheableFromVariable(p, arg));
+                                            if (escapingPT)
+                                            {
+                                                this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(arg));
+                                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Method not analyzed"));
+                                                this.State.IsTop = true;
+                                            }
                                         }
                                     }
                                 }
@@ -1354,6 +1391,8 @@ namespace Backend.Analyses
 
         public DataFlowAnalysisResult<DependencyDomain>[] Result { get; private set; }
 
+        private DependencyDomain initValue;
+
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
                                             // IDictionary<string, IVariable> specialFields, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
@@ -1366,6 +1405,17 @@ namespace Backend.Analyses
             this.equalities = equalitiesMap;
             this.scopeData = new ScopeInfo();
             this.interproceduralManager = interprocManager;
+            this.initValue = null;
+            this.ReturnVariable = new LocalVariable(method.Name+"_$RV");
+            this.ReturnVariable.Type = PlatformTypes.Object;
+        }
+        public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
+                                    // IDictionary<string, IVariable> specialFields, 
+                                    IDictionary<IVariable, IExpression> equalitiesMap,
+                                    InterproceduralManager interprocManager,
+                                    DependencyDomain initValue) : this(method, cfg, ptgs, equalitiesMap, interprocManager) //base(cfg)
+        {            
+            this.initValue = initValue;
         }
 
         public override DataFlowAnalysisResult<DependencyDomain>[] Analyze()
@@ -1376,19 +1426,29 @@ namespace Backend.Analyses
 
         protected override DependencyDomain InitialValue(CFGNode node)
         {
-            this.ReturnVariable = new LocalVariable("$RV");
-            this.ReturnVariable.Type = PlatformTypes.Object;
+            
+            if (this.cfg.Entry.Id == node.Id && this.initValue != null)
+            {
+                return this.initValue;
+            }
 
             var depValues = new DependencyDomain();
             var currentPTG = ptgs[cfg.Exit.Id].Output;
-            var thisVar = currentPTG.Variables.Single(v => v.Name == "this");
-            foreach (var ptgNode in currentPTG.GetTargets(thisVar))
+
+            IVariable thisVar = null;
+            if (!this.method.IsStatic && this.method.Body!=null)
             {
-                foreach (var target in ptgNode.Targets)
+                thisVar = this.method.Body.Parameters[0];
+                System.Diagnostics.Debug.Assert(thisVar.Name == "this");
+                // currentPTG.Variables.Single(v => v.Name == "this");
+                foreach (var ptgNode in currentPTG.GetTargets(thisVar))
                 {
-                    if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
+                    foreach (var target in ptgNode.Targets)
                     {
-                        depValues.A3_Clousures.Add(new Location(ptgNode, target.Key), new TraceableTable(target.Key.Name));
+                        if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
+                        {
+                            depValues.A3_Clousures.Add(new Location(ptgNode, target.Key), new TraceableTable(target.Key.Name));
+                        }
                     }
                 }
             }

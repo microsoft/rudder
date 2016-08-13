@@ -166,6 +166,7 @@ namespace ScopeProgramAnalysis
                 {
                     AnalysisStats.DllThatFailedToLoad.Add(typeToResolve.ContainingAssembly.Name);
                     AnalysisStats.TotalDllsFailedToLoad++;
+                    System.Diagnostics.Debug.WriteLine("Failed to load {0}: {1}", typeToResolve.ContainingAssembly.Name, e.Message);
                 }
 
             }
@@ -202,22 +203,22 @@ namespace ScopeProgramAnalysis
 
         static void Main(string[] args)
         {
-            const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
-            // const string input = root+ @"__ScopeCodeGen__.dll";
+            //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
+            //const string input = root + @"__ScopeCodeGen__.dll";
 
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
 
             // Mike example: FileChunker
-            const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+            //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
 
-            //const string input = @"D:\MadanExamples\137eda33-5443-4217-94a4-35d416fc30a9\__ScopeCodeGen__.dll";
+            const string input = @"D:\MadanExamples\0971f7cb-50e0-4907-b272-f743c00b3e46\__ScopeCodeGen__.dll";
 
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
-            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer);
+            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, true);
 
             AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();
@@ -226,15 +227,15 @@ namespace ScopeProgramAnalysis
 
         public enum ScopeMethodKind { Producer, Reducer };
 
-        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind)
+        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture)!= Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer);
+            AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
         }
 
-        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind)
+        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
             AnalysisStats.TotalNumberFolders++;
 
@@ -269,7 +270,15 @@ namespace ScopeProgramAnalysis
 
             program.MethodUnderAnalysisName = "MoveNext";
 
-            var scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
+            IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodPairs;
+            if (useScopeFactory)
+            {
+                scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
+            }
+            else
+            {
+                scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblyes();
+            }
             var results = new List<Result>();
 
             if (scopeMethodPairs.Any())
@@ -391,7 +400,7 @@ namespace ScopeProgramAnalysis
                 }
                 catch (Exception e)
                 {
-                    System.Console.WriteLine("Cannot load {0}", referenceFileName);
+                    System.Console.WriteLine("Cannot load {0}:{1}", referenceFileName, e.Message);
                 }
             }
         }
@@ -418,13 +427,9 @@ namespace ScopeProgramAnalysis
             foreach (var factoryMethdod in factoryMethods)
             {
                 var ins = factoryMethdod.Body.Instructions.OfType<Model.Bytecode.CreateObjectInstruction>().Single();
+
                 var reducerClass = ins.Constructor.ContainingType;
 
-                //if (!referencesLoaded)
-                //{
-                //    LoadExternalReferences(this.ReferenceFiles, loader);
-                //    referencesLoaded = true;
-                //}
                 ClassDefinition resolvedEntryClass = null;
                 try
                 {
@@ -447,18 +452,67 @@ namespace ScopeProgramAnalysis
                                 var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
                                 var getEnumeratorMethod = getEnumMethods.Single();
                                 scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
-                                var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
-                                this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+
+                                // TODO: Hack for reuse. Needs refactor
+                                if (factoryMethdod != null)
+                                {
+                                    var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                                    this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                                }
                             }
                         }
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     AnalysisStats.TotalofDepAnalysisErrors++;
+                    System.Console.WriteLine("Error in Dependency Analysis", e.Message);
+                }
+
+            }
+            return scopeMethodPairsToAnalyze;
+        }
+
+        public IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblyes()
+        {
+            var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
+
+            var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
+                            .Where(c => c.Base != null && c.Base.Name == this.ClassFilter);
+            if (candidateClasses.Any())
+            {
+                var results = new List<Result>();
+                foreach (var candidateClass in candidateClasses)
+                {
+                    var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
+                    var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
+                                    .Where(c => c.Name.StartsWith(this.ClousureFilter));
+                    foreach (var candidateClousure in candidateClousures)
+                    {
+                        var methods = candidateClousure.Members.OfType<MethodDefinition>()
+                                                .Where(md => md.Body != null
+                                                && md.Name.Equals(this.MethodUnderAnalysisName));
+
+                        if (methods.Any())
+                        {
+                            var entryMethod = candidateClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
+                            var moveNextMethod = methods.First();
+                            var getEnumMethods = candidateClousure.Methods
+                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                            var getEnumeratorMethod = getEnumMethods.First();
+
+                            scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
+
+                        }
+                    }
                 }
             }
             return scopeMethodPairsToAnalyze;
+        }
+
+        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodPairsToAnalyze, 
+            MethodDefinition factoryMethdod, IBasicType reducerClass)
+        {
         }
 
         //private ClassDefinition ResolveClass(IBasicType classToResolve)
@@ -477,7 +531,7 @@ namespace ScopeProgramAnalysis
         //            AnalysisStats.DllThatFailedToLoad.Add(classToResolve.ContainingAssembly.Name);
         //            AnalysisStats.TotalDllsFailedToLoad++;
         //        }
-                
+
         //    }
         //    return resolvedClass;
         //}
@@ -527,7 +581,7 @@ namespace ScopeProgramAnalysis
             }
             catch (Exception e)
             {
-                System.Console.Out.Write("Could not write the file: {0}", outputFilePath);
+                System.Console.Out.Write("Could not write the file: {0}:{1}", outputFilePath, e.Message);
             }
         }
 
