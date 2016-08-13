@@ -61,10 +61,10 @@ namespace ScopeProgramAnalysis
 
         private Assembly TryToLoadAssembly(string assemblyReferenceName)
         {
-            if(assemblyReferenceName=="mscorlib")
-            {
-                return LoadCoreAssembly();
-            }
+            //if(assemblyReferenceName=="mscorlib")
+            //{
+            //    return LoadCoreAssembly();
+            //}
 
             var extensions = new string[] { ".dll", ".exe" };
             var referencePath = "";
@@ -212,8 +212,10 @@ namespace ScopeProgramAnalysis
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
 
-            const string input = @"D:\MadanExamples\0971f7cb-50e0-4907-b272-f743c00b3e46\__ScopeCodeGen__.dll";
-
+            // const string input = @"D:\MadanExamples\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll";
+            //const string input = @"D:\MadanExamples\15444206-b209-437e-b23b-2d916f18cd35\__ScopeCodeGen__.dll";
+            // const string input = @"D:\MadanExamples\208afef3-4cae-428c-a7a2-75ea7350b1ea\__ScopeCodeGen__.dll";
+            const string input = @"D:\MadanExamples\9e5dad20-19f4-4a4d-8b95-319fd2e047f8\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");

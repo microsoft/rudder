@@ -1,4 +1,5 @@
-﻿using ScopeProgramAnalysis;
+﻿using Backend.Model;
+using ScopeProgramAnalysis;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -38,6 +39,12 @@ namespace ScopeAnalysisBulkScripts
 
                 Program.AnalyzeDll(dllToAnalyze, referencesPath, outputPath, Program.ScopeMethodKind.Reducer);
                 System.Console.WriteLine("=========================================================================");
+                PointsToGraph.NullNode.Variables.Clear();
+                PointsToGraph.NullNode.Targets.Clear();
+                PointsToGraph.NullNode.Sources.Clear();
+                PointsToGraph.GlobalNode.Variables.Clear();
+                PointsToGraph.GlobalNode.Targets.Clear();
+                PointsToGraph.GlobalNode.Sources.Clear();
             }
             System.Console.WriteLine("Done!");
         }
