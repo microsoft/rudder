@@ -125,11 +125,6 @@ namespace ScopeAnalyzer
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
-            
-            //if (!methodDefinition.FullName().Contains("___Scope_Generated_Classes___.Row_84A97FF629CF2AE9.Serializ"))
-            //{
-            //    return;
-            //}
 
             try
             {
@@ -163,7 +158,7 @@ namespace ScopeAnalyzer
                   
                     Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
                     Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
-                    Utils.WriteLine("\n--------------------------------------------------\n");
+                    Utils.WriteLine("\n--------------------------------------------------\n");                  
                 } 
                 else
                 {
@@ -236,7 +231,7 @@ namespace ScopeAnalyzer
 
             var typeAnalysis = new TypeInferenceAnalysis(cfg);
             typeAnalysis.Analyze();
-
+            
             //var forwardCopyAnalysis = new ForwardCopyPropagationAnalysis(cfg);
             //forwardCopyAnalysis.Analyze();
             //forwardCopyAnalysis.Transform(methodBody);

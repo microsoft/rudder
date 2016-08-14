@@ -151,8 +151,6 @@ namespace ScopeAnalyzer
         }
 
 
-
-
         public static HashSet<IVariable> Variables(this ControlFlowGraph cfg)
         {
             var variables = new HashSet<IVariable>();
@@ -162,13 +160,12 @@ namespace ScopeAnalyzer
                 {
                     foreach (var v in ins.Variables)
                     {
-                         variables.Add(v);
-                    }                  
+                        variables.Add(v);
+                    }
                 }
             }
             return variables;
         }
-
         public static HashSet<IFieldReference> Fields(this ControlFlowGraph cfg)
         {
             var fields = new HashSet<IFieldReference>();
