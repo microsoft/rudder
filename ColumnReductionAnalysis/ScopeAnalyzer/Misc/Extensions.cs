@@ -152,7 +152,7 @@ namespace ScopeAnalyzer.Misc
 
 
        
-        public static HashSet<IFieldReference> Fields(this ControlFlowGraph cfg)
+        public static IEnumerable<IFieldReference> FieldsReferences(this ControlFlowGraph cfg)
         {
             var fields = new HashSet<IFieldReference>();
             foreach (var node in cfg.Nodes)
@@ -189,6 +189,58 @@ namespace ScopeAnalyzer.Misc
             }
             return fields;
         }
-     
+
+
+        /// <summary>
+        /// Returns a unique set of pairs (field access, field reference). In the case that
+        /// the access is array length, then field reference is null.
+        /// </summary>
+        /// <param name="cfg"></param>
+        /// <returns></returns>
+        public static IEnumerable<Tuple<IFieldAccess, IFieldReference>> FieldAccesses(this ControlFlowGraph cfg)
+        {
+            var fields = new Dictionary<string, Tuple<IFieldAccess, IFieldReference>>();
+            foreach (var node in cfg.Nodes)
+            {
+                foreach (var ins in node.Instructions)
+                {
+                    // Field access appear only in load and store instructions.
+                    if (ins is LoadInstruction || ins is StoreInstruction)
+                    {
+                        IValue operand;
+                        if (ins is LoadInstruction)
+                        {
+                            // here field access can be only operand.
+                            operand = (ins as LoadInstruction).Operand;
+                        }
+                        else
+                        {
+                            // here field access can be only result.
+                            operand = (ins as StoreInstruction).Result;
+                        }
+
+                        if (operand is IFieldAccess)
+                        {
+                            var op = operand as IFieldAccess;
+                            IFieldReference fref;
+                            // Array length access does not have field reference
+                            if (op is InstanceFieldAccess)
+                                fref = (op as InstanceFieldAccess).Field;
+                            else if (operand is StaticFieldAccess)
+                                fref = (op as StaticFieldAccess).Field;
+                            else
+                                fref = null;
+
+                            // IFieldAccess objects might be semantically same but have
+                            // several object representations. We match syntactically.
+                            var ops = op.ToExpression().ToString();
+                            if (!fields.ContainsKey(ops))
+                                fields[ops] = new Tuple<IFieldAccess, IFieldReference>(op, fref);
+                        }                      
+                    }
+                }
+            }
+            return fields.Values.AsEnumerable();
+        }
     }
 }

@@ -12,6 +12,9 @@ using Backend.Serialization;
 using Backend.ThreeAddressCode;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
+using ScopeAnalyzer.Analyses;
+using ScopeAnalyzer.Interfaces;
+using ScopeAnalyzer.Misc;
 
 
 namespace ScopeAnalyzer
@@ -182,6 +185,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running escape analysis...");
             var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
+            Utils.WriteLine(results.EscapeSummary.ToString());
             Utils.WriteLine("Something escaped: " + escAnalysis.InterestingRowEscaped);
             Utils.WriteLine("Done with escape analysis\n");          
             return escAnalysis;
@@ -203,7 +207,7 @@ namespace ScopeAnalyzer
             var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowTypes, columnTypes);
             var outcome = clsAnalysis.Analyze();      
             results.UsedColumnsSummary = outcome;
-            Utils.WriteLine(results.UsedColumnsSummary.ToString());
+            //Utils.WriteLine(results.UsedColumnsSummary.ToString());
             Utils.WriteLine("Done with used columns analysis\n");
             return clsAnalysis;
         }
@@ -265,8 +269,6 @@ namespace ScopeAnalyzer
         /// <returns></returns>
         private bool IsProcessor(IMethodDefinition method)
         {
-            // Bunch of checks to make sure that the method we are analyzing is suitable for our analysis.
-
             // Containing type of a method needs to be a non-anonymous reference type.
             if (!(method.ContainingType is INamedTypeReference)) return false;
             var mtype = method.ContainingType as INamedTypeReference;
@@ -280,10 +282,6 @@ namespace ScopeAnalyzer
             if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && processorTypes.All(pt => !type.SubtypeOf(pt, mhost))) return false;
             // We are currently focusing on MoveNext methods only.
             if (!method.FullName().EndsWith(".MoveNext()")) return false;
-           
-            // This is just a sanity check. TODO: too specific? What if compiler changes?
-            var name = method.ContainingType.Name();           
-            if (!name.StartsWith("<Reduce>") && !name.StartsWith("<Process>")) return false;
 
             return true;
         }
@@ -311,7 +309,7 @@ namespace ScopeAnalyzer
                 return domain.Escaped(var);
             }
 
-            public bool Escaped(Instruction instruction, IFieldReference field)
+            public bool Escaped(Instruction instruction, IFieldAccess field)
             {
                 if (!analysis.PossiblyRow(field.Type)) return true;
 

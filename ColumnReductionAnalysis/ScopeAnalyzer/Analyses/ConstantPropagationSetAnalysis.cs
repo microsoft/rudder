@@ -356,9 +356,8 @@ namespace ScopeAnalyzer.Analyses
             var vars = cfg.GetVariables();
             variables = new HashSet<IVariable>(vars.Where(v => IsConstantType(v.Type, host)).ToList());
 
-            fields = cfg.Fields();
-            fields = new HashSet<IFieldReference>(fields.Where(f => IsConstantType(f.Type, host)).ToList());
-
+            var fs = cfg.FieldsReferences();
+            fields = new HashSet<IFieldReference>(fs.Where(f => IsConstantType(f.Type, host)).ToList());
 
             var instructions = new List<Instruction>();
             foreach (var block in cfg.Nodes)

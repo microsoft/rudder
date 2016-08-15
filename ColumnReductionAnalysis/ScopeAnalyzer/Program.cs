@@ -10,6 +10,7 @@ using Microsoft.Cci;
 using Frontend;
 using Backend;
 using System.Xml.Linq;
+using ScopeAnalyzer.Misc;
 
 namespace ScopeAnalyzer
 {

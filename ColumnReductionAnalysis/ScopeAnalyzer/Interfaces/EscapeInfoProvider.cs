@@ -13,7 +13,7 @@ namespace ScopeAnalyzer.Interfaces
     {
         bool Escaped(Instruction instruction, IVariable var);
 
-        bool Escaped(Instruction instruction, IFieldReference field);
+        bool Escaped(Instruction instruction, IFieldAccess field);
 
         bool Escaped(Instruction instruction, IVariable array, int index);
     }

@@ -76,7 +76,7 @@ namespace ScopeAnalyzer.Analyses
             string summary = "May escape information about variables:\n";
             foreach (var v in mapping.Keys)
             {
-                summary += String.Format("\t{0}: {1}\t{2}\n", (v.Type == null? "unknown": v.Type.FullName()) + "::" + v.Name, mapping[v], v.Type);
+                summary += String.Format("\t{0} ({1}): {2}\n", v.Name, v.Type, mapping[v]);
             }
             return summary;
         }
@@ -86,17 +86,17 @@ namespace ScopeAnalyzer.Analyses
     /// <summary>
     /// Domain that keeps track of which fields may have escaped, fields being fixed.
     /// </summary>
-    public class FieldEscapeSet : BooleanMapDomain<IFieldReference>
+    public class FieldEscapeSet : BooleanMapDomain<IFieldAccess>
     {
 
-        private FieldEscapeSet(Dictionary<IFieldReference, Boolean> fe)
+        private FieldEscapeSet(Dictionary<IFieldAccess, Boolean> fe)
         {
             mapping = fe;
         }
 
-        public static FieldEscapeSet Bottom(IEnumerable<IFieldReference> fields)
+        public static FieldEscapeSet Bottom(IEnumerable<IFieldAccess> fields)
         {
-            Dictionary<IFieldReference, Boolean> fe = new Dictionary<IFieldReference, bool>();
+            Dictionary<IFieldAccess, Boolean> fe = new Dictionary<IFieldAccess, bool>();
             foreach (var f in fields)
             {
                 fe[f] = false;
@@ -104,9 +104,9 @@ namespace ScopeAnalyzer.Analyses
             return new FieldEscapeSet(fe);
         }
 
-        public static FieldEscapeSet Top(IEnumerable<IFieldReference> fields)
+        public static FieldEscapeSet Top(IEnumerable<IFieldAccess> fields)
         {
-            Dictionary<IFieldReference, Boolean> fe = new Dictionary<IFieldReference, bool>();
+            Dictionary<IFieldAccess, Boolean> fe = new Dictionary<IFieldAccess, bool>();
             foreach (var f in fields)
             {
                 fe[f] = true;
@@ -114,17 +114,17 @@ namespace ScopeAnalyzer.Analyses
             return new FieldEscapeSet(fe);
         }
 
-        public void Escape(IFieldReference f)
+        public void Escape(IFieldAccess f)
         {
             SetTrue(f);
         }
 
-        public void Return(IFieldReference f)
+        public void Return(IFieldAccess f)
         {
             SetFalse(f);
         }
 
-        public bool Escaped(IFieldReference f)
+        public bool Escaped(IFieldAccess f)
         {
             return IsTrue(f);
         }
@@ -136,7 +136,7 @@ namespace ScopeAnalyzer.Analyses
 
         public FieldEscapeSet Clone()
         {
-            return new FieldEscapeSet(new Dictionary<IFieldReference, bool>(mapping));
+            return new FieldEscapeSet(new Dictionary<IFieldAccess, bool>(mapping));
         }
 
         public override string ToString()
@@ -144,7 +144,7 @@ namespace ScopeAnalyzer.Analyses
             string summary = "May escape information about fields:\n";
             foreach (var f in mapping.Keys)
             {
-                summary += String.Format("\t{0}: {1}\t{2}\n", (f.ContainingType == null? "unknown": f.ContainingType.FullName()) + "::" + f.Name, mapping[f], f.Type);
+                summary += String.Format("\t{0} ({1}): {2}\n", f.ToExpression().ToString(), f.Type, mapping[f]);
             }
             return summary;
         }
@@ -166,12 +166,12 @@ namespace ScopeAnalyzer.Analyses
         }
 
 
-        public static ScopeEscapeDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
+        public static ScopeEscapeDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
             return new ScopeEscapeDomain(VarEscapeSet.Top(vars), FieldEscapeSet.Top(fields));
         }
 
-        public static ScopeEscapeDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
+        public static ScopeEscapeDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
             return new ScopeEscapeDomain(VarEscapeSet.Bottom(vars), FieldEscapeSet.Bottom(fields));
         }
@@ -201,7 +201,7 @@ namespace ScopeAnalyzer.Analyses
             vset.Escape(v);
         }
 
-        public void Escape(IFieldReference f)
+        public void Escape(IFieldAccess f)
         {
             fset.Escape(f);
         }
@@ -211,7 +211,7 @@ namespace ScopeAnalyzer.Analyses
             vset.Return(v);
         }
 
-        public void Return(IFieldReference f)
+        public void Return(IFieldAccess f)
         {
             fset.Return(f);
         }
@@ -221,7 +221,7 @@ namespace ScopeAnalyzer.Analyses
             return vset.Escaped(v);
         }
 
-        public bool Escaped(IFieldReference f)
+        public bool Escaped(IFieldAccess f)
         {
             return fset.Escaped(f);
         }
@@ -286,8 +286,8 @@ namespace ScopeAnalyzer.Analyses
 
         Dictionary<Instruction, ScopeEscapeDomain> preResults = new Dictionary<Instruction, ScopeEscapeDomain>();
         Dictionary<Instruction, ScopeEscapeDomain> postResults = new Dictionary<Instruction, ScopeEscapeDomain>();
-        HashSet<IFieldReference> fieldsToTrack = new HashSet<IFieldReference>();
-        HashSet<IVariable> varsToTrack = new HashSet<IVariable>();
+        IEnumerable<Tuple<IFieldAccess, IFieldReference>> fieldsToTrack;
+        IEnumerable<IVariable> varsToTrack; 
       
         bool unsupported = false;
         bool interestingRowEscaped = false;
@@ -330,9 +330,9 @@ namespace ScopeAnalyzer.Analyses
             get { return rowTypes; }
         }
 
-        public IEnumerable<IFieldReference> TrackedFields
+        public IEnumerable<IFieldAccess> TrackedFields
         {
-            get { return fieldsToTrack; }
+            get { return fieldsToTrack.Select(t => t.Item1).AsEnumerable(); }
         }
 
         public IEnumerable<IVariable> TrackedVariables
@@ -381,11 +381,17 @@ namespace ScopeAnalyzer.Analyses
                 Utils.WriteLine("WARNING: no closure environment found!");
             }
 
-            var frefs = cfg.Fields();
-            fieldsToTrack = new HashSet<IFieldReference>(frefs.Where(f => fieldDefinitions.Contains(f.Resolve(host))).ToList());
+            /*
+             * We keep track of the syntactic field accesses that correspond to field definitions of the enclosing
+             * closure class. These acceses are assumed to be safe. Note that this is fine since generated closure
+             * class is singleton: every processor is assigned a different closure class. Hence there won't be any
+             * other accesses that correspond to closure field definitions and that can be potentialy unsafe.
+             */
+            var frefs = cfg.FieldAccesses();
+            fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Contains(f.Item2.Resolve(host))).AsEnumerable();
 
             var vars = cfg.GetVariables();
-            varsToTrack = new HashSet<IVariable>(vars.Where(v => PossiblyRow(v.Type)).ToList());
+            varsToTrack = vars.Where(v => PossiblyRow(v.Type)).ToList();
 
             var instructions = new List<Instruction>();
             foreach (var block in cfg.Nodes)
@@ -448,11 +454,11 @@ namespace ScopeAnalyzer.Analyses
         {
             if (unsupported)
             {
-                return ScopeEscapeDomain.Top(varsToTrack, fieldsToTrack);
+                return ScopeEscapeDomain.Top(varsToTrack, fieldsToTrack.Select(f=> f.Item1).ToList());
             }
             else
             {
-                return ScopeEscapeDomain.Bottom(varsToTrack, fieldsToTrack);
+                return ScopeEscapeDomain.Bottom(varsToTrack, fieldsToTrack.Select(f => f.Item1).ToList());
             }
         }
 
@@ -546,7 +552,7 @@ namespace ScopeAnalyzer.Analyses
                     if (result is InstanceFieldAccess)
                     {             
                         var r = result as InstanceFieldAccess;
-                        if (!IsFieldTracked(r.Field))
+                        if (!IsFieldTracked(r))
                         {
                             SetEscaped(nstate, operand, instruction);
                         }
@@ -799,14 +805,14 @@ namespace ScopeAnalyzer.Analyses
             #endregion
 
 
-            private bool IsFieldTracked(IFieldReference field)
+            private bool IsFieldTracked(IFieldAccess field)
             {
                 if (parent.TrackedFields.Contains(field)) return true;
 
                 // sanity
                 foreach (var f in parent.TrackedFields)
                 {
-                    if (f == field || f.Equals(field)) return true;
+                    if (f.ToExpression().ToString() == field.ToExpression().ToString()) return true;
                 }
 
                 return false;
