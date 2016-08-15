@@ -27,6 +27,7 @@ namespace ScopeAnalysisBulkScripts
             foreach (var dllToAnalyze in files)
             {
                 System.Console.WriteLine("=========================================================================");
+                System.Console.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
                 System.Console.WriteLine("Analyzing {0}", dllToAnalyze);
                 var folder = Path.GetDirectoryName(dllToAnalyze);
                 var referencesPath = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp) != inputDllName).ToList();
@@ -45,6 +46,7 @@ namespace ScopeAnalysisBulkScripts
                 PointsToGraph.GlobalNode.Variables.Clear();
                 PointsToGraph.GlobalNode.Targets.Clear();
                 PointsToGraph.GlobalNode.Sources.Clear();
+                AnalysisStats.AnalysisReasons.Clear();
             }
             System.Console.WriteLine("Done!");
         }

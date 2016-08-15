@@ -397,14 +397,26 @@ namespace Backend.Analyses
         {
             var result = new DependencyDomain();
 
-            result.IsTop = this.IsTop || right.IsTop;
-
-            if (result.IsTop)
+            if (this.IsTop || right.IsTop)
+            {
+                result.IsTop = true;
                 return result;
+            }
 
-            if(this.A2_Variables.Count()>113)
-            { }
+            if(right.LessEqual(this))
+            {
+                return this;
+            }
 
+            if (this.LessEqual(right))
+            {
+                return right;
+            }
+
+
+
+
+            result.IsTop = this.IsTop;
             result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
             result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
             result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
@@ -412,6 +424,7 @@ namespace Backend.Analyses
 
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
 
+            result.isTop = result.isTop || right.isTop;
             result.A1_Escaping.UnionWith(right.A1_Escaping);
             result.A2_Variables.UnionWith(right.A2_Variables);
             result.A3_Clousures.UnionWith(right.A3_Clousures);
@@ -872,6 +885,7 @@ namespace Backend.Analyses
                                                 CallLHS = methodCallStmt.Result,
                                                 CallerState = this.State,
                                                 CallerPTG = ptg,
+                                                Instruction = instruction,
                                                 ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
                                             };
 

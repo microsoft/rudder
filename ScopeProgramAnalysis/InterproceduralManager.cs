@@ -52,6 +52,7 @@ namespace ScopeProgramAnalysis
         public MethodDefinition Callee { get; set; }
 
         public IEnumerable<PTGNode> ProtectedNodes { get; set; }
+        public IInstruction Instruction { get; internal set; }
     }
     public struct InterProceduralReturnInfo
     {
@@ -96,9 +97,13 @@ namespace ScopeProgramAnalysis
         {
             if (callInfo.Callee.Body.Instructions.Any())
             {
+                var previousState = callInfo.CallerState;
                 ControlFlowGraph calleeCFG = this.GetCFG(callInfo.Callee);
 
                 var interProcresult = InterproceduralAnalysis(callInfo, calleeCFG);
+                // For Debugging
+                if(interProcresult.State.LessEqual(previousState) && !interProcresult.State.Equals(previousState))
+                { }
                 return interProcresult;
             }
             return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
@@ -115,6 +120,15 @@ namespace ScopeProgramAnalysis
                 return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
 
             stackDepth++;
+            // I currently do not support recursive calls 
+            // Will add support for this in the near future
+            if(callStack.Contains(callInfo.Callee))
+            {
+                callInfo.CallerState.IsTop = true;
+                AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller.Name, callInfo.Instruction, String.Format("Recursive call to {0}", callInfo.Callee.Name)));
+                return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
+            }
+
             this.callStack.Push(callInfo.Callee);   
             System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToSignatureString(), stackDepth);
             // 1) Bind PTG and call PT analysis on callee. In pta.Result[node.Exit] is the PTG at exit of the callee
@@ -134,7 +148,7 @@ namespace ScopeProgramAnalysis
             // 3) Bind callee with caller
             // Should I need the PTG of caller and callee?
             var exitCalleePTG = calleePTA.Result[calleeCFG.Exit.Id].Output;
-            var exitResult = BindCaleeCaller(callInfo, calleeCFG, calleeDomain, dependencyAnalysis);
+            var exitResult = BindCaleeCaller(callInfo, calleeCFG, dependencyAnalysis);
 
             // Recover the frame of the original Ptg and bind ptg results
             PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, calleePTA);
@@ -185,8 +199,7 @@ namespace ScopeProgramAnalysis
             return arg;
         }
 
-        private DependencyDomain BindCaleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG,
-                                                   DependencyDomain callerDepDomain, IteratorDependencyAnalysis depAnalysis)
+        private DependencyDomain BindCaleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, IteratorDependencyAnalysis depAnalysis)
         {
             var exitResult = depAnalysis.Result[calleeCFG.Exit.Id].Output;
             for (int i = 0; i < callInfo.CallArguments.Count(); i++)
@@ -199,17 +212,17 @@ namespace ScopeProgramAnalysis
 
                 if (exitResult.A2_Variables.ContainsKey(param))
                 {
-                    callerDepDomain.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
+                    callInfo.CallerState.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
                 }
                 if (exitResult.A4_Ouput.ContainsKey(param))
                 {
-                    callerDepDomain.A4_Ouput.AddRange(arg, exitResult.A4_Ouput[param]);
+                    callInfo.CallerState.A4_Ouput.AddRange(arg, exitResult.A4_Ouput[param]);
                 }
             }
-            callerDepDomain.A1_Escaping.UnionWith(exitResult.A1_Escaping);
-            callerDepDomain.A3_Clousures.UnionWith(exitResult.A3_Clousures);
+            callInfo.CallerState.A1_Escaping.UnionWith(exitResult.A1_Escaping);
+            callInfo.CallerState.A3_Clousures.UnionWith(exitResult.A3_Clousures);
 
-            callerDepDomain.IsTop = exitResult.IsTop;
+            callInfo.CallerState.IsTop = exitResult.IsTop;
             // callerDepDomain.A3_Clousures = exitResult.A3_Clousures;
 
             if (callInfo.CallLHS != null)
@@ -217,15 +230,15 @@ namespace ScopeProgramAnalysis
                 // Need to bind the return value
                 if (exitResult.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callerDepDomain.A2_Variables.AddRange(callInfo.CallLHS, exitResult.A2_Variables[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.A2_Variables.AddRange(callInfo.CallLHS, exitResult.A2_Variables[depAnalysis.ReturnVariable]);
                 }
                 if (exitResult.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callerDepDomain.A4_Ouput.AddRange(callInfo.CallLHS, exitResult.A4_Ouput[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.A4_Ouput.AddRange(callInfo.CallLHS, exitResult.A4_Ouput[depAnalysis.ReturnVariable]);
                 }
             }
 
-            return callerDepDomain;
+            return callInfo.CallerState;
 
         }
 
