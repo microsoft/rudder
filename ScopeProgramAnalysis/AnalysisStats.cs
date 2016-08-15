@@ -68,7 +68,7 @@ namespace ScopeProgramAnalysis
 
         }
 
-        internal static void WriteAnalysisReasons(TextWriter output)
+        public static void WriteAnalysisReasons(TextWriter output)
         {
             foreach(var entry in AnalysisReasons)
             {

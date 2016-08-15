@@ -69,7 +69,13 @@ namespace Backend.Analyses
                 else if (operand is InstanceFieldAccess)
                 {
                     var access = operand as InstanceFieldAccess;
-                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result, access);
+                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result, access.Instance, access.Field);
+                }
+                else if(operand is StaticFieldAccess)
+                {
+                    var access = operand as StaticFieldAccess;
+                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result,  this.ptAnalysis.GlobalVariable, access.Field);
+
                 }
                 else if (operand is VirtualMethodReference)
                 {
@@ -95,10 +101,16 @@ namespace Backend.Analyses
             public override void Visit(StoreInstruction instruction)
             {
                 var store = instruction;
-                if (store.Result is InstanceFieldAccess)
+                var lhs= store.Result;
+                if (lhs is InstanceFieldAccess)
                 {
-                    var access = store.Result as InstanceFieldAccess;
-                    ptAnalysis.ProcessStore(ptg, access, store.Operand);
+                    var access = lhs as InstanceFieldAccess;
+                    ptAnalysis.ProcessStore(ptg, access.Instance, access.Field, store.Operand);
+                }
+                else if(lhs is StaticFieldAccess)
+                {
+                    var access = lhs as StaticFieldAccess;
+                    ptAnalysis.ProcessStore(ptg, this.ptAnalysis.GlobalVariable, access.Field, store.Operand);
                 }
             }
             public override void Visit(CreateObjectInstruction instruction)
@@ -182,6 +194,7 @@ namespace Backend.Analyses
         private PointsToGraph initialGraph;
         private MethodDefinition method;
         public IVariable ReturnVariable { get; private set; }
+        public IVariable GlobalVariable { get; private set; }
         public DataFlowAnalysisResult<PointsToGraph>[] Result { get; private set; }
         public IVariable ThisVariable { get; private set; }
 
@@ -260,6 +273,9 @@ namespace Backend.Analyses
             this.ReturnVariable = new LocalVariable(this.method.Name+"_"+"$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
 
+            this.GlobalVariable= new LocalVariable("$Global");
+            this.GlobalVariable.Type = PlatformTypes.Object;
+
             var ptg = new PointsToGraph();
 			var variables = cfg.GetVariables();
             if(this.method.Body.Parameters!=null)
@@ -314,6 +330,8 @@ namespace Backend.Analyses
             //    ptg.PointsTo(thisNode, new FieldReference(fieldName, variable.Type, method.ContainingType), node);
             //}
             ptg.Add(this.ReturnVariable);
+            ptg.Add(this.GlobalVariable);
+            ptg.PointsTo(this.GlobalVariable, PointsToGraph.GlobalNode);
 			this.initialGraph = ptg;
 		}
 
@@ -375,15 +393,15 @@ namespace Backend.Analyses
    //         }
         }
 
-		private void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, InstanceFieldAccess access)
+		private void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
         {
-			if (dst.Type.TypeKind == TypeKind.ValueType || access.Type.TypeKind == TypeKind.ValueType) return;
+			if (dst.Type.TypeKind == TypeKind.ValueType || field.Type.TypeKind == TypeKind.ValueType) return;
 
             ptg.RemoveEdges(dst);
-			var nodes = ptg.GetTargets(access.Instance);
+			var nodes = ptg.GetTargets(instance);
             foreach (var node in nodes)
             {
-                var hasField = node.Targets.ContainsKey(access.Field);
+                var hasField = node.Targets.ContainsKey(field);
 
                 if (!hasField)
 				{
@@ -398,11 +416,11 @@ namespace Backend.Analyses
                         // TODO: Should be a LOAD NODE
                         // Preventive assignement of a new Node unknown (should be only for parameters)
                         var target = this.NewNode(ptg, ptgId, dst.Type, PTGNodeKind.Unknown);
-                        ptg.PointsTo(node, access.Field, target);
+                        ptg.PointsTo(node, field, target);
                     }
                 }
 
-                var targets = node.Targets[access.Field];
+                var targets = node.Targets[field];
 
                 foreach (var target in targets)
                 {
@@ -418,17 +436,17 @@ namespace Backend.Analyses
             return result;
         }
 
-        private void ProcessStore(PointsToGraph ptg, InstanceFieldAccess access, IVariable src)
+        private void ProcessStore(PointsToGraph ptg, IVariable instance, IFieldReference field, IVariable src)
         {
-			if (access.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
+			if (field.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
 
-			var nodes = ptg.GetTargets(access.Instance);
+			var nodes = ptg.GetTargets(instance);
 			var targets = ptg.GetTargets(src);
 
 			foreach (var node in nodes)
 				foreach (var target in targets)
 				{
-					ptg.PointsTo(node, access.Field, target);
+					ptg.PointsTo(node, field, target);
 				}
         }
 

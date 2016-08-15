@@ -738,7 +738,7 @@ namespace Backend.Analyses
                     //if (ISClousureField(fieldAccess))
                     {
                         // this is a[loc(C.f)]
-                        var loc = new Location(fieldAccess.Field);
+                        var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
                         if (this.State.A3_Clousures.ContainsKey(loc))
                         {
                             union1.UnionWith(this.State.A3_Clousures[loc]);
@@ -751,7 +751,7 @@ namespace Backend.Analyses
                 {
                     if (!fieldAccess.Field.ContainingType.Equals(PlatformTypes.String))
                     {
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Static store insturuction not Supported"));
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Static store instruction not Supported"));
                         this.State.IsTop = true;
                     }
                 }
@@ -815,7 +815,7 @@ namespace Backend.Analyses
                 {
                     var field = (instruction.Result as StaticFieldAccess).Field;
                     var union = GetTraceablesFromA2_Variables(instruction.Operand);
-                    this.State.A3_Clousures[new Location(field)] = union;
+                    this.State.A3_Clousures[new Location(PointsToGraph.GlobalNode, field)] = union;
                     
                     this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(instruction.Operand));
                 }
@@ -868,49 +868,36 @@ namespace Backend.Analyses
                             }
                             else
                             {
-                                if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled)
+                                // I first check in the calle may a input/output row
+                                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
+                                var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+                                if (escaping)
                                 {
-                                    var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
-                                    foreach (var resolvedCallee in computedCalles.Item1)
+                                    if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled)
                                     {
-                                        try
+                                        var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
+                                        AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
+
+                                        // If there are unresolved calles
+                                        if (computedCalles.Item2.Any())
                                         {
-                                            var input = this.State;
-
-                                            var interProcInfo = new InterProceduralCallInfo()
-                                            {
-                                                Caller = this.method,
-                                                Callee = resolvedCallee,
-                                                CallArguments = methodCallStmt.Arguments,
-                                                CallLHS = methodCallStmt.Result,
-                                                CallerState = this.State,
-                                                CallerPTG = ptg,
-                                                Instruction = instruction,
-                                                ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
-                                            };
-
-                                            var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
-
-                                            this.State = interProcResult.State;
-                                            ptg = interProcResult.PTG;
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
-                                            AnalysisStats.TotalofFrameworkErrors++;
                                             HandleNoAnalyzableMethod(instruction, methodCallStmt);
                                         }
                                     }
-
-                                    // If there are unresolved calles
-                                    if (computedCalles.Item2.Any())
+                                    else
                                     {
                                         HandleNoAnalyzableMethod(instruction, methodCallStmt);
                                     }
                                 }
                                 else
                                 {
-                                    HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                                    // TODO: I should at leat update the Poinst-to graph
+                                    // or make the parameters escape
+                                    foreach(var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
+                                    {
+                                        var escapingField = new FieldReference("escape", PlatformTypes.Object, this.method.ContainingType);
+                                        ptg.PointsTo(PointsToGraph.GlobalNode, escapingField, escapingNode);
+                                    }
                                 }
                             }
                         }
@@ -918,18 +905,52 @@ namespace Backend.Analyses
                 }
             }
 
+            private void AnalyzeResolvedCallees(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt, IEnumerable<MethodDefinition> calles)
+            {
+                foreach (var resolvedCallee in calles)
+                {
+                    try
+                    {
+                        var input = this.State;
+
+                        var interProcInfo = new InterProceduralCallInfo()
+                        {
+                            Caller = this.method,
+                            Callee = resolvedCallee,
+                            CallArguments = methodCallStmt.Arguments,
+                            CallLHS = methodCallStmt.Result,
+                            CallerState = this.State,
+                            CallerPTG = ptg,
+                            Instruction = instruction,
+                            ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+                        };
+
+                        var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
+
+                        this.State = interProcResult.State;
+                        ptg = interProcResult.PTG;
+                    }
+                    catch (Exception e)
+                    {
+                        System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
+                        AnalysisStats.TotalofFrameworkErrors++;
+                        HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                    }
+                }
+            }
+
             private void HandleNoAnalyzableMethod(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt)
             {
                 UpdateUsingDefUsed(methodCallStmt);
-                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
-                var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
-                if(escaping)
-                {
+                //var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
+                //var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+                //if(escaping)
+                //{
                     this.State.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => GetTraceablesFromA2_Variables(arg)));
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, 
                                                     String.Format("Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
                     // this.State.IsTop = true;
-                }
+                // }
             }
 
             private bool IsPureMethod(MethodCallInstruction metodCallStmt)

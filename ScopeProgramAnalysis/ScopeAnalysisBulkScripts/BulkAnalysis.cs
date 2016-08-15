@@ -19,6 +19,11 @@ namespace ScopeAnalysisBulkScripts
         }
         public static void AnalyzeScopeScripts(string[] args)
         {
+            var logPath = Path.Combine(@"D:\Temp\", "analysis.log");
+            var outputStream = File.CreateText(logPath);
+
+
+
             var inputFolder = args[0];
             var outputFolder = args[1];
             var kind = args[2];
@@ -39,6 +44,15 @@ namespace ScopeAnalysisBulkScripts
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
                 Program.AnalyzeDll(dllToAnalyze, referencesPath, outputPath, Program.ScopeMethodKind.Reducer);
+
+                if (AnalysisStats.AnalysisReasons.Any())
+                {
+                    outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
+                    AnalysisStats.WriteAnalysisReasons(outputStream);
+                }
+                outputStream.WriteLine("===========================================================================");
+                outputStream.Flush();
+
                 System.Console.WriteLine("=========================================================================");
                 PointsToGraph.NullNode.Variables.Clear();
                 PointsToGraph.NullNode.Targets.Clear();
@@ -48,6 +62,11 @@ namespace ScopeAnalysisBulkScripts
                 PointsToGraph.GlobalNode.Sources.Clear();
                 AnalysisStats.AnalysisReasons.Clear();
             }
+
+            AnalysisStats.PrintStats(outputStream);
+            outputStream.WriteLine("End.");
+            outputStream.Flush();
+
             System.Console.WriteLine("Done!");
         }
 
