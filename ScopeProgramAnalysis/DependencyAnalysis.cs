@@ -8,6 +8,7 @@ using Backend.Utils;
 using Model.ThreeAddressCode.Instructions;
 using Model.ThreeAddressCode.Values;
 using Model.ThreeAddressCode.Expressions;
+using System.Linq;
 
 namespace ScopeProgramAnalysis
 {
@@ -27,6 +28,7 @@ namespace ScopeProgramAnalysis
         // private IDictionary<string,IVariable> specialFields;
         private MethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
+    
 
         public SongTaoDependencyAnalysis(Host host,
                                         InterproceduralManager interprocManager,
@@ -50,11 +52,12 @@ namespace ScopeProgramAnalysis
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
-
             // 2) Call the GetEnumerator that may create a new clousure and polulate it
             var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.ReturnType };
             ptgOfEntry.Add(myGetEnumResult);
-            var ptgAfterEnum = this.interprocManager.PTADoInterProcWithCallee(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
+            var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
+
+            var protectedNodes = ptgOfEntry.Nodes.Where(n => IsScopeType(n.Type));
 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
             //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
@@ -73,7 +76,7 @@ namespace ScopeProgramAnalysis
             // var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields, ptgOfEntry);
 
             PropagateExpressions(cfg, this.equalities);
-            var result = this.AnalyzeScopeMethods(cfg, ptAnalysisResult);
+            var result = this.AnalyzeScopeMethods(cfg, ptAnalysisResult, protectedNodes);
 
             //var sorted_nodes = cfg.ForwardOrder;
             //var ptgExit = ptAnalysisResult[cfg.Exit.Id].Output;
@@ -85,14 +88,15 @@ namespace ScopeProgramAnalysis
             return result;
         }
 
-        DependencyDomain AnalyzeScopeMethods(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs)
+        DependencyDomain AnalyzeScopeMethods(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
+            IEnumerable<PTGNode> protectedNodes)
         {
 
             //var iteratorAnalysis = new IteratorStateAnalysis(cfg, ptgs, this.equalities);
             //var result = iteratorAnalysis.Analyze();
 
             // var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.equalities, this.interprocManager);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, protectedNodes ,this.equalities, this.interprocManager);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;
@@ -104,6 +108,21 @@ namespace ScopeProgramAnalysis
             //    //System.Console.Out.WriteLine(String.Join(Environment.NewLine, node.Instructions));
             //}
             return resultDepAnalysis[node.Id].Output;
+        }
+        public static bool IsScopeType(IType type)
+        {
+            string[] scopeTypes = new[] { "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
+            var basicType = type as IBasicType;
+            if (basicType == null)
+            {
+                return false;
+            }
+            if (basicType.ContainingAssembly.Name == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         #region Methods to Compute a sort of propagation of Equalities (should be moved to extensions or utils)

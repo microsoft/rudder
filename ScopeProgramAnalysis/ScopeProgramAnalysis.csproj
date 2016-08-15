@@ -60,12 +60,14 @@
   <ItemGroup>
     <Compile Include="AlternativeDepenencyAnalysis.cs" />
     <Compile Include="AnalysisStats.cs" />
+    <Compile Include="Framework\HostAndLoader.cs" />
     <Compile Include="InterproceduralManager.cs" />
     <Compile Include="IteratorAnalysis.cs" />
     <Compile Include="DependencyAnalysis.cs" />
+    <Compile Include="IteratorStateAnalysis.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ScopeTypes.cs" />
-    <Compile Include="SimplerPointsToAnalysis.cs" />
+    <Compile Include="Framework\SimplerPointsToAnalysis.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

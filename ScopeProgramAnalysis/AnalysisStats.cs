@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace ScopeProgramAnalysis
 {
@@ -21,7 +22,7 @@ namespace ScopeProgramAnalysis
         public string Reason { get; set; }
         public override string ToString()
         {
-            return String.Format("{0}:{1} = [{2}]", MethodName, Instruction.ToString(), Reason);
+            return String.Format("[{0}:{1}] = {2}", MethodName, Instruction.ToString(), Reason);
         }
 
     }
@@ -67,5 +68,18 @@ namespace ScopeProgramAnalysis
 
         }
 
+        internal static void WriteAnalysisReasons(TextWriter output)
+        {
+            foreach(var entry in AnalysisReasons)
+            {
+                output.WriteLine("Analysis reasons for: {0}", entry.Key);
+                foreach(var reason in entry.Value)
+                {
+                    output.WriteLine(reason);
+
+                    //output.WriteLine("{0}:{1} - {2}", reason.Instruction, reason.MethodName, reason.Reason);
+                }
+            }
+        }
     }
 }

@@ -7,7 +7,6 @@ using Model.ThreeAddressCode.Instructions;
 using Model.ThreeAddressCode.Visitor;
 using Model.ThreeAddressCode.Values;
 using Model.ThreeAddressCode.Expressions;
-using static Backend.Analyses.IteratorState;
 using Backend.Utils;
 using Model.Types;
 using Model;
@@ -16,142 +15,6 @@ using ScopeProgramAnalysis;
 
 namespace Backend.Analyses
 {
-    #region Iterator State Analysis (to be completed)
-    public class IteratorState
-    {
-        public enum IteratorInternalState { TOP = -100, BOTTOM = -2, INITIALIZED = -3, CONTINUING = 1, END = -1 };
-
-        public IteratorInternalState IntState = IteratorInternalState.BOTTOM;
-
-        internal IteratorState()
-        {
-            this.IntState = IteratorInternalState.BOTTOM;
-        }
-        internal IteratorState(IteratorInternalState intState)
-        {
-            this.IntState = intState;
-        }
-        public IteratorState Clone()
-        {
-            return new IteratorState(this.IntState);
-        }
-        internal IteratorState Union(IteratorState right)
-        {
-            var intState = Join(this.IntState, right.IntState);
-            return new IteratorState(intState);
-        }
-        private static IteratorInternalState Join(IteratorInternalState left, IteratorInternalState right)
-        {
-            IteratorInternalState res = IteratorInternalState.BOTTOM;
-            switch (right)
-            {
-                case IteratorInternalState.BOTTOM:
-                    res = left;
-                    break;
-                case IteratorInternalState.TOP:
-                    res = IteratorInternalState.TOP;
-                    break;
-                default:
-                    res = left == right ? left : IteratorInternalState.TOP;
-                    break;
-            }
-            return res;
-        }
-        public bool LessEqual(IteratorState right)
-        {
-            var left = this;
-            var res = true;
-            switch (right.IntState)
-            {
-                case IteratorInternalState.BOTTOM:
-                    res = false;
-                    break;
-                case IteratorInternalState.TOP:
-                    res = true;
-                    break;
-                default:
-                    res = left.IntState == right.IntState ? true : false;
-                    break;
-            }
-            return res;
-        }
-        public override string ToString()
-        {
-            return IntState.ToString();
-        }
-        public override bool Equals(object obj)
-        {
-            var oth = obj as IteratorState;
-            return oth.IntState.Equals(this.IntState);
-        }
-        public override int GetHashCode()
-        {
-            return IntState.GetHashCode();
-        }
-    }
-
-    public class IteratorStateAnalysis : ForwardDataFlowAnalysis<IteratorState>
-    {
-
-        internal class MoveNextVisitorForItStateAnalysis : InstructionVisitor
-        {
-            internal IteratorState State { get; }
-            private IDictionary<IVariable, IExpression> equalities;
-
-            internal MoveNextVisitorForItStateAnalysis(IteratorStateAnalysis itAnalysis, IDictionary<IVariable, IExpression> equalitiesMap, IteratorState state)
-            {
-                this.State = state;
-                this.equalities = equalitiesMap;
-            }
-            public override void Visit(StoreInstruction instruction)
-            {
-                var storeStmt = instruction;
-                if (storeStmt.Result is InstanceFieldAccess)
-                {
-                    var access = storeStmt.Result as InstanceFieldAccess;
-                    if (access.Field.Name == "<>1__state")
-                    {
-                        State.IntState = (IteratorInternalState)int.Parse(this.equalities.GetValue(storeStmt.Operand).ToString(), CultureInfo.InvariantCulture);
-                    }
-                }
-            }
-        }
-
-        private IDictionary<IVariable, IExpression> equalities;
-        DataFlowAnalysisResult<PointsToGraph>[] ptgs;
-
-        public IteratorStateAnalysis(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
-        {
-            this.ptgs = ptgs;
-            this.equalities = equalitiesMap;
-        }
-
-        protected override bool Compare(IteratorState newState, IteratorState oldSTate)
-        {
-            return newState.LessEqual(oldSTate);
-        }
-
-        protected override IteratorState Flow(CFGNode node, IteratorState input)
-        {
-            var oldInput = input.Clone();
-            var visitor = new MoveNextVisitorForItStateAnalysis(this, this.equalities, oldInput);
-            visitor.Visit(node);
-            return visitor.State;
-        }
-
-        protected override IteratorState InitialValue(CFGNode node)
-        {
-            return new IteratorState();
-        }
-
-        protected override IteratorState Join(IteratorState left, IteratorState right)
-        {
-            return left.Union(right);
-        }
-    }
-
-    #endregion
-
     #region Dependency Analysis (based of SongTao paper)
     public abstract class Traceable
     {
@@ -429,7 +292,7 @@ namespace Backend.Analyses
 
         public MapSet<IVariable, Traceable> A4_Ouput { get; private set; }
 
-        public ISet<Traceable> A1_Escaping { get; private set; }
+        public ISet<Traceable> A1_Escaping { get;  set; }
 
         public ISet<IVariable> ControlVariables { get; private set; }
 
@@ -488,11 +351,11 @@ namespace Backend.Analyses
             var oth = obj as DependencyDomain;
             if(oth.IsTop) return true;
             return oth != null 
-                && oth.A1_Escaping.IsSubsetOf(A1_Escaping)
-                && MapLessEqual(oth.A2_Variables, A2_Variables) 
-                && MapLessEqual(oth.A3_Clousures, A3_Clousures)
-                && MapLessEqual(oth.A4_Ouput, A4_Ouput)
-                && oth.ControlVariables.IsSubsetOf(ControlVariables);
+                && this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
+                && MapLessEqual(A2_Variables, oth.A2_Variables) 
+                && MapLessEqual(A3_Clousures, oth.A3_Clousures)
+                && MapLessEqual(A4_Ouput, oth.A4_Ouput)
+                && ControlVariables.IsSubsetOf(oth.ControlVariables);
         }
         public override bool Equals(object obj)
         {
@@ -648,25 +511,10 @@ namespace Backend.Analyses
                 return result;
             }
 
-            private bool IsScopeType(IType type)
-            {
-                string[] scopeTypes = new[] { "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
-                var basicType = type as IBasicType;
-                if(basicType==null)
-                {
-                    return false;
-                }
-                if (basicType.ContainingAssembly.Name == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
-                {
-                    return true;
-                }
-                
-                return false;
-            }
             private bool ISClousureField(InstanceFieldAccess fieldAccess)
             {
                 var field = fieldAccess.Field;
-                if(IsScopeType(field.Type))
+                if(SongTaoDependencyAnalysis.IsScopeType(field.Type))
                 {
                     return true;
                 }
@@ -719,8 +567,6 @@ namespace Backend.Analyses
             }
             public override void Visit(LoadInstruction instruction)
             {
-
-
                 var loadStmt = instruction;
                 var operand = loadStmt.Operand;
                 // Try to handle a = C.f, a = b.f, a = b, a = K, etc
@@ -731,7 +577,7 @@ namespace Backend.Analyses
                     if (operand is Reference)
                     {
                         var referencedValue = (operand as Reference).Value;
-                        if (IsScopeType(referencedValue.Type))
+                        if (SongTaoDependencyAnalysis.IsScopeType(referencedValue.Type))
                         {
                             var isHandled = HandleLoadWithOperand(loadStmt, referencedValue);
                             if (!isHandled)
@@ -744,7 +590,7 @@ namespace Backend.Analyses
                     else if (operand is Dereference)
                     {
                         var reference = (operand as Dereference).Reference;
-                        if (IsScopeType(reference.Type))
+                        if (SongTaoDependencyAnalysis.IsScopeType(reference.Type))
                         {
                             var isHandled = HandleLoadWithOperand(loadStmt, reference);
                             if (!isHandled)
@@ -761,21 +607,7 @@ namespace Backend.Analyses
                     }
                     else if (operand is StaticMethodReference || loadStmt.Operand is VirtualMethodReference)
                     {
-                        var delegateRef = loadStmt.Operand as IFunctionReference;
-                        var method = delegateRef.Method;
-                        // TODO: Hack. I need to check for private fields and properly model 
-                        if (this.iteratorDependencyAnalysis.iteratorClass.ContainingType!=null &&
-                            this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == delegateRef.Method.ContainingType.Name)
-                        {
-                            // this is an internal static field for holding lambdas 
-                            // I should track this in the future
-                        }
-                        else
-                        {
-                            // I will accept load delegate. I will complain in the invocation if cannot handle it 
-                            //AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load delegate"));
-                            //this.State.IsTop = true;
-                        }
+                        // Now handled by the PT Analysis
                     }
                     else
                     {
@@ -1005,14 +837,12 @@ namespace Backend.Analyses
                 var methodInvoked = methodCallStmt.Method;
                 var callResult = methodCallStmt.Result;
 
-
                 // We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
                 // to maintain a mapping between column numbers and literals 
                 var isSchemaMethod = AnalyzeSchemaRelatedMethod(methodCallStmt, methodInvoked);
                 if (!isSchemaMethod)
                 {
                     var isScopeRowMethod = AnalyzeScopeRowMethods(methodCallStmt, methodInvoked);
-
                     if (!isScopeRowMethod)
                     {
                         var isCollectionMethod = AnalyzeCollectionMethods(methodCallStmt, methodInvoked);
@@ -1025,30 +855,46 @@ namespace Backend.Analyses
                             }
                             else
                             {
-                                // Should I do this?
-
-                                var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
-                                foreach (var resolvedCallee in computedCalles.Item1)
+                                if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled)
                                 {
-                                    try
+                                    var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
+                                    foreach (var resolvedCallee in computedCalles.Item1)
                                     {
-                                        var input = this.State;
-                                        var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(this.State, ptg,
-                                                        instruction.Arguments, instruction.Result, resolvedCallee);
+                                        try
+                                        {
+                                            var input = this.State;
 
-                                        this.State = interProcResult.Item1;
-                                        ptg = interProcResult.Item2;
+                                            var interProcInfo = new InterProceduralCallInfo()
+                                            {
+                                                Caller = this.method,
+                                                Callee = resolvedCallee,
+                                                CallArguments = methodCallStmt.Arguments,
+                                                CallLHS = methodCallStmt.Result,
+                                                CallerState = this.State,
+                                                CallerPTG = ptg,
+                                                ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+                                            };
+
+                                            var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
+
+                                            this.State = interProcResult.State;
+                                            ptg = interProcResult.PTG;
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
+                                            AnalysisStats.TotalofFrameworkErrors++;
+                                            HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                                        }
                                     }
-                                    catch(Exception e)
+
+                                    // If there are unresolved calles
+                                    if (computedCalles.Item2.Any())
                                     {
-                                        System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
-                                        AnalysisStats.TotalofFrameworkErrors++;
                                         HandleNoAnalyzableMethod(instruction, methodCallStmt);
                                     }
                                 }
-
-                                // If there are unresolved calles
-                                if (computedCalles.Item2.Any())
+                                else
                                 {
                                     HandleNoAnalyzableMethod(instruction, methodCallStmt);
                                 }
@@ -1061,21 +907,14 @@ namespace Backend.Analyses
             private void HandleNoAnalyzableMethod(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt)
             {
                 UpdateUsingDefUsed(methodCallStmt);
-
-                foreach (var arg in methodCallStmt.Arguments)
+                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
+                var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+                if(escaping)
                 {
-                    var parameters = this.iteratorDependencyAnalysis.method.Body.Parameters;
-                    if (arg.Type.IsReferenceType())
-                    {
-                        var escapingPT = parameters.Where(p => IsScopeType(p.Type)).Any(p => p.Type.TypeKind == TypeKind.ReferenceType
-                                                             && ptg.MayReacheableFromVariable(arg, p));
-                        if (escapingPT)
-                        {
-                            this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(arg));
-                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Method not analyzed"));
-                            this.State.IsTop = true;
-                        }
-                    }
+                    this.State.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => GetTraceablesFromA2_Variables(arg)));
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, 
+                                                    String.Format("Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
+                    // this.State.IsTop = true;
                 }
             }
 
@@ -1459,6 +1298,7 @@ namespace Backend.Analyses
                 }
             }
         }
+
         public IVariable ReturnVariable { get; private set; }
 
         private IDictionary<IVariable, IExpression> equalities;
@@ -1467,14 +1307,18 @@ namespace Backend.Analyses
         // private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
         private MethodDefinition method;
+
         private InterproceduralManager interproceduralManager;
+        public bool InterProceduralAnalysisEnabled { get; private set; }
 
         public DataFlowAnalysisResult<DependencyDomain>[] Result { get; private set; }
 
         private DependencyDomain initValue;
 
+        private IEnumerable<PTGNode> protectedNodes;
+
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
-                                            // IDictionary<string, IVariable> specialFields, 
+                                            IEnumerable<PTGNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager) : base(cfg)
         {
@@ -1484,16 +1328,18 @@ namespace Backend.Analyses
             this.ptgs = ptgs;
             this.equalities = equalitiesMap;
             this.scopeData = new ScopeInfo();
+            this.protectedNodes = protectedNodes;
             this.interproceduralManager = interprocManager;
             this.initValue = null;
             this.ReturnVariable = new LocalVariable(method.Name+"_$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
+            this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
         }
         public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
-                                    // IDictionary<string, IVariable> specialFields, 
+                                    IEnumerable<PTGNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
-                                    DependencyDomain initValue) : this(method, cfg, ptgs, equalitiesMap, interprocManager) //base(cfg)
+                                    DependencyDomain initValue) : this(method, cfg, ptgs, protectedNodes, equalitiesMap, interprocManager) //base(cfg)
         {            
             this.initValue = initValue;
         }
@@ -1553,28 +1399,22 @@ namespace Backend.Analyses
             if (input.IsTop)
                 return input;
 
-            var oldInput = input.Clone();
+            var oldInput = input; // input.Clone();
             var currentPTG = ptgs[node.Id].Output;
-            // var dominatorState = this.Result[node.ImmediateDominator.Id].Output;
-
-            //var traceables = dominatorState.ControlVariables.SelectMany(controlVar => oldInput.A2_Variables.ContainsKey(controlVar)? 
-            //                                                                    oldInput.A2_Variables[controlVar]: new HashSet<Traceable>());
-
-            //if (traceables.Any())
-            //{
-            //    foreach (var v in oldInput.A2_Variables.Keys)
-            //    {
-            //        oldInput.A2_Variables.AddRange(v, traceables);
-            //    }
-            //}
 
             var visitor = new MoveNextVisitorForDependencyAnalysis(this, node, this.equalities, this.scopeData, currentPTG, oldInput);
             visitor.Visit(node);
-            if(visitor.State.LessEqual(oldInput) )
-            { }
+
+            //if(visitor.State.LessEqual(oldInput) )
+            //{ }
 
             return visitor.State;
         }
+    }
+
+    internal static class AnalysisOptions
+    {
+        public static bool DoInterProcAnalysis { get; internal set; }
     }
     #endregion
 }

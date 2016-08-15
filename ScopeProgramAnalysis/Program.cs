@@ -14,170 +14,10 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Backend.Analyses;
 using System.Globalization;
+using ScopeProgramAnalysis.Framework;
 
 namespace ScopeProgramAnalysis
 {
-    class MyLoader : Loader
-    {
-        private string assemblyFolder;
-        private string assemblyParentFolder;
-        private HashSet<IAssemblyReference> failedAssemblies;
-        private Assembly mainAssemably;
-
-        public MyLoader(Host host) : base(host)
-        {
-            this.failedAssemblies = new HashSet<IAssemblyReference>();
-        }
-        public Assembly LoadMainAssembly(string fileName)
-        {
-            this.assemblyFolder = Path.GetDirectoryName(fileName);
-            this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
-            cciHost.AddLibPath(assemblyFolder);
-            cciHost.AddLibPath(assemblyParentFolder);
-            this.mainAssemably = base.LoadAssembly(fileName);
-            return this.mainAssemably;
-        }
-
-
-        public Assembly TryToLoadReferencedAssembly(IAssemblyReference reference)
-        {
-            var assembly = this.ourHost.Assemblies.SingleOrDefault(a => a.MatchReference(reference));
-            if (assembly == null && !failedAssemblies.Contains(reference))
-            {
-                try
-                {
-                    AnalysisStats.TotalDllsFound++;
-                    assembly = TryToLoadAssembly(reference.Name);
-                }
-                catch (Exception e)
-                {
-                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
-                    failedAssemblies.Add(reference);
-                    throw e;
-                }
-            }
-            return assembly;
-        }
-
-        private Assembly TryToLoadAssembly(string assemblyReferenceName)
-        {
-            //if(assemblyReferenceName=="mscorlib")
-            //{
-            //    return LoadCoreAssembly();
-            //}
-
-            var extensions = new string[] { ".dll", ".exe" };
-            var referencePath = "";
-            foreach (var extension in extensions)
-            {
-                referencePath = Path.Combine(assemblyFolder, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
-                    break;
-                referencePath = Path.Combine(assemblyParentFolder, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
-                    break;
-            }
-            //var cciAssemblyFromReference = cciHost.LoadUnitFrom(referencePath) as Cci.IModule;
-            //// var cciAssemblyFromReference = cciHost.LoadUnit(assemblyReference.AssemblyIdentity) as Cci.IAssembly;
-            //return cciAssemblyFromReference;
-            return LoadAssembly(referencePath);
-        }
-        //public Assembly LoadAssemblyAndReferences(string fileName)
-        //{
-        //    var module = cciHost.LoadUnitFrom(fileName) as Cci.IModule;
-
-        //    if (module == null || module == Cci.Dummy.Module || module == Cci.Dummy.Assembly)
-        //        throw new Exception("The input is not a valid CLR module or assembly.");
-
-        //    var pdbFileName = Path.ChangeExtension(fileName, "pdb");
-        //    Cci.PdbReader pdbReader = null;
-
-        //    if (File.Exists(pdbFileName))
-        //    {
-        //        using (var pdbStream = File.OpenRead(pdbFileName))
-        //        {
-        //            pdbReader = new Cci.PdbReader(pdbStream, cciHost);
-        //        }
-        //    }
-        //    var assembly = this.ExtractAssembly(module, pdbReader);
-
-        //    if (pdbReader != null)
-        //    {
-        //        pdbReader.Dispose();
-        //    }
-
-        //    ourHost.Assemblies.Add(assembly);
-        //    this.assemblyFolder = Path.GetDirectoryName(fileName);
-        //    this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
-        //    cciHost.AddLibPath(assemblyFolder);
-        //    cciHost.AddLibPath(assemblyParentFolder);
-
-        //    foreach (var assemblyReference in module.AssemblyReferences)
-        //    {
-        //        try
-        //        {
-        //            Cci.IModule cciAssemblyFromReference = TryToLoadCCIAssembly(assemblyReference);
-
-        //            if (cciAssemblyFromReference == null || cciAssemblyFromReference == Cci.Dummy.Assembly)
-        //                throw new Exception("The input is not a valid CLR module or assembly.");
-
-        //            var pdbLocation = cciAssemblyFromReference.DebugInformationLocation;
-        //            if (File.Exists(pdbFileName))
-        //            {
-        //                using (var pdbStream = File.OpenRead(pdbFileName))
-        //                {
-        //                    pdbReader = new Cci.PdbReader(pdbStream, cciHost);
-        //                }
-        //            }
-        //            var assemblyFromRef = this.ExtractAssembly(cciAssemblyFromReference, pdbReader);
-        //            ourHost.Assemblies.Add(assemblyFromRef);
-        //            if (pdbReader != null)
-        //            {
-        //                pdbReader.Dispose();
-        //            }
-        //        }
-        //        catch (Exception e)
-        //        {
-
-        //        }
-        //    }
-        //    return assembly;
-
-        //}
-
-
-    }
-
-    class MyHost : Host
-    {
-        public MyLoader Loader { get; set ;}
-
-        public override ITypeDefinition ResolveReference(IBasicType typeToResolve)
-        {
-            var resolvedType = base.ResolveReference(typeToResolve);
-            if (resolvedType == null)
-            {
-                try
-                {
-                    Loader.TryToLoadReferencedAssembly(typeToResolve.ContainingAssembly);
-                    resolvedType = base.ResolveReference(typeToResolve);
-                }
-                catch (Exception e)
-                {
-                    AnalysisStats.DllThatFailedToLoad.Add(typeToResolve.ContainingAssembly.Name);
-                    AnalysisStats.TotalDllsFailedToLoad++;
-                    System.Diagnostics.Debug.WriteLine("Failed to load {0}: {1}", typeToResolve.ContainingAssembly.Name, e.Message);
-                }
-
-            }
-            return resolvedType;
-        }
-        public override ITypeMemberDefinition ResolveReference(ITypeMemberReference member)
-        {
-            return base.ResolveReference(member);
-        }
-
-    }
     public class Program
     {
         private Host host;
@@ -191,8 +31,7 @@ namespace ScopeProgramAnalysis
         public string EntryMethod { get; private set; }
         public string ClousureFilter { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
-        public static MethodCFGCache MethodCFGCache { get; private set; }
-
+   
         public Program(Host host, Loader loader)
         {
             this.host = host;
@@ -205,17 +44,16 @@ namespace ScopeProgramAnalysis
         {
             //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
             //const string input = root + @"__ScopeCodeGen__.dll";
-
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
 
             // Mike example: FileChunker
-            //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+            const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
 
             // const string input = @"D:\MadanExamples\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll";
             //const string input = @"D:\MadanExamples\15444206-b209-437e-b23b-2d916f18cd35\__ScopeCodeGen__.dll";
             // const string input = @"D:\MadanExamples\208afef3-4cae-428c-a7a2-75ea7350b1ea\__ScopeCodeGen__.dll";
-            const string input = @"D:\MadanExamples\9e5dad20-19f4-4a4d-8b95-319fd2e047f8\__ScopeCodeGen__.dll";
+            //const string input = @"D:\MadanExamples\9e5dad20-19f4-4a4d-8b95-319fd2e047f8\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -223,6 +61,8 @@ namespace ScopeProgramAnalysis
             AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, true);
 
             AnalysisStats.PrintStats(System.Console.Out);
+            AnalysisStats.WriteAnalysisReasons(System.Console.Out);
+
             System.Console.ReadKey();
 
         }
@@ -239,6 +79,8 @@ namespace ScopeProgramAnalysis
 
         public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
+            AnalysisOptions.DoInterProcAnalysis = true;
+
             AnalysisStats.TotalNumberFolders++;
 
             var host = new MyHost();
