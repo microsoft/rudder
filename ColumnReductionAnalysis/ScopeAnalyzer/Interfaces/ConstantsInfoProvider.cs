@@ -29,7 +29,7 @@ namespace ScopeAnalyzer.Interfaces
         /// <param name="instruction"></param>
         /// <param name="fdef"></param>
         /// <returns></returns>
-        IEnumerable<Constant> GetConstants(Instruction instruction, IFieldReference field);
+        IEnumerable<Constant> GetConstants(Instruction instruction, IFieldAccess field);
 
         /// <summary>
         /// Returns a collection of constants that array element at index can take at instruction.

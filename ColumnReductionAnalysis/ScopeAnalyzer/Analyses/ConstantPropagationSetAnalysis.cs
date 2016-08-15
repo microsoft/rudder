@@ -61,15 +61,15 @@ namespace ScopeAnalyzer.Analyses
     public class ConstantPropagationDomain
     {
         Dictionary<IVariable, ConstantSetDomain> varMapping;
-        Dictionary<IFieldReference, ConstantSetDomain> fieldMapping;
+        Dictionary<IFieldAccess, ConstantSetDomain> fieldMapping;
 
         private ConstantPropagationDomain()
         {
             varMapping = new Dictionary<IVariable, ConstantSetDomain>();
-            fieldMapping = new Dictionary<IFieldReference, ConstantSetDomain>();
+            fieldMapping = new Dictionary<IFieldAccess, ConstantSetDomain>();
         }
 
-        public static ConstantPropagationDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
+        public static ConstantPropagationDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
             var cpd = new ConstantPropagationDomain();
             foreach(var v in vars)
@@ -85,7 +85,7 @@ namespace ScopeAnalyzer.Analyses
             return cpd;
         }
 
-        public static ConstantPropagationDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldReference> fields)
+        public static ConstantPropagationDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
             var cpd = new ConstantPropagationDomain();
             foreach (var v in vars)
@@ -157,22 +157,22 @@ namespace ScopeAnalyzer.Analyses
             return varMapping[v];
         }
 
-        public bool Contains(IFieldReference f)
+        public bool Contains(IFieldAccess f)
         {
             return fieldMapping.ContainsKey(f);
         }
 
-        public bool Contains(IFieldReference f, Constant c)
+        public bool Contains(IFieldAccess f, Constant c)
         {
             return fieldMapping[f].Contains(c);
         }
 
-        public bool Contains(IFieldReference f, ConstantSetDomain cpd)
+        public bool Contains(IFieldAccess f, ConstantSetDomain cpd)
         {
             return fieldMapping[f].Contains(cpd);
         }
 
-        public ConstantSetDomain Constants(IFieldReference f)
+        public ConstantSetDomain Constants(IFieldAccess f)
         {
             return fieldMapping[f];
         }
@@ -209,7 +209,7 @@ namespace ScopeAnalyzer.Analyses
             varMapping[v] = cons;
         }
 
-        public void Set(IFieldReference f, ConstantSetDomain cons)
+        public void Set(IFieldAccess f, ConstantSetDomain cons)
         {
             fieldMapping[f] = cons;
         }
@@ -220,7 +220,7 @@ namespace ScopeAnalyzer.Analyses
             get { return varMapping.Keys.ToList().AsReadOnly(); }
         }
 
-        public IReadOnlyCollection<IFieldReference> Fields
+        public IReadOnlyCollection<IFieldAccess> Fields
         {
             get { return fieldMapping.Keys.ToList().AsReadOnly(); }
         }
@@ -230,7 +230,7 @@ namespace ScopeAnalyzer.Analyses
             Constants(v).SetNotConstant();
         }
 
-        public void SetNonConstant(IFieldReference f)
+        public void SetNonConstant(IFieldAccess f)
         {
             Constants(f).SetNotConstant();
         }
@@ -335,8 +335,9 @@ namespace ScopeAnalyzer.Analyses
     class ConstantPropagationSetAnalysis : ForwardDataFlowAnalysis<ConstantPropagationDomain>
     {
         IMethodDefinition method;
-        HashSet<IVariable> variables = new HashSet<IVariable>();
-        HashSet<IFieldReference> fields = new HashSet<IFieldReference>();
+        IEnumerable<IVariable> variables;
+        IEnumerable<Tuple<IFieldAccess, IFieldReference>> fields;
+        IEnumerable<IFieldDefinition> fieldDefinitions;
         IMetadataHost host;
         bool unsupported = false;
 
@@ -354,10 +355,22 @@ namespace ScopeAnalyzer.Analyses
         private void Initialize()
         {
             var vars = cfg.GetVariables();
-            variables = new HashSet<IVariable>(vars.Where(v => IsConstantType(v.Type, host)).ToList());
+            variables = vars.Where(v => IsConstantType(v.Type, host)).ToList();
 
-            var fs = cfg.FieldsReferences();
-            fields = new HashSet<IFieldReference>(fs.Where(f => IsConstantType(f.Type, host)).ToList());
+            var fs = cfg.FieldAccesses();
+            fields = fs.Where(f => f.Item2 != null && IsConstantType(f.Item1.Type, host)).ToList();
+
+            var fdefs = new List<IFieldDefinition>();
+            var mtype = (method.ContainingType as INamedTypeReference).Resolve(host);
+
+            // Now we find all constant closure fields.
+            foreach (var field in mtype.Fields)
+            {
+                if (IsConstantType(field.Type, host))
+                    fdefs.Add(field);
+            }
+            fieldDefinitions = fdefs;
+
 
             var instructions = new List<Instruction>();
             foreach (var block in cfg.Nodes)
@@ -389,6 +402,16 @@ namespace ScopeAnalyzer.Analyses
         }
 
 
+        public IEnumerable<Tuple<IFieldAccess, IFieldReference>> Fields
+        {
+            get { return fields; }
+        }
+
+        public IEnumerable<IFieldDefinition> ClosureFieldDefinitions
+        {
+            get { return fieldDefinitions; }
+        }
+
         #region Dataflow interface implementation
 
         protected override bool Compare(ConstantPropagationDomain left, ConstantPropagationDomain right)
@@ -410,11 +433,11 @@ namespace ScopeAnalyzer.Analyses
         {
             if (unsupported)
             {
-                return ConstantPropagationDomain.Top(variables, fields);
+                return ConstantPropagationDomain.Top(variables, fields.Select(f => f.Item1));
             }
             else
             {
-                var iv = ConstantPropagationDomain.Bottom(variables, fields);
+                var iv = ConstantPropagationDomain.Bottom(variables, fields.Select(f => f.Item1));
                 //iv.SetFieldNonConstant();
                 return iv;
             }          
@@ -458,7 +481,7 @@ namespace ScopeAnalyzer.Analyses
 
         public static bool IsConstantType(ITypeDefinition type)
         {
-            if (type.IsEnum || type.IsGeneric || type.IsAbstract || type.IsStruct || type.IsComObject ||
+            if (type.IsEnum || type.IsGeneric || type.IsAbstract || (type.IsStruct && !type.IsValueType) || type.IsComObject ||
                 type.IsDummy() || type.IsDelegate || type.IsInterface || type.IsRuntimeSpecial)
                 return false;
 
@@ -621,13 +644,8 @@ namespace ScopeAnalyzer.Analyses
 
                 var operand = instruction.Operand;
                 var result = instruction.Result;
-
-                if (operand is Dereference || operand is Reference)
-                {
-                    //TODO: make this more precise
-                    UpdateStateNotConstant(nstate);
-                }
-                else if(IsConstantType(result.Type))
+             
+                if(IsConstantType(result.Type))
                 {
                     if (operand is Constant)
                     {
@@ -642,12 +660,16 @@ namespace ScopeAnalyzer.Analyses
                     else if (operand is InstanceFieldAccess)
                     {
                         var ifa = operand as InstanceFieldAccess;
-                        UpdateStateCopy(nstate, result, ifa.Field);
+                        UpdateStateCopy(nstate, result, ifa);
                     }
                     else if (operand is StaticFieldAccess)
                     {
                         var sfa = operand as StaticFieldAccess;
-                        UpdateStateCopy(nstate, result, sfa.Field);
+                        UpdateStateCopy(nstate, result, sfa);
+                    }
+                    else if (operand is Dereference || operand is Reference)
+                    {
+                        UpdateStateNotConstant(nstate, result);
                     }
                     else
                     {
@@ -671,19 +693,24 @@ namespace ScopeAnalyzer.Analyses
                     if (result is InstanceFieldAccess)
                     {
                         var ifa = result as InstanceFieldAccess;
-                        UpdateStateCopy(nstate, ifa.Field, operand);
+                        UpdateStateCopy(nstate, ifa, operand);
                     }
                     else if (result is StaticFieldAccess)
                     {
                         var sfa = result as InstanceFieldAccess;
-                        UpdateStateCopy(nstate, sfa.Field, operand);
+                        UpdateStateCopy(nstate, sfa, operand);
+                    }
+                    else if (result is Dereference || result is Reference)
+                    {
+                        UpdateStateNotConstant(nstate);
                     }
                     //TODO: see other assignable values
                 }
 
                 SetCurrent(nstate);
                 SavePostState(instruction, FreshCurrent());
-            }
+            }          
+
 
             public override void Visit(PhiInstruction instruction)
             {
@@ -764,19 +791,13 @@ namespace ScopeAnalyzer.Analyses
                 state.Set(v, cpd);
             }
 
-            private void UpdateState(ConstantPropagationDomain state, IFieldReference f, Constant c)
-            {
-                var cpd = ConstantSetDomain.Bottom;
-                cpd.Add(c);
-                state.Set(f, cpd);
-            }
 
             private void UpdateStateNotConstant(ConstantPropagationDomain state, IVariable v)
             {
                 state.SetNonConstant(v);
             }
 
-            private void UpdateStateNotConstant(ConstantPropagationDomain state, IFieldReference f)
+            private void UpdateStateNotConstant(ConstantPropagationDomain state, IFieldAccess f)
             {
                 state.SetNonConstant(f);
             }
@@ -792,13 +813,57 @@ namespace ScopeAnalyzer.Analyses
                 state.Set(dest, cl);
             }
 
-            private void UpdateStateCopy(ConstantPropagationDomain state, IFieldReference dest, IVariable src)
+            private void UpdateStateCopy(ConstantPropagationDomain state, IFieldAccess dest, IVariable src)
             {
-                var cl = state.Constants(src).Clone();
-                state.Set(dest, cl);
+                //var cl = state.Constants(src).Clone();
+                //state.Set(dest, cl);
+
+                /*
+                 * When we set a field of an object O to a constant, we also need to set the same field
+                 * to objects that are must aliased to O. We know that all field accesses corresponding
+                 * to closure fields must alias each other since they are compiler generated. That is,
+                 * a user cannot instantiate such class nor does the compiler instantiate it inside the class itself.
+                 */
+
+                IFieldDefinition fdef = null;
+                foreach(var pair in parent.Fields)
+                {
+                    if (pair.Item1.ToExpression().ToString() == dest.ToExpression().ToString())
+                        fdef = pair.Item2.Resolve(parent.Host);
+                }
+
+                // We know that closure field accesses must alias each other.
+                if (IsClosureField(fdef))
+                {
+                    foreach (var pair in parent.Fields)
+                    {
+                        var fresolved = pair.Item2.Resolve(parent.Host);
+
+                        if (fresolved == fdef || fresolved.Equals(fdef))
+                        {
+                            state.Set(pair.Item1, state.Constants(src).Clone());
+                        }
+                    }
+                }
+                else
+                {
+                    // TODO: refine this by type of the field.
+                    state.SetFieldNonConstant();
+                }
             }
 
-            private void UpdateStateCopy(ConstantPropagationDomain state, IVariable dest, IFieldReference src)
+            private bool IsClosureField(IFieldDefinition fdef)
+            {
+                foreach(var fd in parent.ClosureFieldDefinitions)
+                {
+                    if (fd == fdef || fd.Equals(fdef))
+                        return true;
+                }
+
+                return false;
+            }
+
+            private void UpdateStateCopy(ConstantPropagationDomain state, IVariable dest, IFieldAccess src)
             {
                 var cl = state.Constants(src).Clone();
                 state.Set(dest, cl);

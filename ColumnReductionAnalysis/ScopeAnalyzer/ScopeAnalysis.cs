@@ -129,13 +129,19 @@ namespace ScopeAnalyzer
         {
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
 
+            //if (!methodDefinition.FullName().Contains("AlternateIdReducer") || !methodDefinition.FullName().Contains("MoveNext"))
+            //    return;
+
+            //if (!methodDefinition.FullName().Contains("Bao.AvailabilityResourceSetIdReducer.<Reduce>d__0.MoveNext()"))
+            //    return;
+
             try
             {
                 var cfg = PrepareMethod(methodDefinition);
 
                 if (IsProcessor(methodDefinition))
                 {
-                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
+                    System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
                     Utils.WriteLine("\n--------------------------------------------------\n");
                     Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
 
@@ -185,7 +191,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running escape analysis...");
             var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
-            Utils.WriteLine(results.EscapeSummary.ToString());
+            //Utils.WriteLine(results.EscapeSummary.ToString());
             Utils.WriteLine("Something escaped: " + escAnalysis.InterestingRowEscaped);
             Utils.WriteLine("Done with escape analysis\n");          
             return escAnalysis;
@@ -207,14 +213,14 @@ namespace ScopeAnalyzer
             var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowTypes, columnTypes);
             var outcome = clsAnalysis.Analyze();      
             results.UsedColumnsSummary = outcome;
-            //Utils.WriteLine(results.UsedColumnsSummary.ToString());
+            Utils.WriteLine(results.UsedColumnsSummary.ToString());
             Utils.WriteLine("Done with used columns analysis\n");
             return clsAnalysis;
         }
 
 
 
-        //string _code = String.Empty;
+        string _code = String.Empty;
         private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
         {
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
@@ -258,7 +264,7 @@ namespace ScopeAnalyzer
 
             //var dot = DOTSerializer.Serialize(cfg);
             //var dgml = DGMLSerializer.Serialize(cfg);
-            //_code = methodBody.ToString();
+            _code = methodBody.ToString();
             return cfg;
         }
 
@@ -348,7 +354,7 @@ namespace ScopeAnalyzer
                 return new HashSet<Constant>(varDomain.Elements);
             }
 
-            public IEnumerable<Constant> GetConstants(Instruction instruction, IFieldReference field)
+            public IEnumerable<Constant> GetConstants(Instruction instruction, IFieldAccess field)
             {
                 if (!ConstantPropagationSetAnalysis.IsConstantType(field.Type, host)) return null;
 
