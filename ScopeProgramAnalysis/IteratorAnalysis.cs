@@ -410,10 +410,11 @@ namespace Backend.Analyses
             var joinedPTG = this.PTG;
             joinedPTG.Union(right.PTG);
 
+            result.PTG = joinedPTG;
+
             if (this.IsTop || right.IsTop)
             {
                 result.IsTop = true;
-                result.PTG = joinedPTG;
             }
             else if (right.LessEqual(this))
             {
