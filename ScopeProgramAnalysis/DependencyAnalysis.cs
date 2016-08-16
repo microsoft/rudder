@@ -21,7 +21,7 @@ namespace ScopeProgramAnalysis
     class SongTaoDependencyAnalysis
     {
         private Host host;
-        private DataFlowAnalysisResult<PointsToGraph>[] ptAnalysisResult;
+        private IteratorPointsToAnalysis pointsToAnalyzer;
         private MethodDefinition moveNextMethod;
         private IDictionary<IVariable, IExpression> equalities;
         private MethodDefinition entryMethod;
@@ -57,56 +57,66 @@ namespace ScopeProgramAnalysis
             ptgOfEntry.Add(myGetEnumResult);
             var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
+            // These are the nodes that we want to protect/analyze
             var protectedNodes = ptgOfEntry.Nodes.Where(n => IsScopeType(n.Type));
 
+            // I no longer need this. 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
             //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
             //this.specialFields = specialFields.ToDictionary(item => item.Key, item => item.Value);
 
 
-            /// Now do MoveNext on the clousure
-            var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
-            // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
+            // 3) I bing the current PTG with the parameters of MoveNext method on the clousure
             
-            this.ptAnalysisResult = this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg).Result;
+            // Well... Inlining is broken we we added the Exceptional control graph. Let's avoid it
+            //var cfg = this.moveNextMethod.DoAnalysisPhases(host, this.GetMethodsToInline());
+            var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
+            PropagateExpressions(cfg, this.equalities);
+            // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
+            PointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod);
+            this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, calleePTG);
+                        
+            //this.pta= this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg);
 
             //var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields);
             //this.ptAnalysisResult = pointsTo.Analyze();
 
             // var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields, ptgOfEntry);
 
-            PropagateExpressions(cfg, this.equalities);
-            var result = this.AnalyzeScopeMethods(cfg, ptAnalysisResult, protectedNodes);
+            // Now I analyze the Movenext method with the proper initialization 
+            var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 
-            //var sorted_nodes = cfg.ForwardOrder;
-            //var ptgExit = ptAnalysisResult[cfg.Exit.Id].Output;
-            //ptgExit.RemoveTemporalVariables();
-            //ptgExit.RemoveDerivedVariables();
-            //var ptgDGML = DGMLSerializer.Serialize(ptgExit);
-
-            var dgml = DGMLSerializer.Serialize(cfg);
             return result;
         }
 
-        DependencyDomain AnalyzeScopeMethods(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
-            IEnumerable<PTGNode> protectedNodes)
+        private IEnumerable<IMethodReference> GetMethodsToInline()
+        {
+            var pattern = "<>m__Finally";
+            var methodRefs = this.moveNextMethod.GetMethodsInvoked();
+            return methodRefs.Where(m => m.Name.StartsWith(pattern));
+        }
+        /// <summary>
+        /// Analize the MoveNext method
+        /// </summary>
+        /// <param name="cfg"></param>
+        /// <param name="pointsToAnalyzer"></param>
+        /// <param name="protectedNodes"></param>
+        /// <returns></returns>
+        DependencyDomain AnalyzeScopeMethod(ControlFlowGraph cfg, IteratorPointsToAnalysis pointsToAnalyzer,
+                                           IEnumerable<PTGNode> protectedNodes)
         {
 
-            //var iteratorAnalysis = new IteratorStateAnalysis(cfg, ptgs, this.equalities);
-            //var result = iteratorAnalysis.Analyze();
+            // Before I did Points-to analysis beforehand the dependnecy analysis. Now I compute then together
+            ////var iteratorAnalysis = new IteratorStateAnalysis(cfg, ptgs, this.equalities);
+            ////var result = iteratorAnalysis.Analyze();
+            //// var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
 
-            // var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, protectedNodes ,this.equalities, this.interprocManager);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;
             System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);
 
-            //foreach (var node in cfg.ForwardOrder)
-            //{
-            //    System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);
-            //    //System.Console.Out.WriteLine(String.Join(Environment.NewLine, node.Instructions));
-            //}
             return resultDepAnalysis[node.Id].Output;
         }
         public static bool IsScopeType(IType type)
@@ -124,6 +134,9 @@ namespace ScopeProgramAnalysis
 
             return false;
         }
+
+
+
 
         #region Methods to Compute a sort of propagation of Equalities (should be moved to extensions or utils)
         public static void PropagateExpressions(ControlFlowGraph cfg, IDictionary<IVariable, IExpression> equalities)

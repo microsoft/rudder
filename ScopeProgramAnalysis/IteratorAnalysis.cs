@@ -12,6 +12,7 @@ using Model.Types;
 using Model;
 using System.Globalization;
 using ScopeProgramAnalysis;
+using static Backend.Analyses.IteratorPointsToAnalysis;
 
 namespace Backend.Analyses
 {
@@ -296,6 +297,8 @@ namespace Backend.Analyses
 
         public ISet<IVariable> ControlVariables { get; private set; }
 
+        public PointsToGraph PTG{ get; set; }
+
         public DependencyDomain()
         {
             A2_Variables = new MapSet<IVariable, Traceable>();
@@ -347,15 +350,18 @@ namespace Backend.Analyses
 
         public bool LessEqual(object obj)
         {
-            // Add ControlVariables
             var oth = obj as DependencyDomain;
             if(oth.IsTop) return true;
+            else if(this.isTop) return false; 
+
             return oth != null 
                 && this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
                 && MapLessEqual(A2_Variables, oth.A2_Variables) 
                 && MapLessEqual(A3_Clousures, oth.A3_Clousures)
                 && MapLessEqual(A4_Ouput, oth.A4_Ouput)
-                && ControlVariables.IsSubsetOf(oth.ControlVariables);
+                && ControlVariables.IsSubsetOf(oth.ControlVariables)
+                // Now I need to add the PTG...
+                && PTG.Equals(oth.PTG);
         }
         public override bool Equals(object obj)
         {
@@ -390,6 +396,10 @@ namespace Backend.Analyses
             result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
             result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
+
+            result.PTG = new PointsToGraph();
+            result.PTG.Union(this.PTG);
+
             return result;
         }
 
@@ -397,41 +407,42 @@ namespace Backend.Analyses
         {
             var result = new DependencyDomain();
 
+            var joinedPTG = this.PTG;
+            joinedPTG.Union(right.PTG);
+
             if (this.IsTop || right.IsTop)
             {
                 result.IsTop = true;
-                return result;
+                result.PTG = joinedPTG;
             }
-
-            if(right.LessEqual(this))
+            else if (right.LessEqual(this))
             {
-                return this;
+                result = this;
+                result.PTG = joinedPTG;
             }
-
-            if (this.LessEqual(right))
+            else if (this.LessEqual(right))
             {
-                return right;
+                result = right;
+                result.PTG = joinedPTG;
             }
+            else
+            {
+                result.IsTop = this.IsTop;
+                result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
+                result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
+                result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
+                result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
 
+                result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
 
+                result.isTop = result.isTop || right.isTop;
+                result.A1_Escaping.UnionWith(right.A1_Escaping);
+                result.A2_Variables.UnionWith(right.A2_Variables);
+                result.A3_Clousures.UnionWith(right.A3_Clousures);
+                result.A4_Ouput.UnionWith(right.A4_Ouput);
 
-
-            result.IsTop = this.IsTop;
-            result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
-            result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
-            result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
-            result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
-
-            result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
-
-            result.isTop = result.isTop || right.isTop;
-            result.A1_Escaping.UnionWith(right.A1_Escaping);
-            result.A2_Variables.UnionWith(right.A2_Variables);
-            result.A3_Clousures.UnionWith(right.A3_Clousures);
-            result.A4_Ouput.UnionWith(right.A4_Ouput);
-
-            result.ControlVariables.UnionWith(right.ControlVariables);
-
+                result.ControlVariables.UnionWith(right.ControlVariables);
+            }
             return result;
         }
 
@@ -446,11 +457,6 @@ namespace Backend.Analyses
         {
             var result = "";
             if (IsTop) return "__TOP__";
-            //result += "A2\n";
-            //foreach(var var in this.A2_Variables.Keys)
-            //{
-            //    result += String.Format("{0}:{1}\n", var, ToString(A2_Variables[var]));
-            //}
             result += "A3\n";
             foreach (var var in this.A3_Clousures.Keys)
             {
@@ -460,7 +466,6 @@ namespace Backend.Analyses
             foreach (var var in this.A4_Ouput.Keys)
             {
                 result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput[var]));
-                //result += String.Format("{0}:{1}\n", var, ToString(A4_Ouput[var]));
             }
             result += "Escape\n";
             result += ToString(A1_Escaping);
@@ -500,11 +505,13 @@ namespace Backend.Analyses
             private DependencyDomain oldInput;
             private ScopeInfo scopeData;
             internal DependencyDomain State { get; private set; }
-            private PointsToGraph ptg;
+            private PointsToGraph currentPTG;
             private CFGNode cfgNode;
             private MethodDefinition method;
+            private PTAVisitor visitorPTA;
 
-            public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
+            public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, PTAVisitor visitorPTA,
+                                   CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
                                    ScopeInfo scopeData, PointsToGraph ptg, DependencyDomain oldInput)
             {
                 this.iteratorDependencyAnalysis = iteratorDependencyAnalysis;
@@ -512,21 +519,14 @@ namespace Backend.Analyses
                 this.scopeData = scopeData;
                 this.oldInput = oldInput;
                 this.State = oldInput;
-                this.ptg = ptg;
+                this.currentPTG = ptg;
                 this.cfgNode = cfgNode;
                 this.method = iteratorDependencyAnalysis.method;
+                this.visitorPTA = visitorPTA;
             }
 
-            private bool IsClousureParamerField(IFieldAccess fieldAccess)
+            private bool ISClousureField(IVariable instance, IFieldReference field)
             {
-                var result = true;
-                // result = this.iteratorDependencyAnalysis.specialFields.Keys.Contains(fieldAccess.FieldName);
-                return result;
-            }
-
-            private bool ISClousureField(InstanceFieldAccess fieldAccess)
-            {
-                var field = fieldAccess.Field;
                 if(SongTaoDependencyAnalysis.IsScopeType(field.Type))
                 {
                     return true;
@@ -536,12 +536,24 @@ namespace Backend.Analyses
                 //    return true;
                 //}
 
-                if( ((IBasicType)fieldAccess.Instance.Type).Name == this.iteratorDependencyAnalysis.iteratorClass.Name) 
+                var instanceType = instance.Type;
+                if(instanceType is PointerType)
+                {
+                    instanceType= (instanceType as PointerType).TargetType;
+                }
+
+                if ( ((IBasicType)instanceType).Name == this.iteratorDependencyAnalysis.iteratorClass.Name) 
                     // && !fieldAccess.FieldName.StartsWith.Contains("<>1__state"))
                 {
                     return true;
                 }
-
+                var isClousureField = this.iteratorDependencyAnalysis.iteratorClass.Name == field.ContainingType.Name;
+                var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
+                                        && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == field.ContainingType.Name;
+                if(isClousureField || isReducerField)
+                {
+                    return true;
+                }
 
                 return false;
             }
@@ -553,18 +565,18 @@ namespace Backend.Analyses
                     return new HashSet<ISymbolicValue>() { new EscalarVariable(v) } ;
                 }
                 var res = new HashSet<ISymbolicValue>();
-                if(ptg.Contains(v))
+                if(currentPTG.Contains(v))
                 {
-                    res.UnionWith(ptg.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
+                    res.UnionWith(currentPTG.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
                 }
                 return res;
             }
             private ISet<PTGNode> GetPtgNodes(IVariable v)
             {
                 var res = new HashSet<PTGNode>();
-                if (ptg.Contains(v))
+                if (currentPTG.Contains(v))
                 {
-                    res.UnionWith(ptg.GetTargets(v));
+                    res.UnionWith(currentPTG.GetTargets(v));
                 }
                 return res;
             }
@@ -572,7 +584,7 @@ namespace Backend.Analyses
             private ISet<IVariable> GetAliases(IVariable v)
             {
                 var res = new HashSet<IVariable>() { v } ;
-                foreach (var ptgNode in ptg.GetTargets(v, false)) // GetPtgNodes(v))
+                foreach (var ptgNode in currentPTG.GetTargets(v, false)) // GetPtgNodes(v))
                 {
                     res.UnionWith(ptgNode.Variables);
                 }
@@ -580,6 +592,8 @@ namespace Backend.Analyses
             }
             public override void Visit(LoadInstruction instruction)
             {
+                visitorPTA.Visit(instruction);
+
                 var loadStmt = instruction;
                 var operand = loadStmt.Operand;
                 // Try to handle a = C.f, a = b.f, a = b, a = K, etc
@@ -669,7 +683,7 @@ namespace Backend.Analyses
                     // this is a2[o]
                     union1 = GetTraceablesFromA2_Variables(baseArray);
 
-                    foreach (var ptgNode in ptg.GetTargets(baseArray))
+                    foreach (var ptgNode in currentPTG.GetTargets(baseArray))
                     {
                         // TODO: I need to provide a BasicType. I need the base of the array 
                         // Currenly I use the method containing type
@@ -709,10 +723,10 @@ namespace Backend.Analyses
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
                 union1 = GetTraceablesFromA2_Variables(fieldAccess.Instance);
-                if (ISClousureField(fieldAccess))
+                if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                 {
                     // this is a[loc(o.f)]
-                    foreach (var ptgNode in ptg.GetTargets(fieldAccess.Instance))
+                    foreach (var ptgNode in currentPTG.GetTargets(fieldAccess.Instance))
                     {
                         var loc = new Location(ptgNode, fieldAccess.Field);
                         if (this.State.A3_Clousures.ContainsKey(loc))
@@ -731,11 +745,12 @@ namespace Backend.Analyses
                 var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType!=null 
                                         && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == fieldAccess.Field.ContainingType.Name;
                 // TODO: Hack. I need to check for private fields and properly model 
-                if (isClousureField || isReducerField)
+                if (ISClousureField(PointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
+                //    if (isClousureField || isReducerField)
                 {
                     var union1 = new HashSet<Traceable>();
                     // a2:= [v <- a3[loc(o.f)] if loc(o.f) is CF
-                    //if (ISClousureField(fieldAccess))
+                    // if (ISClousureField(PointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
                     {
                         // this is a[loc(C.f)]
                         var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
@@ -748,27 +763,68 @@ namespace Backend.Analyses
                     this.State.A2_Variables[loadStmt.Result] = union1;
                 }
                 else
-                {
-                    if (!fieldAccess.Field.ContainingType.Equals(PlatformTypes.String))
-                    {
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Static store instruction not Supported"));
-                        this.State.IsTop = true;
-                    }
-                }
+                { }
+                // Static fields now supported
+                //else
+                //{
+                //    if (!fieldAccess.Field.ContainingType.Equals(PlatformTypes.String))
+                //    {
+                //        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Static store instruction not Supported"));
+                //        this.State.IsTop = true;
+                //    }
+                //}
 
             }
 
 
             public override void Visit(StoreInstruction instruction)
             {
-                //  o.f = v  (v is instruction.Operand, o.f is instruction.Result)
-                if (instruction.Result is InstanceFieldAccess)
+                visitorPTA.Visit(instruction);
+
+                var result = instruction.Result;
+                if (!HandleStdStore(instruction, result))
                 {
-                    var fieldAccess = instruction.Result as InstanceFieldAccess;
+                    if (result is Reference)
+                    {
+                        var referencedValue = (result as Reference).Value;
+                        //if (SongTaoDependencyAnalysis.IsScopeType(referencedValue.Type))
+                        // I allways copy
+                        {
+                            var v = referencedValue as IVariable;
+                            this.State.A2_Variables.AddRange(v,  GetTraceablesFromA2_Variables(instruction.Operand));
+                        }
+                        //AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store Deference"));
+                        //this.State.IsTop = true;
+                    }
+                    else if(result is Dereference)
+                    {
+                        var reference = (result as Dereference).Reference;
+                        // if (SongTaoDependencyAnalysis.IsScopeType(reference.Type))
+                        // I allways copy
+                        {
+                            this.State.A2_Variables.AddRange(reference, GetTraceablesFromA2_Variables(instruction.Operand));
+                        }
+                    }
+                    else
+                    {
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store"));
+                        this.State.IsTop = true;
+                    }
+                }
+
+            }
+
+            private bool HandleStdStore(StoreInstruction instruction, IAssignableValue instructionResult)
+            {
+                var result = true;
+                //  o.f = v  (v is instruction.Operand, o.f is instruction.Result)
+                if (instructionResult is InstanceFieldAccess)
+                {
+                    var fieldAccess = instructionResult as InstanceFieldAccess;
 
                     var o = fieldAccess.Instance;
                     var field = fieldAccess.Field;
-                    if (ISClousureField(fieldAccess))
+                    if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                     {
                         var arg = instruction.Operand;
                         var inputTable = equalities.GetValue(arg);
@@ -776,7 +832,7 @@ namespace Backend.Analyses
                         // a3 := a3[loc(o.f) <- a2[v]] 
                         // union = a2[v]
                         var union = GetTraceablesFromA2_Variables(instruction.Operand);
-                        foreach (var ptgNode in ptg.GetTargets(o))
+                        foreach (var ptgNode in currentPTG.GetTargets(o))
                         {
                             this.State.A3_Clousures[new Location(ptgNode, field)] = union;
                         }
@@ -789,9 +845,9 @@ namespace Backend.Analyses
                         scopeData.columnFieldMap[fieldAccess.Field] = columnLiteral;
                     }
                 }
-                else if(instruction.Result is ArrayElementAccess)
+                else if (instructionResult is ArrayElementAccess)
                 {
-                    var arrayAccess = instruction.Result as ArrayElementAccess;
+                    var arrayAccess = instructionResult as ArrayElementAccess;
                     var baseArray = arrayAccess.Array;
                     // TODO: Add dependencies in indices
                     // var indices = arrayAccess.Indices;
@@ -801,8 +857,8 @@ namespace Backend.Analyses
                     // a3 := a3[loc(o[f]) <- a2[v]] 
                     // union = a2[v]
                     var union = GetTraceablesFromA2_Variables(instruction.Operand);
-                    foreach (var ptgNode in ptg.GetTargets(baseArray))
-                    {   
+                    foreach (var ptgNode in currentPTG.GetTargets(baseArray))
+                    {
                         // TODO: I need to provide a BasicType. I need the base of the array 
                         // Currenly I use the method containing type
                         var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
@@ -811,33 +867,32 @@ namespace Backend.Analyses
                         this.State.A3_Clousures[new Location(ptgNode, fakeField)] = union;
                     }
                 }
-                else if(instruction.Result is StaticFieldAccess)
+                else if (instructionResult is StaticFieldAccess)
                 {
-                    var field = (instruction.Result as StaticFieldAccess).Field;
+                    var field = (instructionResult as StaticFieldAccess).Field;
                     var union = GetTraceablesFromA2_Variables(instruction.Operand);
                     this.State.A3_Clousures[new Location(PointsToGraph.GlobalNode, field)] = union;
-                    
+
                     this.State.A1_Escaping.UnionWith(GetTraceablesFromA2_Variables(instruction.Operand));
-                }
-                else if(instruction.Result is Dereference)
-                {
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store Deference"));
-                    this.State.IsTop = true;
                 }
                 else
                 {
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store"));
-                    this.State.IsTop = true;
+                    result = false;
                 }
-
+                return result;
             }
+
             public override void Visit(ConditionalBranchInstruction instruction)
             {
+                visitorPTA.Visit(instruction);
+
                 this.State.ControlVariables.UnionWith(instruction.UsedVariables.Where( v => GetTraceablesFromA2_Variables(v).Any()));
 
             }
             public override void Visit(ReturnInstruction instruction)
             {
+                visitorPTA.Visit(instruction);
+
                 if (instruction.HasOperand)
                 {
                     var rv = this.iteratorDependencyAnalysis.ReturnVariable;
@@ -864,18 +919,20 @@ namespace Backend.Analyses
                             // Pure Methods
                             if(IsPureMethod(methodCallStmt))
                             {
+                                UpdatePTAForPure(methodCallStmt);
                                 UpdateUsingDefUsed(methodCallStmt);
                             }
                             else
                             {
                                 // I first check in the calle may a input/output row
-                                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
-                                var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+                                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false));
+                                var escaping = currentPTG.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                                 if (escaping)
                                 {
                                     if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled)
                                     {
-                                        var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, ptg);
+                                        // This updates the Dep Domain and the PTG
+                                        var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
                                         AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
 
                                         // If there are unresolved calles
@@ -891,15 +948,46 @@ namespace Backend.Analyses
                                 }
                                 else
                                 {
-                                    // TODO: I should at leat update the Poinst-to graph
+                                    // I should at least update the Poinst-to graph
                                     // or make the parameters escape
                                     foreach(var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
                                     {
                                         var escapingField = new FieldReference("escape", PlatformTypes.Object, this.method.ContainingType);
-                                        ptg.PointsTo(PointsToGraph.GlobalNode, escapingField, escapingNode);
+                                        currentPTG.PointsTo(PointsToGraph.GlobalNode, escapingField, escapingNode);
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Updates the points-to graph using only the info from parameter
+            /// TODO: We should actually follow the ideas of our IWACO paper...
+            /// </summary>
+            /// <param name="instruction"></param>
+            private void UpdatePTAForPure(MethodCallInstruction instruction)
+            {
+                if (instruction.Result != null && !instruction.Result.Type.IsValueType())
+                {
+                    var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type);
+
+                    foreach (var result in instruction.ModifiedVariables)
+                    {
+                        var allNodes = new HashSet<PTGNode>();
+                        foreach (var arg in instruction.UsedVariables)
+                        {
+                            var nodes = this.currentPTG.GetTargets(arg, false);
+                            allNodes.UnionWith(nodes);
+                        }
+
+                        currentPTG.RemoveEdges(result);
+                        currentPTG.PointsTo(result, returnNode);
+                        var returnField = new FieldReference("$return", PlatformTypes.Object, this.method.ContainingType);
+                        foreach (var ptgNode in allNodes)
+                        {
+                            currentPTG.PointsTo(returnNode, returnField , ptgNode);
                         }
                     }
                 }
@@ -920,7 +1008,7 @@ namespace Backend.Analyses
                             CallArguments = methodCallStmt.Arguments,
                             CallLHS = methodCallStmt.Result,
                             CallerState = this.State,
-                            CallerPTG = ptg,
+                            CallerPTG = currentPTG,
                             Instruction = instruction,
                             ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
                         };
@@ -928,7 +1016,7 @@ namespace Backend.Analyses
                         var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
 
                         this.State = interProcResult.State;
-                        ptg = interProcResult.PTG;
+                        currentPTG = interProcResult.State.PTG;
                     }
                     catch (Exception e)
                     {
@@ -941,15 +1029,17 @@ namespace Backend.Analyses
 
             private void HandleNoAnalyzableMethod(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt)
             {
+                UpdatePTAForPure(methodCallStmt);
                 UpdateUsingDefUsed(methodCallStmt);
+                // I already know that the are argument escaping (because I only invoke this method in that case
                 //var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
                 //var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                 //if(escaping)
                 //{
                     this.State.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => GetTraceablesFromA2_Variables(arg)));
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, 
-                                                    String.Format("Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
-                    // this.State.IsTop = true;
+                                                    String.Format(CultureInfo.InvariantCulture, "Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
+                     this.State.IsTop = true;
                 // }
             }
 
@@ -984,6 +1074,8 @@ namespace Backend.Analyses
 
             public override void Visit(PhiInstruction instruction)
             {
+                visitorPTA.Visit(instruction);
+
                 UpdateUsingDefUsed(instruction);
             }
 
@@ -994,6 +1086,8 @@ namespace Backend.Analyses
             /// <param name="instruction"></param>
             public override void Default(Instruction instruction)
             {
+                visitorPTA.Visit(instruction);
+
                 UpdateUsingDefUsed(instruction);
                 // base.Default(instruction);
             }
@@ -1165,6 +1259,21 @@ namespace Backend.Analyses
                     var traceables = this.State.ControlVariables.SelectMany(controlVar => GetTraceablesFromA2_Variables(controlVar));
                     this.State.A4_Ouput.AddRange(arg0, traceables);
                 }
+                // arg.Copy(arg1)
+                // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
+                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.Name == "Row")
+                {
+                    // TODO: This is a pass-through!
+                    var arg0 = methodCallStmt.Arguments[0];
+                    var arg1 = methodCallStmt.Arguments[1];
+
+                    var tables = GetTraceablesFromA2_Variables(arg0);
+                    var column = ColumnDomain.TOP;
+                    this.State.A4_Ouput.AddRange(arg1, tables.Select( t => new TraceableColumn(t.TableName, column)));
+                    //
+                    var traceables = this.State.ControlVariables.SelectMany(controlVar => GetTraceablesFromA2_Variables(controlVar));
+                    this.State.A4_Ouput.AddRange(arg1, traceables);
+                }
                 else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.Name == "ColumnData")
                 {
                     var arg = methodCallStmt.Arguments[0];
@@ -1193,7 +1302,7 @@ namespace Backend.Analyses
                 var inputTable = equalities.GetValue(arg);
                 //scopeData.row = callResult;
                 scopeData.schemaMap[callResult] = inputTable;
-                var nodes = ptg.GetTargets(arg, false);
+                var nodes = currentPTG.GetTargets(arg, false);
                 if(nodes.Any())
                 {
                     var tables = nodes.Where(n => n.Type is IBasicType && (n.Type as IBasicType).GetFullName()!="").SelectMany(n => n.Sources.Select(kv => kv.Key.Name));
@@ -1352,7 +1461,9 @@ namespace Backend.Analyses
 
         private IEnumerable<PTGNode> protectedNodes;
 
-        public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
+        private IteratorPointsToAnalysis pta;
+
+        public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                             IEnumerable<PTGNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager) : base(cfg)
@@ -1360,7 +1471,7 @@ namespace Backend.Analyses
             this.method = method;
             this.iteratorClass = method.ContainingType;
             // this.specialFields = specialFields;
-            this.ptgs = ptgs;
+            this.ptgs = pta.Result;
             this.equalities = equalitiesMap;
             this.scopeData = new ScopeInfo();
             this.protectedNodes = protectedNodes;
@@ -1369,12 +1480,13 @@ namespace Backend.Analyses
             this.ReturnVariable = new LocalVariable(method.Name+"_$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
+            this.pta = pta;
         }
-        public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs,
+        public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                     IEnumerable<PTGNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
-                                    DependencyDomain initValue) : this(method, cfg, ptgs, protectedNodes, equalitiesMap, interprocManager) //base(cfg)
+                                    DependencyDomain initValue) : this(method, cfg, pta, protectedNodes, equalitiesMap, interprocManager) //base(cfg)
         {            
             this.initValue = initValue;
         }
@@ -1388,6 +1500,8 @@ namespace Backend.Analyses
         protected override DependencyDomain InitialValue(CFGNode node)
         {
             var depValues = new DependencyDomain();
+            var currentPTG = this.pta.GetInitialValue();
+            depValues.PTG = currentPTG;
 
             if (this.cfg.Entry.Id == node.Id)
             {
@@ -1396,8 +1510,8 @@ namespace Backend.Analyses
                     return this.initValue;
                 }
 
-                var currentPTG = ptgs[cfg.Exit.Id].Output;
-
+                //var currentPTG = pta.Result[cfg.Exit.Id].Output;
+            
                 IVariable thisVar = null;
                 if (!this.method.IsStatic && this.method.Body != null)
                 {
@@ -1434,14 +1548,16 @@ namespace Backend.Analyses
             if (input.IsTop)
                 return input;
 
-            var oldInput = input; // input.Clone();
-            var currentPTG = ptgs[node.Id].Output;
+            var oldInput = input;
+            // var currentPTG = pta.Result[node.Id].Output;
 
-            var visitor = new MoveNextVisitorForDependencyAnalysis(this, node, this.equalities, this.scopeData, currentPTG, oldInput);
+            // A visitor for the points-to graph
+            var visitorPTA = new PTAVisitor(oldInput.PTG, this.pta);
+
+            // A visitor for the dependency analysis
+            // TODO: Since PTG is now part of the state I no longer need to send it as parameters
+            var visitor = new MoveNextVisitorForDependencyAnalysis(this, visitorPTA, node, this.equalities, this.scopeData, oldInput.PTG, oldInput);
             visitor.Visit(node);
-
-            //if(visitor.State.LessEqual(oldInput) )
-            //{ }
 
             return visitor.State;
         }

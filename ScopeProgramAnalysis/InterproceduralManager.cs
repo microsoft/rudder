@@ -9,6 +9,7 @@ using Model.ThreeAddressCode.Values;
 using Model.Types;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -125,33 +126,39 @@ namespace ScopeProgramAnalysis
             if(callStack.Contains(callInfo.Callee))
             {
                 callInfo.CallerState.IsTop = true;
-                AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller.Name, callInfo.Instruction, String.Format("Recursive call to {0}", callInfo.Callee.Name)));
+                AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller.Name, callInfo.Instruction, String.Format(CultureInfo.InvariantCulture, "Recursive call to {0}", callInfo.Callee.Name)));
                 return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
             }
 
             this.callStack.Push(callInfo.Callee);   
             System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToSignatureString(), stackDepth);
             // 1) Bind PTG and call PT analysis on callee. In pta.Result[node.Exit] is the PTG at exit of the callee
+            //IteratorPointsToAnalysis calleePTA = this.PTABindAndRunInterProcAnalysis(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee, calleeCFG);
+            PointsToGraph calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
+            IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
-            IteratorPointsToAnalysis calleePTA = this.PTABindAndRunInterProcAnalysis(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee, calleeCFG);
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
             SongTaoDependencyAnalysis.PropagateExpressions(calleeCFG, equalities);
 
 
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDomain = BindCallerCallee(callInfo);
-            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA.Result, callInfo.ProtectedNodes, equalities, this, calleeDomain);
+            calleeDomain.PTG = calleePTG;
+            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, calleeDomain);
             dependencyAnalysis.Analyze();
             stackDepth--;
             this.callStack.Pop();
 
             // 3) Bind callee with caller
             // Should I need the PTG of caller and callee?
-            var exitCalleePTG = calleePTA.Result[calleeCFG.Exit.Id].Output;
+            //var exitCalleePTG = calleePTA.Result[calleeCFG.Exit.Id].Output;
+            var exitCalleePTG = dependencyAnalysis.Result[calleeCFG.Exit.Id].Output.PTG;
             var exitResult = BindCaleeCaller(callInfo, calleeCFG, dependencyAnalysis);
 
             // Recover the frame of the original Ptg and bind ptg results
-            PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, calleePTA);
+            //PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, calleePTA);
+            PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, exitCalleePTG, calleePTA.ReturnVariable);
+            exitResult.PTG = bindPtg;
 
             return new InterProceduralReturnInfo(exitResult, bindPtg);
         }
@@ -210,15 +217,29 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                if (exitResult.A2_Variables.ContainsKey(param))
-                {
-                    callInfo.CallerState.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
-                }
+                callInfo.CallerState.A2_Variables.AddRange(arg, GetTraceablesFromA2_Variables(param,exitResult,exitResult.PTG));
+
+                //if (exitResult.A2_Variables.ContainsKey(param))
+                //{
+                //    callInfo.CallerState.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
+                //}
                 if (exitResult.A4_Ouput.ContainsKey(param))
                 {
                     callInfo.CallerState.A4_Ouput.AddRange(arg, exitResult.A4_Ouput[param]);
                 }
             }
+
+            foreach(var outputVar in exitResult.A4_Ouput.Keys)
+            {
+                var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
+                newVar.Type = outputVar.Type;
+
+                callInfo.CallerState.A4_Ouput[newVar] = exitResult.A4_Ouput[outputVar];
+                callInfo.CallerState.A2_Variables[newVar] = exitResult.A2_Variables[outputVar];
+                //exitResult.PTG.Add(newVar);
+                //exitResult.PTG.PointsTo(newVar, exitResult.PTG.GetTargets(outputVar, false));
+            }
+
             callInfo.CallerState.A1_Escaping.UnionWith(exitResult.A1_Escaping);
             callInfo.CallerState.A3_Clousures.UnionWith(exitResult.A3_Clousures);
 
@@ -278,6 +299,21 @@ namespace ScopeProgramAnalysis
             return exitPTG;
         }
 
+        private PointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, PointsToGraph calleePTG, IVariable rv)
+        {
+            var exitPTG = calleePTG;
+            if (result != null)
+            {
+                exitPTG.RestoreFrame(rv, result);
+            }
+            else
+            {
+                exitPTG.RestoreFrame();
+            }
+            return exitPTG;
+        }
+
+
         public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
         {
             PointsToGraph bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
@@ -288,7 +324,7 @@ namespace ScopeProgramAnalysis
             return pta;
         }
 
-        private static PointsToGraph PTABindCallerCallee(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee)
+        public static PointsToGraph PTABindCallerCallee(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee)
         {
             var bindPtg = ptg.Clone();
             var argParamMap = new Dictionary<IVariable, IVariable>();

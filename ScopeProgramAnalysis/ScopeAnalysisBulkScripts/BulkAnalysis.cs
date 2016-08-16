@@ -13,7 +13,9 @@ namespace ScopeAnalysisBulkScripts
     {
         static void Main(string[] args)
         {
-            AnalyzeScopeScripts(new string[] { @"D:\MadanExamples\", @"D:\Temp\", "Reducer" });
+            var analysisFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            analysisFolder = @"D:\MadanExamples\";
+            AnalyzeScopeScripts(new string[] { analysisFolder, @"D:\Temp\", "Reducer" });
             AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();
         }

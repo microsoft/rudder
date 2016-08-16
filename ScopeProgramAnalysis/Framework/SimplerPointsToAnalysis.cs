@@ -17,7 +17,7 @@ namespace Backend.Analyses
     // May Points-To Analysis
     public class IteratorPointsToAnalysis : ForwardDataFlowAnalysis<PointsToGraph>
     {
-        class PTAVisitor : InstructionVisitor
+        public class PTAVisitor : InstructionVisitor
         {
             private PointsToGraph ptg;
             private IteratorPointsToAnalysis ptAnalysis;
@@ -218,6 +218,15 @@ namespace Backend.Analyses
             this.initPTG = this.initialGraph; // initPTG;
         }
        
+        public PointsToGraph GetInitialValue()
+        {
+            if (this.initPTG != null)
+            {
+                return this.initPTG;
+            }
+            return this.initialGraph.Clone();
+        }
+
         protected override PointsToGraph InitialValue(CFGNode node)
         {
             if (this.cfg.Entry.Id == node.Id && this.initPTG != null)
@@ -354,7 +363,7 @@ namespace Backend.Analyses
             ptg.PointsTo(dst, node);
         }
 
-		private void ProcessArrayAllocation(PointsToGraph ptg, uint offset, IVariable dst)
+		internal void ProcessArrayAllocation(PointsToGraph ptg, uint offset, IVariable dst)
         {
             ptg.RemoveEdges(dst);
 
@@ -366,7 +375,7 @@ namespace Backend.Analyses
             ptg.PointsTo(dst, node);
         }
 
-        private void ProcessCopy(PointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
+        internal void ProcessCopy(PointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
         {
             ptg.RemoveEdges(dst);
 
@@ -379,7 +388,7 @@ namespace Backend.Analyses
                 ptg.PointsTo(dst, target);
             }
         }
-        private void ProcessCopy(PointsToGraph ptg, IVariable dst, IVariable src)
+        internal void ProcessCopy(PointsToGraph ptg, IVariable dst, IVariable src)
         {
             ProcessCopy(ptg, dst, new HashSet<IVariable>() { src });
 			//if (dst.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
@@ -396,6 +405,8 @@ namespace Backend.Analyses
 		private void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
         {
 			if (dst.Type.TypeKind == TypeKind.ValueType || field.Type.TypeKind == TypeKind.ValueType) return;
+            // TODO: I need to support value types when they are Structs..
+            if (instance.Type.TypeKind == TypeKind.ValueType) return;
 
             ptg.RemoveEdges(dst);
 			var nodes = ptg.GetTargets(instance);

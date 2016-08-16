@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Globalization;
 
 namespace ScopeProgramAnalysis
 {
@@ -22,7 +23,7 @@ namespace ScopeProgramAnalysis
         public string Reason { get; set; }
         public override string ToString()
         {
-            return String.Format("[{0}:{1}] = {2}", MethodName, Instruction.ToString(), Reason);
+            return String.Format(CultureInfo.InvariantCulture,"[{0}:{1}] = {2}", MethodName, Instruction.ToString(), Reason);
         }
 
     }
