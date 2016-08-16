@@ -62,6 +62,7 @@ namespace ScopeAnalyzer
         List<ITypeDefinition> rowsetTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> processorTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> combinerTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> columnTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> schemaTypes = new List<ITypeDefinition>();
         ISourceLocationProvider sourceLocationProvider;
@@ -96,12 +97,15 @@ namespace ScopeAnalyzer
                     else if (type.FullName() == "ScopeRuntime.RowSet") rowsetTypes.Add(type);
                     else if (type.FullName() == "ScopeRuntime.ColumnData") columnTypes.Add(type);
                     else if (type.FullName() == "ScopeRuntime.Schema") schemaTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.Combiner") combinerTypes.Add(type);
                 }
             }
 
-            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || !rowTypes.Any() || !columnTypes.Any() || !schemaTypes.Any())
-                throw new MissingScopeMetadataException(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}",
-                                                      reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count, schemaTypes.Count));
+            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || 
+                !rowTypes.Any() || !columnTypes.Any() || !schemaTypes.Any() || !combinerTypes.Any())
+                throw new MissingScopeMetadataException(
+                    String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}\tCombiner:{6}",
+                        reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count, schemaTypes.Count, combinerTypes.Count));
         }
 
 
@@ -278,18 +282,25 @@ namespace ScopeAnalyzer
         private bool IsProcessor(IMethodDefinition method)
         {
             // Containing type of a method needs to be a non-anonymous reference type.
-            if (!(method.ContainingType is INamedTypeReference)) return false;
+            if (!(method.ContainingType is INamedTypeReference))
+                return false;
             var mtype = method.ContainingType as INamedTypeReference;
-            if (mtype.IsEnum || mtype.IsValueType) return false;
+            if (mtype.IsEnum || mtype.IsValueType)
+                return false;
 
             // Its definition must be available.
             var rmtype = mtype.Resolve(mhost);
             // Method needs to be contained in nested Reducer or Processor subclass.
-            if (!(rmtype is INestedTypeDefinition)) return false;
+            if (!(rmtype is INestedTypeDefinition))
+                return false;
             var type = (rmtype as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
-            if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && processorTypes.All(pt => !type.SubtypeOf(pt, mhost))) return false;
+            if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && 
+                processorTypes.All(pt => !type.SubtypeOf(pt, mhost)) &&
+                combinerTypes.All(ct => !type.SubtypeOf(ct, mhost)))
+                return false;
             // We are currently focusing on MoveNext methods only.
-            if (!method.FullName().EndsWith(".MoveNext()")) return false;
+            if (!method.FullName().EndsWith(".MoveNext()"))
+                return false;
 
             return true;
         }
