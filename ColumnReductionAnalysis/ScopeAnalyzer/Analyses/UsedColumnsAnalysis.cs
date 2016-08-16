@@ -118,14 +118,12 @@ namespace ScopeAnalyzer.Analyses
                     if (!(instruction is MethodCallInstruction || instruction is IndirectMethodCallInstruction)) continue;
 
                     if (instruction is MethodCallInstruction)
-                    {
-                        var ins = instruction as MethodCallInstruction;
-                        cd.Join(GetCols(ins, false, ins.Method.Name.Value, ins.Arguments));
+                    {                    
+                        cd.Join(GetCols(instruction as MethodCallInstruction));
                     }
                     else
                     {
-                        var ins = instruction as IndirectMethodCallInstruction;
-                        cd.Join(GetCols(ins, true, null, ins.Arguments));
+                        cd = ColumnsDomain.Top;
                     }
 
                     // This is a doomed point, no point in continuing the analysis.
@@ -143,46 +141,38 @@ namespace ScopeAnalyzer.Analyses
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        private ColumnsDomain GetCols(Instruction instruction, bool isVirtual, string name, IList<IVariable> arguments)
-        {
-            var _this = arguments.ElementAt(0);
+        private ColumnsDomain GetCols(MethodCallInstruction instruction)
+        {          
+            var ct = instruction.Method.ContainingType;
 
             // The methods must belong to Row.
-            if (rowTypes.All(rt => _this.Type != null && !_this.Type.SubtypeOf(rt, host))) return ColumnsDomain.Bottom;
+            if (rowTypes.All(rt => ct != null && !ct.SubtypeOf(rt, host)))
+                return ColumnsDomain.Bottom;
 
-            if (isVirtual)
+            if (!trustedRowMethods.Contains(instruction.Method.Name.Value))
+                return ColumnsDomain.Top;
+
+            // Leting get_Schema through
+            if (instruction.Arguments.Count == 1)
+            {
+                return ColumnsDomain.Bottom;
+            }
+
+            var arg = instruction.Arguments.ElementAt(1);
+            var cons = constInfo.GetConstants(instruction, arg);
+            // If we don't know the initial value of the variable or the 
+            // variable cannot take value froma finite a set of constants,
+            // then we cannot say what column was used here.
+            if (cons == null || cons.Count() == 0)
             {
                 return ColumnsDomain.Top;
             }
             else
             {
-                if (!trustedRowMethods.Contains(name))
-                    return ColumnsDomain.Top;
-
-                if (arguments.Count == 1)
-                {
-                    return ColumnsDomain.Bottom;
-                }
-
-                var arg = arguments.ElementAt(1);
-                var cons = constInfo.GetConstants(instruction, arg);
-                if (cons == null)
-                {
-                    return ColumnsDomain.Top;
-                }
-                else
-                {
-                    var cols = ColumnsDomain.Bottom;
-                    foreach (var c in cons) cols.Add(c);
-                    return cols;
-                }             
-            }
+                var cols = ColumnsDomain.Bottom;
+                foreach (var c in cons) cols.Add(c);
+                return cols;
+            }                       
         }
-
-
-        //private bool IsResultColumn(IVariable result)
-        //{
-        //    return columnTypes.Any(ct => result.Type.IncludesType(ct, host));
-        //}
     }
 }
