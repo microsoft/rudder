@@ -36,7 +36,7 @@ namespace ScopeAnalyzer
 
         public int ColumnsContained;
         public int ColumnsEqual;
-        public int ColumnsErrors;
+        public int ColumnsImprecision;
         public int ColumnsDiff;
 
         public ScopeAnalysisStats(int assemblies = 0)
@@ -46,7 +46,7 @@ namespace ScopeAnalyzer
             Methods = FailedMethods = UnsupportedMethods = InterestingMethods = 0;
             NotEscapeDummies = NotCPropagationDummies = NotColumnDummies = 0;
             Mapped = 0;
-            ColumnsContained = ColumnsEqual = ColumnsErrors = ColumnsDiff = 0;
+            ColumnsContained = ColumnsEqual = ColumnsImprecision = ColumnsDiff = 0;
         }
     }
 
@@ -119,7 +119,7 @@ namespace ScopeAnalyzer
             stats.UnsupportedMethods += interestingResults.Where(r => r.Unsupported).ToList().Count;
 
             stats.NotEscapeDummies += interestingResults.Where(r => !r.EscapeSummary.IsTop).ToList().Count;
-            stats.NotCPropagationDummies += interestingResults.Where(r => r.CPropagationSummary != null && !r.CPropagationSummary.IsTop).ToList().Count;
+            stats.NotCPropagationDummies += interestingResults.Where(r => r.CPropagationSummary != null && !r.CPropagationSummary.IsTop && !r.CPropagationSummary.IsBottom).ToList().Count;
 
             var concreteResults = interestingResults.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom).ToList();
             stats.NotColumnDummies += concreteResults.Count;
@@ -137,9 +137,10 @@ namespace ScopeAnalyzer
                 return;
 
             var column = result.UsedColumnsSummary;
-            if (column.IsBottom || column.IsTop) return;
+            if (column.IsBottom || column.IsTop) return;          
 
             var pTypeFullName = result.ProcessorType.FullName();
+            Utils.WriteLine("Checking column usage for " + pTypeFullName);
 
             if (!pIdMapping.ContainsKey(pTypeFullName))
             {
@@ -155,12 +156,12 @@ namespace ScopeAnalyzer
                 var process = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value.Equals(id)).Single();
 
                 var input_schema = process.Descendants("input").Single().Attribute("schema").Value.Split(',');
-                var inputColumns = new HashSet<string>();
-                foreach (var input in input_schema) inputColumns.Add(input.Split(':')[1].Trim());
+                var inputColumns = new List<string>();
+                foreach (var input in input_schema) inputColumns.Add(input.Split(':')[0].Trim());
 
                 var output_schema = process.Descendants("output").Single().Attribute("schema").Value.Split(',');
-                var outputColumns = new HashSet<string>();
-                foreach (var output in output_schema) inputColumns.Add(output.Split(':')[1].Trim());
+                var outputColumns = new List<string>();
+                foreach (var output in output_schema) outputColumns.Add(output.Split(':')[0].Trim());
 
                 var usedColumns = new HashSet<string>();
                 foreach (var c in column.Elements)
@@ -173,8 +174,8 @@ namespace ScopeAnalyzer
                     else if (val is int)
                     {
                         int index = Int32.Parse(val.ToString());
-                        usedColumns.Add(output_schema[index]);
-                        usedColumns.Add(input_schema[index]);
+                        usedColumns.Add(inputColumns[index]);
+                        usedColumns.Add(outputColumns[index]);
                     }
                     else
                     {
@@ -188,15 +189,17 @@ namespace ScopeAnalyzer
                 {
                     stats.ColumnsContained += 1;
                     stats.ColumnsDiff += (allSchemaColumns.Count - usedColumns.Count);
+                    Utils.WriteLine("PRECISION: used columns subset of defined columns: " + stats.ColumnsDiff);
                 }
                 else if (allSchemaColumns.SetEquals(usedColumns))
                 {
                     stats.ColumnsEqual += 1;
+                    Utils.WriteLine("PRECISION: used columns equal to defined columns");
                 }
                 else
                 {
-                    Utils.WriteLine("ERROR: redundant used columns: " + usedColumns.ToString());
-                    stats.ColumnsErrors += 1;
+                    Utils.WriteLine("IMPRECISION: redundant used columns: " + String.Join(" ", allSchemaColumns));
+                    stats.ColumnsImprecision += 1;
                 }
             } 
             catch (Exception e)
@@ -222,7 +225,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("");
             Utils.WriteLine("Used columns proper subset: " + stats.ColumnsContained);
             Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
-            Utils.WriteLine("Used columns error: " + stats.ColumnsErrors);
+            Utils.WriteLine("Used columns imprecision: " + stats.ColumnsImprecision);
             Utils.WriteLine("Used columns proper subset avg diff: " + (stats.ColumnsContained > 0? ((double)stats.ColumnsDiff)/stats.ColumnsContained:0));
         }
 
@@ -316,7 +319,7 @@ namespace ScopeAnalyzer
                 catch { }
             }
 
-            Utils.WriteLine(String.Format("WARNING: could not properly load processor to id mapping: {0}", options.VertexDefPath));
+            Utils.WriteLine(String.Format("WARNING: could not properly load processor to id mapping: {0}", options.ProcessorIdPath));
             return null;
         }
     }

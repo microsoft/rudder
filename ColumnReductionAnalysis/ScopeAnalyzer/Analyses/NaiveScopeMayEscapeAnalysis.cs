@@ -377,7 +377,7 @@ namespace ScopeAnalyzer.Analyses
 
             if (env == null)
             {
-                unsupported = true;
+                //unsupported = true;
                 Utils.WriteLine("WARNING: no closure environment found!");
             }
 

@@ -35,9 +35,13 @@ namespace BulkScopeAnalyzer
                 var mname = methodDefinition.Name.Value;
                 if (mname.StartsWith("Create_Process_"))
                 {
-                    var id = "Process_" + mname.Split('_').Last();
-                    var processorName = GetProcessorName(methodDefinition);
-                    mapping[processorName] = id;
+                    try
+                    {
+                        var id = "Process_" + mname.Split('_').Last();
+                        var processorName = GetProcessorName(methodDefinition);
+                        mapping[processorName] = id;
+                    }
+                    catch { }
                 }
           }
         }

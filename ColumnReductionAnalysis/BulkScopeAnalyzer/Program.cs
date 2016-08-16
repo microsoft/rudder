@@ -23,46 +23,51 @@ namespace BulkScopeAnalyzer
 
         static void DoParallel()
         {
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
-            string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
+            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
             string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
+            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
             var subdirs = SubDirectoryPaths(mainFolder);
-            var dlls = new List<string>();
-            foreach (var subdir in subdirs)
+            Console.WriteLine(String.Format("Analyzing {0} Scope projects\n", subdirs.Length));
+            int dll_count = 0;
+            for (int i = 0; i < subdirs.Length; i++)
             {
+                var subdir = subdirs[i];
                 var libs = LibraryPaths(subdir);
-                dlls.AddRange(libs);
-                CreateProcessorIdMapping(subdir, libs, Utils.PROCESSOR_ID_MAPPING_NAME);              
-            }
 
-            Console.WriteLine(String.Format("Analyzing {0} Scope projects with {1} dlls\n", subdirs.Length, dlls.Count));
-            for (int i = 0; i < dlls.Count; i++)
-            {
-                if (i >= 100 && i % 100 == 0)
+                string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
+                if (!CreateProcessorIdMapping(subdir, libs, mapping))
                 {
-                    Console.WriteLine("Giving myself 5 minutes...");
-                    Thread.Sleep(300000);
+                    Console.WriteLine("Skipping this Scope project...");
+                    continue;
                 }
+                
+                for (int j = 0; j < libs.Count; j++)
+                {
+                    if (dll_count >= 150 && dll_count % 150 == 0)
+                    {
+                        Console.WriteLine("Giving myself 6 minutes...");
+                        Thread.Sleep(360000);
+                    }
 
-                Console.WriteLine("Spawning process " + (i + 1));
-                string output = outputPrefix + String.Format("output_{0}.txt", (i + 1));
-                string input = dlls[i];
+                    Console.WriteLine("Spawning process " + (dll_count + 1));
+                    string output = outputPrefix + String.Format("output_{0}.txt", (dll_count + 1));                   
+                    string input = libs[j];
 
-                Process process = new Process();
-                process.StartInfo.FileName = scopeAnalyzer;
-                process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\"", input, libPath, output);             
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.CreateNoWindow = true;
-                process.Start();              
-            }            
+                    Process process = new Process();
+                    process.StartInfo.FileName = scopeAnalyzer;
+                    process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"", input, libPath, output, mapping);
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.CreateNoWindow = true;
+                    process.Start();
+                    dll_count++;
+                }
+            }          
         }
-
-
-     
-
 
         private static string[] SubDirectoryPaths(string dir)
         {
@@ -83,18 +88,16 @@ namespace BulkScopeAnalyzer
             return dlls;
         }
 
-
-        private static void CreateProcessorIdMapping(string subdir, IEnumerable<string> libs, string outpath)
+        private static bool CreateProcessorIdMapping(string subdir, IEnumerable<string> libs, string outpath)
         {
             var mainDll = subdir + "\\" + Utils.MAIN_DLL_NAME;
             if (!libs.Contains(mainDll))
             {
                 Console.WriteLine("Did not find main scope dll: " + subdir);
-                return;
+                return false;
             }
 
             // delete existing processor id mapping file
-            outpath = subdir + "\\" + outpath;
             File.Delete(outpath);
             
             Assembly asm;
@@ -122,8 +125,9 @@ namespace BulkScopeAnalyzer
             catch
             {
                 Console.WriteLine("WARNING: failed to extract processor to id mapping the main dll: " + subdir);
-                return;
+                return false;
             }
+            return true;
         }
 
 

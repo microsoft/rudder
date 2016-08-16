@@ -10,7 +10,7 @@ namespace ScopeAnalyzer
     public class Utils
     {
         public const string MAIN_DLL_NAME = "__ScopeCodeGen__.dll";
-        public const string PROCESSOR_ID_MAPPING_NAME = "__processoridmapping__.txt";
+        public const string PROCESSOR_ID_MAPPING_NAME = "__processoridmapping__";
         public const string VERTEX_DEF_NAME = "ScopeVertexDef.xml";
 
 

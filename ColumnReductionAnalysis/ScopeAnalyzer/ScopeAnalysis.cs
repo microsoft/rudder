@@ -63,6 +63,7 @@ namespace ScopeAnalyzer
         List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> processorTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> columnTypes = new List<ITypeDefinition>();
+        List<ITypeDefinition> schemaTypes = new List<ITypeDefinition>();
         ISourceLocationProvider sourceLocationProvider;
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
@@ -94,12 +95,13 @@ namespace ScopeAnalyzer
                     else if (type.FullName() == "ScopeRuntime.Row") rowTypes.Add(type);
                     else if (type.FullName() == "ScopeRuntime.RowSet") rowsetTypes.Add(type);
                     else if (type.FullName() == "ScopeRuntime.ColumnData") columnTypes.Add(type);
+                    else if (type.FullName() == "ScopeRuntime.Schema") schemaTypes.Add(type);
                 }
             }
 
-            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || !rowTypes.Any() || !columnTypes.Any())
-                throw new MissingScopeMetadataException(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}",
-                                                      reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count));
+            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || !rowTypes.Any() || !columnTypes.Any() || !schemaTypes.Any())
+                throw new MissingScopeMetadataException(String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}",
+                                                      reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count, schemaTypes.Count));
         }
 
 
@@ -132,7 +134,7 @@ namespace ScopeAnalyzer
             //if (!methodDefinition.FullName().Contains("AlternateIdReducer") || !methodDefinition.FullName().Contains("MoveNext"))
             //    return;
 
-            //if (!methodDefinition.FullName().Contains("Bao.AvailabilityResourceSetIdReducer.<Reduce>d__0.MoveNext()"))
+            //if (!methodDefinition.FullName().Contains("FineNoEscapeByField") || !methodDefinition.FullName().Contains("MoveNext"))
             //    return;
 
             try
@@ -141,7 +143,7 @@ namespace ScopeAnalyzer
 
                 if (IsProcessor(methodDefinition))
                 {
-                    System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
+                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
                     Utils.WriteLine("\n--------------------------------------------------\n");
                     Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
 
@@ -200,7 +202,7 @@ namespace ScopeAnalyzer
         private ConstantPropagationSetAnalysis DoConstantPropagationAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running constant propagation set analysis...");
-            var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost);
+            var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost, schemaTypes);
             results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
             Utils.WriteLine(results.CPropagationSummary.ToString());
             Utils.WriteLine("Done with constant propagation set analysis\n");
@@ -220,7 +222,7 @@ namespace ScopeAnalyzer
 
 
 
-        string _code = String.Empty;
+        //string _code = String.Empty;
         private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
         {
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
@@ -264,7 +266,7 @@ namespace ScopeAnalyzer
 
             //var dot = DOTSerializer.Serialize(cfg);
             //var dgml = DGMLSerializer.Serialize(cfg);
-            _code = methodBody.ToString();
+            //_code = methodBody.ToString();
             return cfg;
         }
 
