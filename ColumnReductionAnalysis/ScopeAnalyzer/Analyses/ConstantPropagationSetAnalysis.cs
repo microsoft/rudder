@@ -338,16 +338,20 @@ namespace ScopeAnalyzer.Analyses
         IEnumerable<IVariable> variables;
         IEnumerable<Tuple<IFieldAccess, IFieldReference>> fields;
         IEnumerable<IFieldDefinition> fieldDefinitions;
+        IEnumerable<ITypeDefinition> schemaTypes;
+
         IMetadataHost host;
+
         bool unsupported = false;
 
         Dictionary<Instruction, ConstantPropagationDomain> preResults = new Dictionary<Instruction, ConstantPropagationDomain>();
         Dictionary<Instruction, ConstantPropagationDomain> postResults = new Dictionary<Instruction, ConstantPropagationDomain>();
 
-        public ConstantPropagationSetAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h) : base(cfg)
+        public ConstantPropagationSetAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, IEnumerable<ITypeDefinition> schemas) : base(cfg)
         {
             method = m;
             host = h;
+            schemaTypes = schemas;
 
             Initialize();
         }
@@ -401,6 +405,11 @@ namespace ScopeAnalyzer.Analyses
             get { return postResults; }
         }
 
+
+        public bool IsSchema(ITypeReference tref)
+        {
+            return schemaTypes.Any(s => tref.SubtypeOf(s, host));
+        }
 
         public IEnumerable<Tuple<IFieldAccess, IFieldReference>> Fields
         {
@@ -616,13 +625,43 @@ namespace ScopeAnalyzer.Analyses
             {
                 if (instruction.HasResult)
                 {
-                    DefaultVarTop(instruction, instruction.Result);
+                    if (IsSchemaGetItem(instruction))
+                    {
+                        SavePreState(instruction, FreshCurrent());
+                        var nstate = FreshCurrent();
+                        UpdateStateCopy(nstate, instruction.Result, instruction.Arguments.ElementAt(1));
+                        SetCurrent(nstate);
+                        SavePostState(instruction, FreshCurrent());                     
+                    }
+                    else
+                    {
+                        DefaultVarTop(instruction, instruction.Result);
+                    }
                 }
                 else
                 {
                     Default(instruction);
                 }
             }
+
+
+            private bool IsSchemaGetItem(MethodCallInstruction instruction)
+            {
+                if (!instruction.HasResult || instruction.Arguments.Count != 2)
+                    return false;
+
+                if (!IsConstantType(instruction.Arguments.ElementAt(1).Type))
+                    return false;
+
+                if (instruction.Method.Name.Value != "get_Item")
+                    return false;
+
+                if (!parent.IsSchema(instruction.Method.ContainingType))
+                    return false;
+
+                return true;
+            }
+
 
             public override void Visit(IndirectMethodCallInstruction instruction)
             {
