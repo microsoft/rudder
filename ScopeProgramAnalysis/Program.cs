@@ -64,8 +64,8 @@ namespace ScopeProgramAnalysis
             //const string input = @"D:\MadanExamples\3d2b4d2c-42b4-45c3-be19-71c1266ae835\__ScopeCodeGen__.dll";
             // const string input  = @" D:\MadanExamples\0061a95f-fbe7-4b0d-9878-c7fea686bec6\__ScopeCodeGen__.dll";
             // const string input = @"D:\MadanExamples\01c085ee-9e42-418d-b0e8-a94ee1a0d76b\__ScopeCodeGen__.dll";
-            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
-
+            // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
+            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -214,7 +214,7 @@ namespace ScopeProgramAnalysis
                         System.Console.WriteLine("Could not analyze {0}", inputPath);
                         AnalysisStats.TotalofDepAnalysisErrors++;
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod.Name.ToString(), moveNextMethod.Body.Instructions[0],
-                                        String.Format(CultureInfo.InvariantCulture, "Throw exception", e.ToString())));
+                                        String.Format(CultureInfo.InvariantCulture, "Throw exception {0}", e.StackTrace.ToString())));
 
                     }
                 }
