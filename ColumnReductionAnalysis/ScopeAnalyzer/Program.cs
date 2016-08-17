@@ -39,6 +39,9 @@ namespace ScopeAnalyzer
         public int ColumnsWarnings;
         public int ColumnsSavings;
 
+        public int ColumnStringAccesses;
+        public int ColumnIndexAccesses;
+
         public ScopeAnalysisStats(int assemblies = 0)
         {
             Assemblies = assemblies;
@@ -47,6 +50,7 @@ namespace ScopeAnalyzer
             NotEscapeDummies = NotCPropagationDummies = NotColumnDummies = 0;
             Mapped = 0;
             ColumnsContained = ColumnsEqual = ColumnsWarnings = ColumnsSavings = 0;
+            ColumnIndexAccesses = ColumnStringAccesses = 0;
         }
     }
 
@@ -133,6 +137,9 @@ namespace ScopeAnalyzer
         private static void ComputeImprovementStats(ScopeMethodAnalysisResult result, ref ScopeAnalysisStats stats, 
                                                     XElement vDef, Dictionary<string, string> pIdMapping)
         {
+            stats.ColumnIndexAccesses += result.ColumnIndexAccesses;
+            stats.ColumnStringAccesses += result.ColumnStringAccesses;
+
             if (vDef == null || pIdMapping == null)
                 return;
 
@@ -227,6 +234,9 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
             Utils.WriteLine("Used columns warnings: " + stats.ColumnsWarnings);
             Utils.WriteLine("Used columns savings: " + stats.ColumnsSavings);
+            Utils.WriteLine("");
+            Utils.WriteLine("Used columns string accesses: " + stats.ColumnStringAccesses);
+            Utils.WriteLine("Used columns index accesses: " + stats.ColumnIndexAccesses);
         }
 
 

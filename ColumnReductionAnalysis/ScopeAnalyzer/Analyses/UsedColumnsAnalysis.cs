@@ -51,7 +51,9 @@ namespace ScopeAnalyzer.Analyses
             }
             return summary;
         }
+
     }
+
 
     /// <summary>
     /// Analysis assumes no rows can escape. If some rows can indeed escape,
@@ -60,11 +62,18 @@ namespace ScopeAnalyzer.Analyses
     class UsedColumnsAnalysis
     {
         ControlFlowGraph cfg;
+        IMetadataHost host;
+
         ConstantsInfoProvider constInfo;
         List<ITypeDefinition> rowTypes;
         List<ITypeDefinition> columnTypes;
-        IMetadataHost host;
-        bool unsupported = false;
+        
+        public bool Unsupported { get; set; }
+
+        public int ColumnStringAccesses { get; set; }
+
+        public int ColumnIndexAccesses { get; set; }
+
 
         private HashSet<string> trustedRowMethods = new HashSet<string>() { "get_Item", "get_Schema" };
 
@@ -76,6 +85,9 @@ namespace ScopeAnalyzer.Analyses
             rowTypes = r;
             columnTypes = cd;
 
+            ColumnIndexAccesses = 0;
+            ColumnStringAccesses = 0;
+
             Initialize();
         }
 
@@ -86,7 +98,7 @@ namespace ScopeAnalyzer.Analyses
                 instructions.AddRange(block.Instructions);
 
             if (instructions.Any(i => i is ThrowInstruction || i is CatchInstruction))
-                unsupported = true;
+                Unsupported = true;
         }
 
 
@@ -96,18 +108,11 @@ namespace ScopeAnalyzer.Analyses
             get { return host; }
         }
 
-        public bool Unsupported
-        {
-            get { return unsupported; }
-        }
-
-
 
         public ColumnsDomain Analyze()
         {
-            if (unsupported)
+            if (Unsupported)
                 return ColumnsDomain.Top;
-
 
             var cd = ColumnsDomain.Bottom;
 
@@ -126,7 +131,7 @@ namespace ScopeAnalyzer.Analyses
                         cd = ColumnsDomain.Top;
                     }
 
-                    // This is a doomed point, no point in continuing the analysis.
+                    // This is a doomed point, jump out.
                     if (cd.IsTop)
                         return cd;
                 }
@@ -169,10 +174,29 @@ namespace ScopeAnalyzer.Analyses
             }
             else
             {
+                UpdateColumnAccessesStats(arg.Type);
+
                 var cols = ColumnsDomain.Bottom;
                 foreach (var c in cons) cols.Add(c);
                 return cols;
             }                       
+        }
+
+
+        private void UpdateColumnAccessesStats(ITypeReference type)
+        {
+            if (type.FullName() == "System.String")
+            {
+                ColumnStringAccesses++;
+            }
+            else if (type.FullName() == "System.Int32" || type.FullName() == "System.Int64")
+            {
+                ColumnIndexAccesses++;
+            }
+            else
+            {
+                Utils.WriteLine("WARNING: column access of type " + type.FullName());
+            }
         }
     }
 }

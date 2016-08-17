@@ -24,9 +24,9 @@ namespace BulkScopeAnalyzer
 
         static void DoParallel()
         {
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
             //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
             string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";

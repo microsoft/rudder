@@ -26,7 +26,16 @@ namespace ScopeAnalyzer
         public ScopeEscapeDomain EscapeSummary { get; set; }
         public ConstantPropagationDomain CPropagationSummary { get; set; }
         public ColumnsDomain UsedColumnsSummary { get; set; }
-        public ITypeReference ProcessorType { get; set; }
+
+        public ITypeReference ProcessorType
+        {
+            get { return (Method.ContainingType.Resolve(Host) as INestedTypeDefinition).ContainingTypeDefinition.Resolve(Host); }
+        }
+
+        public int ColumnStringAccesses { get; set; }
+
+        public int ColumnIndexAccesses { get; set; }
+
 
         public bool Failed { get; set; }
 
@@ -34,11 +43,15 @@ namespace ScopeAnalyzer
 
         public bool Unsupported { get; set; }
 
-        public IMethodDefinition Method { get; set; }
+        public IMethodDefinition Method { get; }
 
-        public ScopeMethodAnalysisResult (IMethodDefinition m)
+        public IMetadataHost Host { get; }
+
+        public ScopeMethodAnalysisResult (IMethodDefinition m, IMetadataHost h)
         {
             Method = m;
+            Host = h;
+
             Failed = false;
             Interesting = true;
             Unsupported = false;
@@ -133,13 +146,13 @@ namespace ScopeAnalyzer
 
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
-            //if (!methodDefinition.FullName().Contains("ScopeML.Unrole2KVReducer.<Reduce>d__0.MoveNext"))
+            //if (!methodDefinition.FullName().Contains("Bao.SkuLicensingPackageReferenceLicensingKeyReducer.<Reduce>d__0.MoveNext"))
             //    return;
 
             //if (!methodDefinition.FullName().Contains("ScopeML.Prediction.CompactModelBuilderReducer") || !methodDefinition.FullName().Contains("MoveNext"))
             //    return;
 
-            var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
+            var methodResult = new ScopeMethodAnalysisResult(methodDefinition, mhost);
             try
             {
                 if (IsProcessor(methodDefinition))
@@ -150,8 +163,6 @@ namespace ScopeAnalyzer
                     var cfg = PrepareMethod(methodDefinition);
                     Utils.WriteLine("CFG size " + cfg.Nodes.Count);
                     //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);
-
-                    methodResult.ProcessorType = (methodDefinition.ContainingType.Resolve(mhost) as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
                                     
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
                     methodResult.Unsupported = escAnalysis.Unsupported;
@@ -219,6 +230,14 @@ namespace ScopeAnalyzer
             var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowTypes, columnTypes);
             var outcome = clsAnalysis.Analyze();      
             results.UsedColumnsSummary = outcome;
+
+            // We only save statistics about column accesses for methods with useful results.
+            if (!results.UsedColumnsSummary.IsTop && !results.UsedColumnsSummary.IsBottom)
+            {
+                results.ColumnStringAccesses += clsAnalysis.ColumnStringAccesses;
+                results.ColumnIndexAccesses += clsAnalysis.ColumnIndexAccesses;
+            }
+
             Utils.WriteLine(results.UsedColumnsSummary.ToString());
             Utils.WriteLine("Done with used columns analysis\n");
             return clsAnalysis;
@@ -383,7 +402,6 @@ namespace ScopeAnalyzer
             {
                 return null;
             }
-
         }
 
     }
