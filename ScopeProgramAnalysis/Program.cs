@@ -31,7 +31,7 @@ namespace ScopeProgramAnalysis
         public string EntryMethod { get; private set; }
         public string ClousureFilter { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
-   
+
         public Program(Host host, Loader loader)
         {
             this.host = host;
@@ -63,7 +63,10 @@ namespace ScopeProgramAnalysis
 
             //const string input = @"D:\MadanExamples\3d2b4d2c-42b4-45c3-be19-71c1266ae835\__ScopeCodeGen__.dll";
             // const string input  = @" D:\MadanExamples\0061a95f-fbe7-4b0d-9878-c7fea686bec6\__ScopeCodeGen__.dll";
-            const string input = @"D:\MadanExamples\01c085ee-9e42-418d-b0e8-a94ee1a0d76b\__ScopeCodeGen__.dll";
+            // const string input = @"D:\MadanExamples\01c085ee-9e42-418d-b0e8-a94ee1a0d76b\__ScopeCodeGen__.dll";
+            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
+
+
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
@@ -86,13 +89,14 @@ namespace ScopeProgramAnalysis
         private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
             var folder = Path.GetDirectoryName(input);
-            var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture)!= Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
+            var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
             AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
         }
 
         public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
+            // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = false;
 
             AnalysisStats.TotalNumberFolders++;
@@ -145,45 +149,67 @@ namespace ScopeProgramAnalysis
                 {
                     var entryMethodDef = methodPair.Item1;
                     var moveNextMethod = methodPair.Item2;
-                    var getEnumMethod= methodPair.Item3;
+                    var getEnumMethod = methodPair.Item3;
                     System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
-                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
-                    var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
-                    System.Console.WriteLine("Done!");
 
-                    program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
-
-                    var escapes = depAnalysisResult.A1_Escaping.Select(traceable => traceable.ToString());
-
-                    if (depAnalysisResult.A4_Ouput.Any())
+                    try
                     {
-                        foreach (var outColum in depAnalysisResult.A4_Ouput.Keys)
+
+                        var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
+                        var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
+                        System.Console.WriteLine("Done!");
+
+                        program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
+
+                        var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+
+                        var inputsReads = new HashSet<Traceable>(depAnalysisResult.Dependencies.A2_Variables.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Input)));
+                        var outputWrites = new HashSet<Traceable>(depAnalysisResult.Dependencies.A4_Ouput.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Output)));
+
+                        var result = new Result();
+                        result.SetProperty("Inputs", inputsReads.OfType<TraceableColumn>().Select(t => t.ToString()));
+                        result.SetProperty("Ouputs", outputWrites.OfType<TraceableColumn>().Select(t => t.ToString()));
+                        results.Add(result);
+
+                        if (depAnalysisResult.Dependencies.A4_Ouput.Any())
                         {
-                            var result = new Result();
-                            foreach(var column in depAnalysisResult.A2_Variables[outColum])
+                            foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
                             {
-                                var columnString = column.ToString();
-                                var dependsOn = depAnalysisResult.A4_Ouput[outColum].Select(traceable => traceable.ToString());
-                                result.SetProperty("column", columnString);
-                                result.SetProperty("depends", dependsOn.Union(escapes));
-                                results.Add(result);
+                                result = new Result();
+                                foreach (var column in depAnalysisResult.Dependencies.A2_Variables[outColum])
+                                {
+                                    var columnString = column.ToString();
+                                    var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum].Select(traceable => traceable.ToString());
+                                    result.SetProperty("column", columnString);
+                                    result.SetProperty("depends", dependsOn.Union(escapes));
+                                    results.Add(result);
+                                }
                             }
                         }
+                        else
+                        {
+                            result = new Result();
+                            result.SetProperty("column", "_ALL_");
+                            result.SetProperty("depends", escapes);
+                            results.Add(result);
+                        }
+                        WriteSarifOutput(inputPath, outputPath, moveNextMethod, results);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        var result = new Result();
-                        result.SetProperty("column", "_ALL_");
-                        result.SetProperty("depends", escapes);
-                        results.Add(result);
+                        System.Console.WriteLine("Could not analyze {0}", inputPath);
+                        AnalysisStats.TotalofDepAnalysisErrors++;
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod.ToString(), moveNextMethod.Body.Instructions[0],
+                                        String.Format(CultureInfo.InvariantCulture, "Throw exception", e.ToString())));
+
                     }
-                    WriteSarifOutput(inputPath, outputPath, results);
                 }
             }
             else
             {
                 System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilter, inputPath);
             }
+
 
 
             //var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
@@ -270,7 +296,7 @@ namespace ScopeProgramAnalysis
         /// 3) the MoveNextMethod that contains the actual reducer/producer code
         /// </summary>
         /// <returns></returns>
-        private IEnumerable<Tuple<MethodDefinition, MethodDefinition,MethodDefinition>> ObtainScopeMethodsToAnalyze()
+        private IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
@@ -368,7 +394,7 @@ namespace ScopeProgramAnalysis
             return scopeMethodPairsToAnalyze;
         }
 
-        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodPairsToAnalyze, 
+        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodPairsToAnalyze,
             MethodDefinition factoryMethdod, IBasicType reducerClass)
         {
         }
@@ -394,7 +420,7 @@ namespace ScopeProgramAnalysis
         //    return resolvedClass;
         //}
 
-        private void ValidateInputSchema(string inputPath, MethodDefinition method, Backend.Analyses.DependencyDomain dependencyResults)
+        private void ValidateInputSchema(string inputPath, MethodDefinition method, DependencyPTGDomain dependencyResults)
         {
             var inputDirectory = Path.GetDirectoryName(inputPath);
             var xmlFile = Path.Combine(inputDirectory, "ScopeVertexDef.xml");
@@ -405,14 +431,14 @@ namespace ScopeProgramAnalysis
                 foreach (var processId in this.factoryReducerMap.Keys)
                 {
                     //var reducers = operators.Where(op => op.Attribute("className") != null && op.Attribute("className").Value.StartsWith("ScopeReducer"));
-                    var reducers = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value==processId);
+                    var reducers = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
                     var inputSchemas = reducers.SelectMany(r => r.Descendants("input").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
                     var outputSchemas = reducers.SelectMany(r => r.Descendants("output").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
                 }
             }
         }
 
-        private static void WriteSarifOutput(string inputPath, string outputFilePath, IList<Result> results)
+        private static void WriteSarifOutput(string inputPath, string outputFilePath, MethodDefinition method, IList<Result> results)
         {
             JsonSerializerSettings settings = new JsonSerializerSettings()
             {
@@ -421,6 +447,10 @@ namespace ScopeProgramAnalysis
             };
 
             var run = new Run();
+
+            // run.StableId = method.ContainingType.FullPathName();
+            run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+
             run.Tool = Tool.CreateFromAssemblyData();
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
@@ -434,7 +464,8 @@ namespace ScopeProgramAnalysis
             };
 
             var sarifText = JsonConvert.SerializeObject(log, settings);
-            try {
+            try
+            {
                 File.WriteAllText(outputFilePath, sarifText);
             }
             catch (Exception e)

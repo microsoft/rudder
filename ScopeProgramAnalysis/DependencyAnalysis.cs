@@ -17,6 +17,52 @@ namespace ScopeProgramAnalysis
     {
         public const string SCOPE_ROW_ENUMERATOR_METHOD = "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>.GetEnumerator";
     }
+    public enum ProtectedRowKind { Unknown, Input, Output };
+    public class ProtectedRowNode : PTGNode
+    {
+        public ProtectedRowKind RowKind { get; private set; }
+
+        public ProtectedRowNode(PTGNode n, ProtectedRowKind kind) : base(n.Id, n.Type, n.Kind)
+        {
+            this.RowKind = kind;
+        }
+        public static ProtectedRowKind GetKind(IType type)
+        {
+            var result = ProtectedRowKind.Unknown;
+            if(type.Equals(ScopeTypes.Row))
+            {
+                result = ProtectedRowKind.Output;
+            }
+            else if (type.Equals(ScopeTypes.RowSet))
+            {
+                result = ProtectedRowKind.Input;
+            }
+            return result;
+        }
+        public override string ToString()
+        {
+            var kind = KindToString();
+            return kind + ":" + base.ToString();
+        }
+
+        public string KindToString()
+        {
+            string kind = "";
+            switch (RowKind)
+            {
+                case ProtectedRowKind.Input:
+                    kind = "Input";
+                    break;
+                case ProtectedRowKind.Output:
+                    kind = "Output";
+                    break;
+                default:
+                    kind = "Unkown";
+                    break;
+            }
+            return kind;
+        }
+    }
 
     class SongTaoDependencyAnalysis
     {
@@ -44,7 +90,7 @@ namespace ScopeProgramAnalysis
             this.equalities = new Dictionary<IVariable, IExpression>();
         }
 
-        public DependencyDomain AnalyzeMoveNextMethod()
+        public DependencyPTGDomain AnalyzeMoveNextMethod()
         {
             // 1) Analyze the entry method that creates, populates  and return the clousure 
             var cfgEntry = entryMethod.DoAnalysisPhases(host);
@@ -58,7 +104,7 @@ namespace ScopeProgramAnalysis
             var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
             // These are the nodes that we want to protect/analyze
-            var protectedNodes = ptgOfEntry.Nodes.Where(n => IsScopeType(n.Type));
+            var protectedNodes = ptgOfEntry.Nodes.Where(n => IsScopeType(n.Type)).Select(n => new ProtectedRowNode(n, ProtectedRowNode.GetKind(n.Type)));
 
             // I no longer need this. 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
@@ -102,8 +148,8 @@ namespace ScopeProgramAnalysis
         /// <param name="pointsToAnalyzer"></param>
         /// <param name="protectedNodes"></param>
         /// <returns></returns>
-        DependencyDomain AnalyzeScopeMethod(ControlFlowGraph cfg, IteratorPointsToAnalysis pointsToAnalyzer,
-                                           IEnumerable<PTGNode> protectedNodes)
+        DependencyPTGDomain AnalyzeScopeMethod(ControlFlowGraph cfg, IteratorPointsToAnalysis pointsToAnalyzer,
+                                           IEnumerable<ProtectedRowNode> protectedNodes)
         {
 
             // Before I did Points-to analysis beforehand the dependnecy analysis. Now I compute then together
@@ -168,6 +214,4 @@ namespace ScopeProgramAnalysis
 
         #endregion
     }
-
-
 }

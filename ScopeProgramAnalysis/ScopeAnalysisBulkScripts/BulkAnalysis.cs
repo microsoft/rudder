@@ -14,7 +14,7 @@ namespace ScopeAnalysisBulkScripts
         static void Main(string[] args)
         {
             var analysisFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            analysisFolder = @"D:\MadanExamples\";
+            // analysisFolder = @"D:\MadanExamples\";
             AnalyzeScopeScripts(new string[] { analysisFolder, @"D:\Temp\", "Reducer" });
             AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();

@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="AlternativeDepenencyAnalysis.cs" />
     <Compile Include="AnalysisStats.cs" />
+    <Compile Include="Domains.cs" />
     <Compile Include="Framework\HostAndLoader.cs" />
     <Compile Include="InterproceduralManager.cs" />
     <Compile Include="IteratorAnalysis.cs" />

@@ -46,24 +46,24 @@ namespace ScopeProgramAnalysis
     public struct InterProceduralCallInfo
     {
         public MethodDefinition Caller { get; set; }
-        public DependencyDomain CallerState { get; set; }
+        public DependencyPTGDomain CallerState { get; set; }
         public PointsToGraph CallerPTG { get; set; }
         public IList<IVariable> CallArguments { get; set; }
         public IVariable CallLHS { get; set; }
         public MethodDefinition Callee { get; set; }
 
-        public IEnumerable<PTGNode> ProtectedNodes { get; set; }
+        public IEnumerable<ProtectedRowNode> ProtectedNodes { get; set; }
         public IInstruction Instruction { get; internal set; }
     }
     public struct InterProceduralReturnInfo
     {
-        public InterProceduralReturnInfo(DependencyDomain state, PointsToGraph ptg)
+        public InterProceduralReturnInfo(DependencyPTGDomain state)
         {
             this.State = state;
-            this.PTG = ptg;
+            // this.PTG = ptg;
         }
-        public DependencyDomain State { get; set; }
-        public PointsToGraph PTG { get; set; }
+        public DependencyPTGDomain State { get; set; }
+        // public PointsToGraph PTG { get; set; }
 
     }
 
@@ -107,8 +107,10 @@ namespace ScopeProgramAnalysis
                 { }
                 return interProcresult;
             }
-            return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
+            return new InterProceduralReturnInfo(callInfo.CallerState);
+            
         }
+
         /// This does the interprocedural analysis. 
         /// It (currently) does NOT support recursive method invocations
         /// </summary>
@@ -118,28 +120,26 @@ namespace ScopeProgramAnalysis
         private InterProceduralReturnInfo InterproceduralAnalysis(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG)
         {
             if (stackDepth > InterproceduralManager.MaxStackDepth)
-                return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
+                return new InterProceduralReturnInfo(callInfo.CallerState);
 
             stackDepth++;
             // I currently do not support recursive calls 
             // Will add support for this in the near future
             if(callStack.Contains(callInfo.Callee))
             {
-                callInfo.CallerState.IsTop = true;
+                callInfo.CallerState.Dependencies.IsTop = true;
                 AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller.Name, callInfo.Instruction, String.Format(CultureInfo.InvariantCulture, "Recursive call to {0}", callInfo.Callee.Name)));
-                return new InterProceduralReturnInfo(callInfo.CallerState, callInfo.CallerPTG);
+                return new InterProceduralReturnInfo(callInfo.CallerState);
             }
 
             this.callStack.Push(callInfo.Callee);   
             System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToSignatureString(), stackDepth);
-            // 1) Bind PTG and call PT analysis on callee. In pta.Result[node.Exit] is the PTG at exit of the callee
-            //IteratorPointsToAnalysis calleePTA = this.PTABindAndRunInterProcAnalysis(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee, calleeCFG);
+            // 1) Bind PTG and create a Poinst-to Analysis for the  callee. In pta.Result[node.Exit] is the PTG at exit of the callee
             PointsToGraph calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
             IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
             SongTaoDependencyAnalysis.PropagateExpressions(calleeCFG, equalities);
-
 
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDomain = BindCallerCallee(callInfo);
@@ -160,13 +160,14 @@ namespace ScopeProgramAnalysis
             PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, exitCalleePTG, calleePTA.ReturnVariable);
             exitResult.PTG = bindPtg;
 
-            return new InterProceduralReturnInfo(exitResult, bindPtg);
+            return new InterProceduralReturnInfo(exitResult);
+            //return new InterProceduralReturnInfo(exitResult, bindPtg);
         }
 
-        private static DependencyDomain BindCallerCallee(InterProceduralCallInfo callInfo)
+        private DependencyPTGDomain BindCallerCallee(InterProceduralCallInfo callInfo)
         {
-            var calleeDepDomain = new DependencyDomain();
-            calleeDepDomain.IsTop = callInfo.CallerState.IsTop;
+            var calleeDepDomain = new DependencyPTGDomain();
+            calleeDepDomain.Dependencies.IsTop = callInfo.CallerState.Dependencies.IsTop;
             // Bind parameters with arguments 
             for (int i = 0; i < callInfo.CallArguments.Count(); i++)
             {
@@ -176,19 +177,21 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                if (callInfo.CallerState.A2_Variables.ContainsKey(arg))
+                if (callInfo.CallerState.Dependencies.A2_Variables.ContainsKey(arg))
                 {
-                    calleeDepDomain.A2_Variables[param] = callInfo.CallerState.A2_Variables[arg];
+                    calleeDepDomain.Dependencies.A2_Variables[param] = GetTraceablesFromA2_Variables(arg, callInfo.CallerState); 
+                                                                        //  callInfo.CallerState.Dependencies.A2_Variables[arg];
                 }
-                if (callInfo.CallerState.A4_Ouput.ContainsKey(arg))
+                if (callInfo.CallerState.Dependencies.A4_Ouput.ContainsKey(arg))
                 {
-                    calleeDepDomain.A4_Ouput[param] = callInfo.CallerState.A4_Ouput[arg];
+                    calleeDepDomain.Dependencies.A4_Ouput[param] = callInfo.CallerState.Dependencies.A4_Ouput[arg];
                 }
             }
-            calleeDepDomain.A1_Escaping = callInfo.CallerState.A1_Escaping;
-            calleeDepDomain.A3_Clousures = callInfo.CallerState.A3_Clousures;
-            //calleeDepDomain.A1_Escaping.UnionWith(callInfo.CallerState.A1_Escaping);
-            //calleeDepDomain.A3_Clousures.UnionWith(callInfo.CallerState.A3_Clousures);
+            calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
+            calleeDepDomain.Dependencies.A3_Clousures = callInfo.CallerState.Dependencies.A3_Clousures;
+            calleeDepDomain.Dependencies.ControlVariables = callInfo.CallerState.Dependencies.ControlVariables;
+            //calleeDepDomain.Dependencies.A1_Escaping.UnionWith(callInfo.CallerState.Dependencies.A1_Escaping);
+            //calleeDepDomain.Dependencies.A3_Clousures.UnionWith(callInfo.CallerState.Dependencies.A3_Clousures);
             return calleeDepDomain;
         }
 
@@ -206,7 +209,7 @@ namespace ScopeProgramAnalysis
             return arg;
         }
 
-        private DependencyDomain BindCaleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, IteratorDependencyAnalysis depAnalysis)
+        private DependencyPTGDomain BindCaleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, IteratorDependencyAnalysis depAnalysis)
         {
             var exitResult = depAnalysis.Result[calleeCFG.Exit.Id].Output;
             for (int i = 0; i < callInfo.CallArguments.Count(); i++)
@@ -217,45 +220,42 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                callInfo.CallerState.A2_Variables.AddRange(arg, GetTraceablesFromA2_Variables(param,exitResult,exitResult.PTG));
+                callInfo.CallerState.Dependencies.A2_Variables.AddRange(arg, GetTraceablesFromA2_Variables(param,exitResult));
 
                 //if (exitResult.A2_Variables.ContainsKey(param))
                 //{
-                //    callInfo.CallerState.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
+                //    callInfo.CallerState.Dependencies.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
                 //}
-                if (exitResult.A4_Ouput.ContainsKey(param))
+                if (exitResult.Dependencies.A4_Ouput.ContainsKey(param))
                 {
-                    callInfo.CallerState.A4_Ouput.AddRange(arg, exitResult.A4_Ouput[param]);
+                    callInfo.CallerState.Dependencies.A4_Ouput.AddRange(arg, exitResult.Dependencies.A4_Ouput[param]);
                 }
             }
 
-            foreach(var outputVar in exitResult.A4_Ouput.Keys)
+            foreach(var outputVar in exitResult.Dependencies.A4_Ouput.Keys)
             {
                 var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
                 newVar.Type = outputVar.Type;
 
-                callInfo.CallerState.A4_Ouput[newVar] = exitResult.A4_Ouput[outputVar];
-                callInfo.CallerState.A2_Variables[newVar] = exitResult.A2_Variables[outputVar];
-                //exitResult.PTG.Add(newVar);
-                //exitResult.PTG.PointsTo(newVar, exitResult.PTG.GetTargets(outputVar, false));
+                callInfo.CallerState.Dependencies.A4_Ouput[newVar] = exitResult.Dependencies.A4_Ouput[outputVar];
+                callInfo.CallerState.Dependencies.A2_Variables[newVar] = exitResult.Dependencies.A2_Variables[outputVar];
             }
 
-            callInfo.CallerState.A1_Escaping.UnionWith(exitResult.A1_Escaping);
-            callInfo.CallerState.A3_Clousures.UnionWith(exitResult.A3_Clousures);
+            callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);
+            callInfo.CallerState.Dependencies.A3_Clousures.UnionWith(exitResult.Dependencies.A3_Clousures);
 
-            callInfo.CallerState.IsTop = exitResult.IsTop;
-            // callerDepDomain.A3_Clousures = exitResult.A3_Clousures;
+            callInfo.CallerState.Dependencies.IsTop = exitResult.Dependencies.IsTop;
 
             if (callInfo.CallLHS != null)
             {
                 // Need to bind the return value
-                if (exitResult.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
+                if (exitResult.Dependencies.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callInfo.CallerState.A2_Variables.AddRange(callInfo.CallLHS, exitResult.A2_Variables[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.Dependencies.A2_Variables.AddRange(callInfo.CallLHS, exitResult.Dependencies.A2_Variables[depAnalysis.ReturnVariable]);
                 }
-                if (exitResult.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
+                if (exitResult.Dependencies.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callInfo.CallerState.A4_Ouput.AddRange(callInfo.CallLHS, exitResult.A4_Ouput[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.Dependencies.A4_Ouput.AddRange(callInfo.CallLHS, exitResult.Dependencies.A4_Ouput[depAnalysis.ReturnVariable]);
                 }
             }
 
@@ -383,14 +383,14 @@ namespace ScopeProgramAnalysis
             }
             return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
         }
-        private HashSet<Traceable> GetTraceablesFromA2_Variables(IVariable arg, DependencyDomain depDomain, PointsToGraph ptg)
+        private HashSet<Traceable> GetTraceablesFromA2_Variables(IVariable arg, DependencyPTGDomain depDomain)
         {
             var union = new HashSet<Traceable>();
-            foreach (var argAlias in ptg.GetAliases(arg))
+            foreach (var argAlias in depDomain.PTG.GetAliases(arg))
             {
-                if (depDomain.A2_Variables.ContainsKey(argAlias))
+                if (depDomain.Dependencies.A2_Variables.ContainsKey(argAlias))
                 {
-                    union.UnionWith(depDomain.A2_Variables[argAlias]);
+                    union.UnionWith(depDomain.Dependencies.A2_Variables[argAlias]);
                 }
             }
             return union;
