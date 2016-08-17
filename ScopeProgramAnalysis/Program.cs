@@ -213,7 +213,7 @@ namespace ScopeProgramAnalysis
                     {
                         System.Console.WriteLine("Could not analyze {0}", inputPath);
                         AnalysisStats.TotalofDepAnalysisErrors++;
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod.ToString(), moveNextMethod.Body.Instructions[0],
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod.Name.ToString(), moveNextMethod.Body.Instructions[0],
                                         String.Format(CultureInfo.InvariantCulture, "Throw exception", e.ToString())));
 
                     }
