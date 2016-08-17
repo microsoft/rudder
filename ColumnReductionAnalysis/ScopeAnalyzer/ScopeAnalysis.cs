@@ -133,31 +133,31 @@ namespace ScopeAnalyzer
 
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
-            var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
-
             //if (!methodDefinition.FullName().Contains("ScopeML.Unrole2KVReducer.<Reduce>d__0.MoveNext"))
             //    return;
 
             //if (!methodDefinition.FullName().Contains("ScopeML.Prediction.CompactModelBuilderReducer") || !methodDefinition.FullName().Contains("MoveNext"))
             //    return;
 
+            var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
             try
             {
-                var cfg = PrepareMethod(methodDefinition);
-
                 if (IsProcessor(methodDefinition))
                 {
-                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code); 
                     Utils.WriteLine("\n--------------------------------------------------\n");
-                    Utils.WriteLine(String.Format("Found interesting method {0} with cfg size {1}", methodDefinition.FullName(), cfg.Nodes.Count));
+                    Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
+
+                    var cfg = PrepareMethod(methodDefinition);
+                    Utils.WriteLine("CFG size " + cfg.Nodes.Count);
+                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);
 
                     methodResult.ProcessorType = (methodDefinition.ContainingType.Resolve(mhost) as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
                                     
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
                     methodResult.Unsupported = escAnalysis.Unsupported;
 
-                    // If some row has escaped, there is nothing do afterwards.
-                    if (escAnalysis.InterestingRowEscaped)
+                    // If some row has escaped or the method is unsupported, there is nothing to do here.
+                    if (escAnalysis.InterestingRowEscaped || escAnalysis.Unsupported)
                     {
                         Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
                         methodResult.UsedColumnsSummary = ColumnsDomain.Top;                     
