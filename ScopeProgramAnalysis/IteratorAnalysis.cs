@@ -72,6 +72,7 @@ namespace Backend.Analyses
         public int ColumnPosition { get; private set; }
         public bool IsString { get; private set; }
         public bool IsTOP { get; private set; }
+        public bool IsAll { get { return ColumnPosition == -3; } }
 
         public ColumnDomain(string columnName)
         {
@@ -95,6 +96,8 @@ namespace Backend.Analyses
         {
             if (IsTOP)
                 return "_TOP_";
+            if (IsAll)
+                return "_All_";
             if (IsString)
             {
                 return ColumnName;
@@ -459,12 +462,7 @@ namespace Backend.Analyses
 
             private ISet<IVariable> GetAliases(IVariable v)
             {
-                var res = new HashSet<IVariable>() { v } ;
-                foreach (var ptgNode in currentPTG.GetTargets(v, false)) // GetPtgNodes(v))
-                {
-                    res.UnionWith(ptgNode.Variables);
-                }
-                return res;
+                return currentPTG.GetAliases(v);
             }
             public override void Visit(LoadInstruction instruction)
             {
@@ -486,7 +484,7 @@ namespace Backend.Analyses
                             if (!isHandled)
                             {
                                 this.State.SetTOP();
-                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Reference not Supported"));
+                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Load Reference not Supported"));
                             }
                         }
                     }
@@ -499,13 +497,13 @@ namespace Backend.Analyses
                             if (!isHandled)
                             {
                                 this.State.SetTOP();
-                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Load Dereference not Supported"));
+                                AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Load Dereference not Supported"));
                             }
                         }
                     }
                     else if (operand is IndirectMethodCallExpression)
                     {
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Indirect method invocation not Supported"));
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Indirect method invocation not Supported"));
                         this.State.SetTOP();
                     }
                     else if (operand is StaticMethodReference || loadStmt.Operand is VirtualMethodReference)
@@ -514,7 +512,7 @@ namespace Backend.Analyses
                     }
                     else
                     {
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, loadStmt, "Unsupported load"));
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Unsupported load"));
                         this.State.SetTOP();
                     }
                 }
@@ -680,7 +678,7 @@ namespace Backend.Analyses
                     }
                     else
                     {
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, "Unsupported Store"));
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "Unsupported Store"));
                         this.State.SetTOP();
                     }
                 }
@@ -788,8 +786,8 @@ namespace Backend.Analyses
                             // Pure Methods
                             if(IsPureMethod(methodCallStmt))
                             {
-                                UpdatePTAForPure(methodCallStmt);
                                 UpdateUsingDefUsed(methodCallStmt);
+                                UpdatePTAForPure(methodCallStmt);
                             }
                             else
                             {
@@ -906,7 +904,7 @@ namespace Backend.Analyses
                 //if(escaping)
                 //{
                     this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => GetTraceablesFromA2_Variables(arg)));
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.Name, instruction, 
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, 
                                                     String.Format(CultureInfo.InvariantCulture, "Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
                     this.State.SetTOP();
                 // }
@@ -1044,7 +1042,7 @@ namespace Backend.Analyses
             private bool  AnalyzeScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
-                if(methodInvoked.ContainingType.ContainingAssembly.Name!="ScopeRuntime")
+                if(methodInvoked.ContainingType.ContainingAssembly.Name!="ScopeRuntime" && methodInvoked.Name!="MoveNext")
                 {
                     return false;
                 }
@@ -1084,7 +1082,7 @@ namespace Backend.Analyses
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "MoveNext" && methodInvoked.ContainingType.GenericName == "IEnumerator")
+                else if (methodInvoked.Name == "MoveNext" && methodInvoked.ContainingType.Name == "IEnumerator")
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var tablesCounters = GetTraceablesFromA2_Variables(arg).OfType<TraceableTable>()
@@ -1130,8 +1128,15 @@ namespace Backend.Analyses
                     var arg1 = methodCallStmt.Arguments[1];
 
                     var tables = GetTraceablesFromA2_Variables(arg0);
-                    var column = ColumnDomain.ALL;
-                    this.State.Dependencies.A4_Ouput.AddRange(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, column)));
+                    var allColumns = ColumnDomain.ALL;
+
+                    // Create a fake column for the output table
+                    var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
+                    var outputTable = GetTraceablesFromA2_Variables(arg1).OfType<TraceableTable>().Single();
+                    this.State.Dependencies.A2_Variables.Add(allColumnsVar, new TraceableColumn(outputTable,allColumns));
+
+                    arg1 = allColumnsVar;
+                    this.State.Dependencies.A4_Ouput.AddRange(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
                     //
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => GetTraceablesFromA2_Variables(controlVar));
                     this.State.Dependencies.A4_Ouput.AddRange(arg1, traceables);
@@ -1279,7 +1284,7 @@ namespace Backend.Analyses
                 scopeData.UpdateColumnMap(methodCallStmt, columnn);
                 if(columnn.IsTOP)
                 {
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method.ToString(), methodCallStmt,
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
                                                     String.Format(CultureInfo.InvariantCulture, "Could not compute a value for the column {0} {1}", methodCallStmt.Arguments[0], methodCallStmt.Arguments[1])));
 
                 }

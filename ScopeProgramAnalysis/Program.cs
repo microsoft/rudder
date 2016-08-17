@@ -49,6 +49,7 @@ namespace ScopeProgramAnalysis
             // Mike example: FileChunker
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
+            const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\\ExampleWithXML\ILAnalyzer.exe";
 
             // const string input = @"D:\MadanExamples\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll";
             //const string input = @"D:\MadanExamples\15444206-b209-437e-b23b-2d916f18cd35\__ScopeCodeGen__.dll";
@@ -65,15 +66,15 @@ namespace ScopeProgramAnalysis
             // const string input  = @" D:\MadanExamples\0061a95f-fbe7-4b0d-9878-c7fea686bec6\__ScopeCodeGen__.dll";
             // const string input = @"D:\MadanExamples\01c085ee-9e42-418d-b0e8-a94ee1a0d76b\__ScopeCodeGen__.dll";
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
-            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
-
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             var logPath = Path.Combine(@"D:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, true);
+            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, false);
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -141,12 +142,16 @@ namespace ScopeProgramAnalysis
             {
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblyes();
             }
-            var results = new List<Result>();
+            
 
             if (scopeMethodPairs.Any())
             {
+                var log = CreateSarifOutput();
+
                 foreach (var methodPair in scopeMethodPairs)
                 {
+                    var results = new List<Result>();
+
                     var entryMethodDef = methodPair.Item1;
                     var moveNextMethod = methodPair.Item2;
                     var getEnumMethod = methodPair.Item3;
@@ -163,12 +168,56 @@ namespace ScopeProgramAnalysis
 
                         var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
 
-                        var inputsReads = new HashSet<Traceable>(depAnalysisResult.Dependencies.A2_Variables.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Input)));
-                        var outputWrites = new HashSet<Traceable>(depAnalysisResult.Dependencies.A4_Ouput.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Output)));
+                        //var inputsReads = new HashSet<Traceable>(depAnalysisResult.Dependencies.A2_Variables.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Input)));
+                        //var outputWrites = new HashSet<Traceable>(depAnalysisResult.Dependencies.A4_Ouput.Keys
+                        //    .Select(outColum => depAnalysisResult.Dependencies.A2_Variables[outColum]).SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Output)));
 
                         var result = new Result();
-                        var inputsString = inputsReads.OfType<TraceableColumn>().Select(t => t.ToString());
-                        var outputsString = outputWrites.OfType<TraceableColumn>().Select(t => t.ToString());
+
+                        var inputUses = new HashSet<Traceable>();
+                        var outputModifies = new HashSet<Traceable>();
+
+
+                        if (!depAnalysisResult.IsTop)
+                        {
+                            if (depAnalysisResult.Dependencies.A4_Ouput.Any())
+                            {
+                                foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
+                                {
+                                    result = new Result();
+                                    foreach (var column in depAnalysisResult.Dependencies.A2_Variables[outColum])
+                                    {
+                                        var columnString = column.ToString();
+                                        var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
+                                        result.SetProperty("column", columnString);
+                                        result.SetProperty("depends", dependsOn.Select(traceable => traceable.ToString()));
+                                        result.SetProperty("escapes", escapes);
+                                        results.Add(result);
+
+                                        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                                        outputModifies.Add(column);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = new Result();
+                                result.SetProperty("column", "_TOP_");
+                                result.SetProperty("escapes", escapes);
+                                results.Add(result);
+                            }
+                        }
+                        else
+                        {
+                            result = new Result();
+                            result.SetProperty("column", "_TOP_");
+                            result.SetProperty("depends", "_TOP_");
+                            results.Add(result);
+                        }
+                        var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
+                        var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
+
+                        result = new Result();
                         result.SetProperty("Inputs", inputsString);
                         result.SetProperty("Ouputs", outputsString);
                         results.Add(result);
@@ -183,41 +232,20 @@ namespace ScopeProgramAnalysis
                             outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
                             outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
                         }
+                        
 
-
-                        if (depAnalysisResult.Dependencies.A4_Ouput.Any())
-                        {
-                            foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
-                            {
-                                result = new Result();
-                                foreach (var column in depAnalysisResult.Dependencies.A2_Variables[outColum])
-                                {
-                                    var columnString = column.ToString();
-                                    var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum].Select(traceable => traceable.ToString());
-                                    result.SetProperty("column", columnString);
-                                    result.SetProperty("depends", dependsOn.Union(escapes));
-                                    results.Add(result);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            result = new Result();
-                            result.SetProperty("column", "_ALL_");
-                            result.SetProperty("depends", escapes);
-                            results.Add(result);
-                        }
-                        WriteSarifOutput(inputPath, outputPath, moveNextMethod, results);
+                        AddRunToSarifOutput(log, inputPath, moveNextMethod, results);
+                
                     }
                     catch (Exception e)
                     {
                         System.Console.WriteLine("Could not analyze {0}", inputPath);
                         AnalysisStats.TotalofDepAnalysisErrors++;
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod.Name.ToString(), moveNextMethod.Body.Instructions[0],
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod, moveNextMethod.Body.Instructions[0],
                                         String.Format(CultureInfo.InvariantCulture, "Throw exception {0}", e.StackTrace.ToString())));
-
                     }
                 }
+                WriteSarifOutput(log, outputPath);
             }
             else
             {
@@ -452,7 +480,7 @@ namespace ScopeProgramAnalysis
             }
         }
 
-        private static void WriteSarifOutput(string inputPath, string outputFilePath, MethodDefinition method, IList<Result> results)
+        private static SarifLog CreateSarifOutput()
         {
             JsonSerializerSettings settings = new JsonSerializerSettings()
             {
@@ -460,11 +488,18 @@ namespace ScopeProgramAnalysis
                 Formatting = Formatting.Indented
             };
 
-            var run = new Run();
+            SarifLog log = new SarifLog()
+            {
+                Runs = new List<Run>()
+            };
+            return log;
+        }
 
+        private static void AddRunToSarifOutput(SarifLog log, string inputPath, MethodDefinition method, IList<Result> results)
+        {
+            var run = new Run();
             // run.StableId = method.ContainingType.FullPathName();
             run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
-
             run.Tool = Tool.CreateFromAssemblyData();
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
@@ -472,11 +507,17 @@ namespace ScopeProgramAnalysis
             run.Files.Add(fileDataKey, fileData);
 
             run.Results = results;
-            SarifLog log = new SarifLog()
-            {
-                Runs = new[] { run }
-            };
 
+            log.Runs.Add(run);
+        }
+        private static void WriteSarifOutput(SarifLog log, string outputFilePath)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings()
+            {
+                ContractResolver = SarifContractResolver.Instance,
+                Formatting = Formatting.Indented
+            };
+            
             var sarifText = JsonConvert.SerializeObject(log, settings);
             try
             {
@@ -489,6 +530,5 @@ namespace ScopeProgramAnalysis
         }
 
     }
-
 
 }

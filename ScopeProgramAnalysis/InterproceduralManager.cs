@@ -128,7 +128,7 @@ namespace ScopeProgramAnalysis
             if(callStack.Contains(callInfo.Callee))
             {
                 callInfo.CallerState.Dependencies.IsTop = true;
-                AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller.Name, callInfo.Instruction, String.Format(CultureInfo.InvariantCulture, "Recursive call to {0}", callInfo.Callee.Name)));
+                AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller, callInfo.Instruction, String.Format(CultureInfo.InvariantCulture, "Recursive call to {0}", callInfo.Callee.Name)));
                 return new InterProceduralReturnInfo(callInfo.CallerState);
             }
 

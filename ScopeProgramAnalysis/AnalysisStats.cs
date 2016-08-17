@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Globalization;
+using Model.Types;
 
 namespace ScopeProgramAnalysis
 {
@@ -18,6 +19,13 @@ namespace ScopeProgramAnalysis
             this.Instruction = ins;
             this.Reason = reason;
         }
+        public AnalysisReason(MethodDefinition methodDef, IInstruction ins, string reason)
+        {
+            this.MethodName = methodDef.ToSignatureString();
+            this.Instruction = ins;
+            this.Reason = reason;
+        }
+
         public string MethodName { get; set; }
         public IInstruction Instruction { get; set; }
         public string Reason { get; set; }
