@@ -36,8 +36,8 @@ namespace ScopeAnalyzer
 
         public int ColumnsContained;
         public int ColumnsEqual;
-        public int ColumnsImprecision;
-        public int ColumnsDiff;
+        public int ColumnsWarnings;
+        public int ColumnsSavings;
 
         public ScopeAnalysisStats(int assemblies = 0)
         {
@@ -46,7 +46,7 @@ namespace ScopeAnalyzer
             Methods = FailedMethods = UnsupportedMethods = InterestingMethods = 0;
             NotEscapeDummies = NotCPropagationDummies = NotColumnDummies = 0;
             Mapped = 0;
-            ColumnsContained = ColumnsEqual = ColumnsImprecision = ColumnsDiff = 0;
+            ColumnsContained = ColumnsEqual = ColumnsWarnings = ColumnsSavings = 0;
         }
     }
 
@@ -188,8 +188,8 @@ namespace ScopeAnalyzer
                 if (usedColumns.IsProperSubsetOf(allSchemaColumns))
                 {
                     stats.ColumnsContained += 1;
-                    stats.ColumnsDiff += (allSchemaColumns.Count - usedColumns.Count);
-                    Utils.WriteLine("PRECISION: used columns subset of defined columns: " + stats.ColumnsDiff);
+                    stats.ColumnsSavings += (allSchemaColumns.Count - usedColumns.Count);
+                    Utils.WriteLine("PRECISION: used columns subset of defined columns: " + stats.ColumnsSavings);
                 }
                 else if (allSchemaColumns.SetEquals(usedColumns))
                 {
@@ -199,7 +199,7 @@ namespace ScopeAnalyzer
                 else
                 {
                     Utils.WriteLine("IMPRECISION: redundant used columns: " + String.Join(" ", allSchemaColumns));
-                    stats.ColumnsImprecision += 1;
+                    stats.ColumnsWarnings += 1;
                 }
             } 
             catch (Exception e)
@@ -225,8 +225,8 @@ namespace ScopeAnalyzer
             Utils.WriteLine("");
             Utils.WriteLine("Used columns proper subset: " + stats.ColumnsContained);
             Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
-            Utils.WriteLine("Used columns imprecision: " + stats.ColumnsImprecision);
-            Utils.WriteLine("Used columns proper subset avg diff: " + (stats.ColumnsContained > 0? ((double)stats.ColumnsDiff)/stats.ColumnsContained:0));
+            Utils.WriteLine("Used columns warnings: " + stats.ColumnsWarnings);
+            Utils.WriteLine("Used columns savings: " + stats.ColumnsSavings);
         }
 
 
