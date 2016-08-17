@@ -135,10 +135,10 @@ namespace ScopeAnalyzer
         {
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition);
 
-            //if (!methodDefinition.FullName().Contains("AlternateIdReducer") || !methodDefinition.FullName().Contains("MoveNext"))
+            //if (!methodDefinition.FullName().Contains("ScopeML.Unrole2KVReducer.<Reduce>d__0.MoveNext"))
             //    return;
 
-            //if (!methodDefinition.FullName().Contains("FineNoEscapeByField") || !methodDefinition.FullName().Contains("MoveNext"))
+            //if (!methodDefinition.FullName().Contains("ScopeML.Prediction.CompactModelBuilderReducer") || !methodDefinition.FullName().Contains("MoveNext"))
             //    return;
 
             try

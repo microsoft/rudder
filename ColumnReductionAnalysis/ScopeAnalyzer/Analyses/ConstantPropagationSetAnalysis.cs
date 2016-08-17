@@ -838,7 +838,7 @@ namespace ScopeAnalyzer.Analyses
 
             private void UpdateStateNotConstant(ConstantPropagationDomain state, IFieldAccess f)
             {
-                state.SetNonConstant(f);
+                state.SetNonConstant(GetAccess(f));
             }
 
             private void UpdateStateNotConstant(ConstantPropagationDomain state)
@@ -863,13 +863,9 @@ namespace ScopeAnalyzer.Analyses
                  * to closure fields must alias each other since they are compiler generated. That is,
                  * a user cannot instantiate such class nor does the compiler instantiate it inside the class itself.
                  */
-
-                IFieldDefinition fdef = null;
-                foreach(var pair in parent.Fields)
-                {
-                    if (pair.Item1.ToExpression().ToString() == dest.ToExpression().ToString())
-                        fdef = pair.Item2.Resolve(parent.Host);
-                }
+               
+                var faccess = GetAccessRef(dest);
+                IFieldDefinition fdef = faccess.Item2.Resolve(parent.Host);
 
                 // We know that closure field accesses must alias each other.
                 if (IsClosureField(fdef))
@@ -880,7 +876,7 @@ namespace ScopeAnalyzer.Analyses
 
                         if (fresolved == fdef || fresolved.Equals(fdef))
                         {
-                            state.Set(pair.Item1, state.Constants(src).Clone());
+                            state.Set(GetAccess(pair.Item1), state.Constants(src).Clone());
                         }
                     }
                 }
@@ -889,6 +885,12 @@ namespace ScopeAnalyzer.Analyses
                     // TODO: refine this by type of the field.
                     state.SetFieldNonConstant();
                 }
+            }
+
+            private void UpdateStateCopy(ConstantPropagationDomain state, IVariable dest, IFieldAccess src)
+            {
+                var cl = state.Constants(GetAccess(src)).Clone();
+                state.Set(dest, cl);
             }
 
             private bool IsClosureField(IFieldDefinition fdef)
@@ -902,13 +904,35 @@ namespace ScopeAnalyzer.Analyses
                 return false;
             }
 
-            private void UpdateStateCopy(ConstantPropagationDomain state, IVariable dest, IFieldAccess src)
+            /// <summary>
+            /// Same field accesses can have different objects associated.
+            /// This function gets that object that is used in "state."
+            /// </summary>
+            /// <param name="f"></param>
+            /// <returns></returns>
+            private IFieldAccess GetAccess(IFieldAccess f)
             {
-                var cl = state.Constants(src).Clone();
-                state.Set(dest, cl);
+                foreach(var pair in parent.Fields)
+                {
+                    if (f.ToExpression().ToString() == pair.Item1.ToExpression().ToString())
+                    {
+                        return pair.Item1;
+                    }
+                }
+                return null;
             }
 
-
+            private Tuple<IFieldAccess, IFieldReference> GetAccessRef(IFieldAccess f)
+            {
+                foreach (var pair in parent.Fields)
+                {
+                    if (f.ToExpression().ToString() == pair.Item1.ToExpression().ToString())
+                    {
+                        return pair;
+                    }
+                }
+                return null;
+            }
 
             private bool IsConstantType(ITypeReference tref)
             {
