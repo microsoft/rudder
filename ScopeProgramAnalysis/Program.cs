@@ -94,7 +94,7 @@ namespace ScopeProgramAnalysis
             AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
         }
 
-        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
+        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = false;
@@ -167,9 +167,23 @@ namespace ScopeProgramAnalysis
                         var outputWrites = new HashSet<Traceable>(depAnalysisResult.Dependencies.A4_Ouput.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Output)));
 
                         var result = new Result();
-                        result.SetProperty("Inputs", inputsReads.OfType<TraceableColumn>().Select(t => t.ToString()));
-                        result.SetProperty("Ouputs", outputWrites.OfType<TraceableColumn>().Select(t => t.ToString()));
+                        var inputsString = inputsReads.OfType<TraceableColumn>().Select(t => t.ToString());
+                        var outputsString = outputWrites.OfType<TraceableColumn>().Select(t => t.ToString());
+                        result.SetProperty("Inputs", inputsString);
+                        result.SetProperty("Ouputs", outputsString);
                         results.Add(result);
+
+                        if (outputStream != null)
+                        {
+                            outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
+                            if (depAnalysisResult.IsTop)
+                            {
+                                outputStream.WriteLine("Analysis returns TOP");
+                            }
+                            outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
+                            outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
+                        }
+
 
                         if (depAnalysisResult.Dependencies.A4_Ouput.Any())
                         {

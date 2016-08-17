@@ -66,7 +66,8 @@ namespace Backend.Analyses
     public class ColumnDomain
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
-        public static readonly ColumnDomain TOP = new ColumnDomain(-2) { ColumnName = "__TOP__", IsTOP = true }; 
+        public static readonly ColumnDomain TOP = new ColumnDomain(-2) { ColumnName = "__TOP__", IsTOP = true };
+        public static readonly ColumnDomain ALL = new ColumnDomain(-3) { ColumnName = "__ALL__", IsTOP = false};
         public string ColumnName { get; private set; }
         public int ColumnPosition { get; private set; }
         public bool IsString { get; private set; }
@@ -1129,7 +1130,7 @@ namespace Backend.Analyses
                     var arg1 = methodCallStmt.Arguments[1];
 
                     var tables = GetTraceablesFromA2_Variables(arg0);
-                    var column = ColumnDomain.TOP;
+                    var column = ColumnDomain.ALL;
                     this.State.Dependencies.A4_Ouput.AddRange(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, column)));
                     //
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => GetTraceablesFromA2_Variables(controlVar));

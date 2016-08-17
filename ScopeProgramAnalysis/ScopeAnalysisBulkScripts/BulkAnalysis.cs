@@ -45,13 +45,14 @@ namespace ScopeAnalysisBulkScripts
 
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
-                Program.AnalyzeDll(dllToAnalyze, referencesPath, outputPath, Program.ScopeMethodKind.Reducer);
+                Program.AnalyzeDll(dllToAnalyze, referencesPath, outputPath, Program.ScopeMethodKind.Reducer, true, outputStream);
 
                 if (AnalysisStats.AnalysisReasons.Any())
                 {
                     outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
                     AnalysisStats.WriteAnalysisReasons(outputStream);
                 }
+                outputStream.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
                 outputStream.WriteLine("===========================================================================");
                 outputStream.Flush();
 
