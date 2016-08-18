@@ -19,7 +19,7 @@ namespace ScopeAnalyzer
         public static void WriteLine(string message)
         {
             Console.WriteLine(message);
-            if (Output != Console.Out)
+            if (Output != null && Output != Console.Out)
             {
                 Output.WriteLine(message);
                 Output.Flush();

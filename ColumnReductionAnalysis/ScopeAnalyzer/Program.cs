@@ -245,7 +245,7 @@ namespace ScopeAnalyzer
 
 
         [HandleProcessCorruptedStateExceptions]
-        private static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, Options options)
+        public static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, Options options)
         {
             // First, load all the reference assemblies.
             var refs = new List<Assembly>();

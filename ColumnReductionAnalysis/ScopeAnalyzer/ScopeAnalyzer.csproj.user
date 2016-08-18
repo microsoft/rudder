@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartArguments>/assembly:"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples\0301bef6-962b-4541-9e48-e56e5b71535e\BigCatReducers.dll" /libs:"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug" /output:"trace-output-z.txt"</StartArguments>
+    <StartArguments>/assembly:"C:\Users\t-zpavli\Documents\Visual Studio 2015\Projects\ScopeExamples\bla\bin\Debug\PeriScope.dll" /libs:"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug" /output:"trace-output-z.txt"</StartArguments>
   </PropertyGroup>
   <PropertyGroup>
     <PublishUrlHistory />

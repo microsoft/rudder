@@ -59,7 +59,7 @@ namespace ScopeAnalyzer
     }
 
 
-    class ScopeAnalysis : MetadataTraverser
+    public class ScopeAnalysis : MetadataTraverser
     {
 
         public class MissingScopeMetadataException : Exception
@@ -70,7 +70,7 @@ namespace ScopeAnalyzer
 
         IMetadataHost mhost;
         Assembly assembly;
-        List<Assembly> refAssemblies;
+        IEnumerable<Assembly> refAssemblies;
         List<ITypeDefinition> rowTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> rowsetTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
@@ -86,7 +86,7 @@ namespace ScopeAnalyzer
 
 
 
-        public ScopeAnalysis(IMetadataHost host, Assembly assembly, List<Assembly> refAssemblies, IEnumerable<string> ips)
+        public ScopeAnalysis(IMetadataHost host, Assembly assembly, IEnumerable<Assembly> refAssemblies, IEnumerable<string> ips)
         {
             this.mhost = host;
             this.assembly = assembly;
