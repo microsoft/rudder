@@ -179,12 +179,11 @@ namespace ScopeProgramAnalysis
 
                 if (callInfo.CallerState.Dependencies.A2_Variables.ContainsKey(arg))
                 {
-                    calleeDepDomain.Dependencies.A2_Variables[param] = GetTraceablesFromA2_Variables(arg, callInfo.CallerState); 
-                                                                        //  callInfo.CallerState.Dependencies.A2_Variables[arg];
+                    calleeDepDomain.AssignTraceables(param, callInfo.CallerState.GetTraceables(arg));
                 }
                 if (callInfo.CallerState.Dependencies.A4_Ouput.ContainsKey(arg))
                 {
-                    calleeDepDomain.Dependencies.A4_Ouput[param] = callInfo.CallerState.Dependencies.A4_Ouput[arg];
+                    calleeDepDomain.AssignOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
                 }
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
@@ -220,15 +219,11 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                callInfo.CallerState.Dependencies.A2_Variables.AddRange(arg, GetTraceablesFromA2_Variables(param,exitResult));
+                callInfo.CallerState.AddTraceables(arg, exitResult.GetTraceables(param));
 
-                //if (exitResult.A2_Variables.ContainsKey(param))
-                //{
-                //    callInfo.CallerState.Dependencies.A2_Variables.AddRange(arg, exitResult.A2_Variables[param]);
-                //}
                 if (exitResult.Dependencies.A4_Ouput.ContainsKey(param))
                 {
-                    callInfo.CallerState.Dependencies.A4_Ouput.AddRange(arg, exitResult.Dependencies.A4_Ouput[param]);
+                    callInfo.CallerState.AddOutputTraceables(arg, exitResult.GetOutputTraceables(param));
                 }
             }
 
@@ -236,9 +231,8 @@ namespace ScopeProgramAnalysis
             {
                 var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
                 newVar.Type = outputVar.Type;
-
-                callInfo.CallerState.Dependencies.A4_Ouput[newVar] = exitResult.Dependencies.A4_Ouput[outputVar];
-                callInfo.CallerState.Dependencies.A2_Variables[newVar] = exitResult.Dependencies.A2_Variables[outputVar];
+                callInfo.CallerState.AssignTraceables(newVar, exitResult.GetTraceables(outputVar));
+                callInfo.CallerState.AssignOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
             }
 
             callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);
@@ -251,11 +245,11 @@ namespace ScopeProgramAnalysis
                 // Need to bind the return value
                 if (exitResult.Dependencies.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callInfo.CallerState.Dependencies.A2_Variables.AddRange(callInfo.CallLHS, exitResult.Dependencies.A2_Variables[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.AssignTraceables(callInfo.CallLHS, exitResult.GetTraceables(depAnalysis.ReturnVariable));
                 }
                 if (exitResult.Dependencies.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
                 {
-                    callInfo.CallerState.Dependencies.A4_Ouput.AddRange(callInfo.CallLHS, exitResult.Dependencies.A4_Ouput[depAnalysis.ReturnVariable]);
+                    callInfo.CallerState.AddOutputTraceables(callInfo.CallLHS, exitResult.GetOutputTraceables(depAnalysis.ReturnVariable));
                 }
             }
 
@@ -382,18 +376,6 @@ namespace ScopeProgramAnalysis
                 }
             }
             return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
-        }
-        private HashSet<Traceable> GetTraceablesFromA2_Variables(IVariable arg, DependencyPTGDomain depDomain)
-        {
-            var union = new HashSet<Traceable>();
-            foreach (var argAlias in depDomain.PTG.GetAliases(arg))
-            {
-                if (depDomain.Dependencies.A2_Variables.ContainsKey(argAlias))
-                {
-                    union.UnionWith(depDomain.Dependencies.A2_Variables[argAlias]);
-                }
-            }
-            return union;
         }
     }
 }

@@ -72,6 +72,77 @@ namespace ScopeProgramAnalysis
             return LessEqual(depPTG) && depPTG.LessEqual(this);
         }
 
+        public void CopyTraceables(IVariable destination, IVariable source)
+        {
+            HashSet<Traceable> union = GetTraceables(source);
+            this.Dependencies.A2_Variables[destination] = union;
+        }
+
+        public void AssignTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A2_Variables[destination] = new HashSet<Traceable>(traceables);
+        }
+
+        public void AddTraceables(IVariable destination, IVariable source)
+        {
+            HashSet<Traceable> traceables = GetTraceables(source);
+            this.Dependencies.A2_Variables.AddRange(destination, traceables);
+        }
+
+        public void AddTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A2_Variables.AddRange(destination, traceables);
+        }
+
+        public  HashSet<Traceable> GetTraceables(IVariable arg)
+        {
+            var union = new HashSet<Traceable>();
+            foreach (var argAlias in this.PTG.GetAliases(arg))
+            {
+                if (this.Dependencies.A2_Variables.ContainsKey(argAlias))
+                {
+                    union.UnionWith(this.Dependencies.A2_Variables[argAlias]);
+                }
+            }
+            return union;
+        }
+
+        public HashSet<Traceable> GetOutputTraceables(IVariable arg)
+        {
+            var union = new HashSet<Traceable>();
+            foreach (var argAlias in this.PTG.GetAliases(arg))
+            {
+                if (this.Dependencies.A4_Ouput.ContainsKey(argAlias))
+                {
+                    union.UnionWith(this.Dependencies.A4_Ouput[argAlias]);
+                }
+            }
+            return union;
+            //return this.Dependencies.A4_Ouput[arg];
+        }
+
+
+        public void AssignOutputTraceables(IVariable destination, IVariable source)
+        {
+            HashSet<Traceable> union = GetTraceables(source);
+            this.Dependencies.A4_Ouput[destination] = union;
+        }
+
+        public void AssignOutputTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A4_Ouput[destination] = new HashSet<Traceable>(traceables);
+        }
+
+        public void AddOutputTraceables(IVariable destination, IVariable source)
+        {
+            HashSet<Traceable> traceables = GetTraceables(source);
+            this.Dependencies.A4_Ouput.AddRange(destination, traceables);
+        }
+        public void AddOutputTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A4_Ouput.AddRange(destination, traceables);
+        }
+
         public void SetTOP()
         {
             this.Dependencies.IsTop = true;
@@ -122,20 +193,6 @@ namespace ScopeProgramAnalysis
             ControlVariables = new HashSet<IVariable>();
 
             IsTop = false;
-        }
-
-        public bool OldEquals(object obj)
-        {
-            // Add ControlVariables
-            var oth = obj as DependencyDomain;
-            return oth != null
-                && oth.IsTop == this.IsTop
-                && oth.A1_Escaping.SetEquals(A1_Escaping)
-                && oth.A2_Variables.MapEquals(A2_Variables)
-                && oth.A3_Clousures.MapEquals(A3_Clousures)
-                && oth.A4_Ouput.MapEquals(A4_Ouput)
-                && oth.ControlVariables.SetEquals(ControlVariables);
-
         }
 
         private bool MapLessEqual<K, V>(MapSet<K, V> left, MapSet<K, V> right)
@@ -208,7 +265,6 @@ namespace ScopeProgramAnalysis
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
             return result;
         }
-
         public DependencyDomain Join(DependencyDomain right)
         {
             var result = new DependencyDomain();
@@ -277,6 +333,20 @@ namespace ScopeProgramAnalysis
             var result = String.Join(",", set.Select(e => e.ToString()));
             return result;
         }
+        public bool OldEquals(object obj)
+        {
+            // Add ControlVariables
+            var oth = obj as DependencyDomain;
+            return oth != null
+                && oth.IsTop == this.IsTop
+                && oth.A1_Escaping.SetEquals(A1_Escaping)
+                && oth.A2_Variables.MapEquals(A2_Variables)
+                && oth.A3_Clousures.MapEquals(A3_Clousures)
+                && oth.A4_Ouput.MapEquals(A4_Ouput)
+                && oth.ControlVariables.SetEquals(ControlVariables);
+
+        }
+
     }
 
 }

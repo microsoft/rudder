@@ -15,13 +15,13 @@ namespace ScopeAnalysisBulkScripts
         {
             var analysisFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             // analysisFolder = @"D:\MadanExamples\";
-            AnalyzeScopeScripts(new string[] { analysisFolder, @"D:\Temp\", "Reducer" });
+            AnalyzeScopeScripts(new string[] { analysisFolder, @"C:\Temp\", "Reducer" });
             AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();
         }
         public static void AnalyzeScopeScripts(string[] args)
         {
-            var logPath = Path.Combine(@"D:\Temp\", "analysis.log");
+            var logPath = Path.Combine(@"C:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
 
@@ -36,6 +36,10 @@ namespace ScopeAnalysisBulkScripts
                 System.Console.WriteLine("=========================================================================");
                 System.Console.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
                 System.Console.WriteLine("Analyzing {0}", dllToAnalyze);
+                outputStream.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
+                outputStream.WriteLine("===========================================================================");
+                outputStream.WriteLine("Analyzing {0}", dllToAnalyze);
+
                 var folder = Path.GetDirectoryName(dllToAnalyze);
                 var referencesPath = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp) != inputDllName).ToList();
                 referencesPath.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
@@ -52,7 +56,6 @@ namespace ScopeAnalysisBulkScripts
                     outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
                     AnalysisStats.WriteAnalysisReasons(outputStream);
                 }
-                outputStream.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
                 outputStream.WriteLine("===========================================================================");
                 outputStream.Flush();
 

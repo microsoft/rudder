@@ -69,9 +69,9 @@ namespace ScopeProgramAnalysis
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
-            var outputPath = Path.Combine(@"D:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+            var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
-            var logPath = Path.Combine(@"D:\Temp\", "analysis.log");
+            var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
             AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, false);
@@ -98,7 +98,7 @@ namespace ScopeProgramAnalysis
         public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
-            AnalysisOptions.DoInterProcAnalysis = false;
+            AnalysisOptions.DoInterProcAnalysis = true;
 
             AnalysisStats.TotalNumberFolders++;
 
@@ -168,10 +168,6 @@ namespace ScopeProgramAnalysis
 
                         var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
 
-                        //var inputsReads = new HashSet<Traceable>(depAnalysisResult.Dependencies.A2_Variables.Values.SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Input)));
-                        //var outputWrites = new HashSet<Traceable>(depAnalysisResult.Dependencies.A4_Ouput.Keys
-                        //    .Select(outColum => depAnalysisResult.Dependencies.A2_Variables[outColum]).SelectMany(traceables => traceables.Where(t => t.TableKind == ProtectedRowKind.Output)));
-
                         var result = new Result();
 
                         var inputUses = new HashSet<Traceable>();
@@ -202,7 +198,7 @@ namespace ScopeProgramAnalysis
                             else
                             {
                                 result = new Result();
-                                result.SetProperty("column", "_TOP_");
+                                result.SetProperty("column", "_EMPTY_");
                                 result.SetProperty("escapes", escapes);
                                 results.Add(result);
                             }
