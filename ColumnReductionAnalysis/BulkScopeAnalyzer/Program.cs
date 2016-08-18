@@ -13,6 +13,7 @@ using ScopeAnalyzer;
 
 namespace BulkScopeAnalyzer
 {
+
     class Program
     {
         static void Main(string[] args)
@@ -27,6 +28,7 @@ namespace BulkScopeAnalyzer
             string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
             //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
             //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+
             string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
             string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
@@ -35,15 +37,19 @@ namespace BulkScopeAnalyzer
             var subdirs = SubDirectoryPaths(mainFolder);
             Console.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
             var tasks = new List<Task>();
+            int skippedProjects = 0;
             for (int i = 0; i < subdirs.Length; i++)
             {
                 var subdir = subdirs[i];
                 var libs = LibraryPaths(subdir);
 
                 string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
+                // If mapping from processors to ids was not possible,
+                // then there is no need to analyze this Scope project.
                 if (!CreateProcessorIdMapping(subdir, libs, mapping))
                 {
-                    Console.WriteLine("Skipping this Scope project...");
+                    Console.WriteLine("Skipping Scope project since processor mapping computation was unsuccessful: " + subdir);
+                    skippedProjects++;
                     continue;
                 }
 
@@ -56,7 +62,7 @@ namespace BulkScopeAnalyzer
                     {
                         Process process = new Process();
                         process.StartInfo.FileName = scopeAnalyzer;
-                        process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"", 
+                        process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"",
                                                                     input, libPath, output, mapping);
                         process.StartInfo.UseShellExecute = false;
                         process.StartInfo.CreateNoWindow = true;
@@ -67,62 +73,10 @@ namespace BulkScopeAnalyzer
                 }
             }
 
+            Console.WriteLine("Skipped projects: " + skippedProjects);
             Console.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
             Task.WaitAll(tasks.ToArray());
             Console.WriteLine("Done");
-        }
-
-
-
-
-
-
-        static void DoNaiveParallel()
-        {
-            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
-            string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
-            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
-
-            var subdirs = SubDirectoryPaths(mainFolder);
-            Console.WriteLine(String.Format("Analyzing {0} Scope projects\n", subdirs.Length));
-            int dll_count = 0;
-            for (int i = 0; i < subdirs.Length; i++)
-            {
-                var subdir = subdirs[i];
-                var libs = LibraryPaths(subdir);
-
-                string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
-                if (!CreateProcessorIdMapping(subdir, libs, mapping))
-                {
-                    Console.WriteLine("Skipping this Scope project...");
-                    continue;
-                }
-                
-                for (int j = 0; j < libs.Count; j++)
-                {
-                    if (dll_count >= 150 && dll_count % 150 == 0)
-                    {
-                        Console.WriteLine("Giving myself 6 minutes...");
-                        Thread.Sleep(360000);
-                    }
-
-                    Console.WriteLine("Spawning process " + (dll_count + 1));
-                    string output = outputPrefix + String.Format("output_{0}.txt", (dll_count + 1));                   
-                    string input = libs[j];
-
-                    Process process = new Process();
-                    process.StartInfo.FileName = scopeAnalyzer;
-                    process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"", input, libPath, output, mapping);
-                    process.StartInfo.UseShellExecute = false;
-                    process.StartInfo.CreateNoWindow = true;
-                    process.Start();
-                    dll_count++;
-                }
-            }          
         }
 
 
@@ -162,7 +116,7 @@ namespace BulkScopeAnalyzer
             
             Assembly asm;
             try
-            {
+            {              
                 var host = new PeReader.DefaultHost();
                 asm = new Assembly(host);
                 asm.Load(mainDll);
@@ -192,6 +146,55 @@ namespace BulkScopeAnalyzer
 
 
         #region deprecated
+
+        static void DoNaiveParallel()
+        {
+            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
+            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
+            string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
+            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
+
+            var subdirs = SubDirectoryPaths(mainFolder);
+            Console.WriteLine(String.Format("Analyzing {0} Scope projects\n", subdirs.Length));
+            int dll_count = 0;
+            for (int i = 0; i < subdirs.Length; i++)
+            {
+                var subdir = subdirs[i];
+                var libs = LibraryPaths(subdir);
+
+                string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
+                if (!CreateProcessorIdMapping(subdir, libs, mapping))
+                {
+                    Console.WriteLine("Skipping this Scope project...");
+                    continue;
+                }
+
+                for (int j = 0; j < libs.Count; j++)
+                {
+                    if (dll_count >= 150 && dll_count % 150 == 0)
+                    {
+                        Console.WriteLine("Giving myself 6 minutes...");
+                        Thread.Sleep(360000);
+                    }
+
+                    Console.WriteLine("Spawning process " + (dll_count + 1));
+                    string output = outputPrefix + String.Format("output_{0}.txt", (dll_count + 1));
+                    string input = libs[j];
+
+                    Process process = new Process();
+                    process.StartInfo.FileName = scopeAnalyzer;
+                    process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"", input, libPath, output, mapping);
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.CreateNoWindow = true;
+                    process.Start();
+                    dll_count++;
+                }
+            }
+        }
+
 
         //static void DoSequential()
         //{

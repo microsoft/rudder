@@ -88,7 +88,10 @@ namespace ScopeAnalyzer
                 {
                     Utils.WriteLine("\n====== Analyzing assembly: " + mAssembly.FileName + " =========\n");
 
-                    ScopeAnalysis analysis = new ScopeAnalysis(host, mAssembly, assemblies.Item2);
+                    // If processor to id mapping and xml with id information are both available, 
+                    // then we ask ScopeAnalysis to analyze only those processors mentioned in the mapping.
+                    ScopeAnalysis analysis = new ScopeAnalysis(host, mAssembly, assemblies.Item2, 
+                                                                processorIdMapping == null || vertexDef == null? null : processorIdMapping.Keys);
                     analysis.Analyze();
 
                     //Update the stats.
@@ -103,7 +106,6 @@ namespace ScopeAnalyzer
                 catch (Exception e)
                 {
                     Utils.WriteLine("ASSEMBLY FAILURE: " + e.Message);
-                    //Utils.WriteLine(e.StackTrace);
                 }
             }
             return stats;
@@ -133,6 +135,7 @@ namespace ScopeAnalyzer
                 ComputeImprovementStats(result, ref stats, vDef, pIdMapping);
             }
         }
+
 
         private static void ComputeImprovementStats(ScopeMethodAnalysisResult result, ref ScopeAnalysisStats stats, 
                                                     XElement vDef, Dictionary<string, string> pIdMapping)
@@ -196,7 +199,7 @@ namespace ScopeAnalyzer
                 {
                     stats.ColumnsContained += 1;
                     stats.ColumnsSavings += (allSchemaColumns.Count - usedColumns.Count);
-                    Utils.WriteLine("PRECISION: used columns subset of defined columns: " + stats.ColumnsSavings);
+                    Utils.WriteLine("SAVINGS: used columns subset of defined columns: " + stats.ColumnsSavings);
                 }
                 else if (allSchemaColumns.SetEquals(usedColumns))
                 {
@@ -205,7 +208,7 @@ namespace ScopeAnalyzer
                 }
                 else
                 {
-                    Utils.WriteLine("IMPRECISION: redundant used columns: " + String.Join(" ", allSchemaColumns));
+                    Utils.WriteLine("OVERAPPROXIMATION: redundant used columns: " + String.Join(" ", allSchemaColumns));
                     stats.ColumnsWarnings += 1;
                 }
             } 
@@ -230,6 +233,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("");          
             Utils.WriteLine("Concrete-columns-found methods: " + stats.NotColumnDummies);
             Utils.WriteLine("");
+            Utils.WriteLine("Concrete methods successfully mapped: " + stats.Mapped);
             Utils.WriteLine("Used columns proper subset: " + stats.ColumnsContained);
             Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
             Utils.WriteLine("Used columns warnings: " + stats.ColumnsWarnings);
@@ -311,6 +315,12 @@ namespace ScopeAnalyzer
 
         private static Dictionary<string, string> LoadProcessorMapping(Options options)
         {
+            if (options.ProcessorIdPath == null)
+            {
+                Utils.WriteLine("No processor to id mapping file available");
+                return null;
+            }
+                
             if (File.Exists(options.ProcessorIdPath))
             {
                 try

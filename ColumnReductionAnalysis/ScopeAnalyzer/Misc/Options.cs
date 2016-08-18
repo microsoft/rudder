@@ -46,16 +46,8 @@ namespace ScopeAnalyzer.Misc
                 referenceAssemblies = Utils.CollectAssemblies(referenceAssembliesPath);
 
             outputPath = outPath;
-
-            if (prcIdPath != null)
-            {
-                processorIdPath = prcIdPath;
-            }
-            else
-            {
-                processorIdPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.PROCESSOR_ID_MAPPING_NAME;
-            }
-
+            processorIdPath = prcIdPath;
+         
             if (vrxPath != null)
             {
                 vertexDefPath = vrxPath;

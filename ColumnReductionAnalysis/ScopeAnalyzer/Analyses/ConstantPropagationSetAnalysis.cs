@@ -421,6 +421,7 @@ namespace ScopeAnalyzer.Analyses
             get { return fieldDefinitions; }
         }
 
+
         #region Dataflow interface implementation
 
         protected override bool Compare(ConstantPropagationDomain left, ConstantPropagationDomain right)
@@ -536,8 +537,6 @@ namespace ScopeAnalyzer.Analyses
             {
                 get { return current; }
             }
-
-
 
 
             public override void Visit(IInstructionContainer container)

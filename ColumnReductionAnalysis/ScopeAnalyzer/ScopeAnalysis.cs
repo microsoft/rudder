@@ -82,17 +82,42 @@ namespace ScopeAnalyzer
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
 
-        public ScopeAnalysis(IMetadataHost host, Assembly assembly, List<Assembly> refAssemblies)
+        IEnumerable<string> interestingProcessors;
+
+
+
+        public ScopeAnalysis(IMetadataHost host, Assembly assembly, List<Assembly> refAssemblies, IEnumerable<string> ips)
         {
             this.mhost = host;
             this.assembly = assembly;
             this.refAssemblies = refAssemblies;
             sourceLocationProvider = assembly.PdbReader;
+            interestingProcessors = ips;
+
+            if (interestingProcessors == null)
+            {
+                Utils.WriteLine("Interesting processors list not provided.");
+            }
 
             LoadTypes();
         }
 
-        
+
+        public IMetadataHost Host
+        {
+            get { return mhost; }
+        }
+
+        /// <summary>
+        /// Returns results for methods that (1) failed to be analyzed due to some bug or (2)
+        /// were successfully analyzed. Not interesting methods are not returned.
+        /// </summary>
+        public IEnumerable<ScopeMethodAnalysisResult> Results
+        {
+            get { return results; }
+        }
+
+
         /// <summary>
         /// Load all necessary Scope types. Jump out if some are missing.
         /// </summary>
@@ -122,22 +147,6 @@ namespace ScopeAnalyzer
         }
 
 
-        public IMetadataHost Host
-        {
-            get { return mhost; }
-        }
-        
-        
-        /// <summary>
-        /// Returns results for methods that (1) failed to be analyzed due to some bug or (2)
-        /// were successfully analyzed. Not interesting methods are not returned.
-        /// </summary>
-        public IEnumerable<ScopeMethodAnalysisResult> Results
-        {
-            get { return results; }
-        }
-
-
         public void Analyze()
         {
             base.Traverse(assembly.Module);
@@ -155,7 +164,7 @@ namespace ScopeAnalyzer
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition, mhost);
             try
             {
-                if (IsProcessor(methodDefinition))
+                if (IsInterestingProcessor(methodDefinition))
                 {
                     Utils.WriteLine("\n--------------------------------------------------\n");
                     Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
@@ -298,7 +307,7 @@ namespace ScopeAnalyzer
         /// </summary>
         /// <param name="method"></param>
         /// <returns></returns>
-        private bool IsProcessor(IMethodDefinition method)
+        private bool IsInterestingProcessor(IMethodDefinition method)
         {
             // Containing type of a method needs to be a non-anonymous reference type.
             if (!(method.ContainingType is INamedTypeReference))
@@ -313,10 +322,15 @@ namespace ScopeAnalyzer
             if (!(rmtype is INestedTypeDefinition))
                 return false;
             var type = (rmtype as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
+
+            if (interestingProcessors != null && !interestingProcessors.Contains(type.FullName()))
+                return false;
+
             if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && 
                 processorTypes.All(pt => !type.SubtypeOf(pt, mhost)) &&
                 combinerTypes.All(ct => !type.SubtypeOf(ct, mhost)))
                 return false;
+
             // We are currently focusing on MoveNext methods only.
             if (!method.FullName().EndsWith(".MoveNext()"))
                 return false;

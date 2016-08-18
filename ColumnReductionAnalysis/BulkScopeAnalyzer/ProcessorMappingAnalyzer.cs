@@ -24,7 +24,6 @@ namespace BulkScopeAnalyzer
             get { return mapping; }
         }
 
-
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
             var name = Microsoft.Cci.TypeHelper.GetTypeName(methodDefinition.ContainingType,
@@ -33,7 +32,7 @@ namespace BulkScopeAnalyzer
           if (name == "___Scope_Generated_Classes___.__OperatorFactory__")
           {
                 var mname = methodDefinition.Name.Value;
-                if (mname.StartsWith("Create_Process_"))
+                if (mname.StartsWith("Create_"))
                 {
                     try
                     {
@@ -41,7 +40,10 @@ namespace BulkScopeAnalyzer
                         var processorName = GetProcessorName(methodDefinition);
                         mapping[processorName] = id;
                     }
-                    catch { }
+                    catch
+                    {
+                        Console.WriteLine("ERROR: failed to extract specific processor id: " + mname);
+                    }
                 }
           }
         }
