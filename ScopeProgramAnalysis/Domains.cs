@@ -64,8 +64,8 @@ namespace ScopeProgramAnalysis
         public bool LessEqual(DependencyPTGDomain depPTG)
         {
             var leqDep = this.Dependencies.LessEqual(depPTG.Dependencies);
-            var leqPTG = this.PTG.Equals(depPTG.PTG);
-            return leqDep && leqDep;
+            var leqPTG = this.PTG.GraphEquals(depPTG.PTG);
+            return leqDep && leqPTG;
         }
         public bool Equals(DependencyPTGDomain depPTG)
         {
@@ -216,6 +216,7 @@ namespace ScopeProgramAnalysis
             }
             return result;
         }
+
 
         public bool LessEqual(object obj)
         {

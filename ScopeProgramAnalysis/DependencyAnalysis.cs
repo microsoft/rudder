@@ -112,7 +112,8 @@ namespace ScopeProgramAnalysis
             var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
             // These are the nodes that we want to protect/analyze
-            var protectedNodes = ptgOfEntry.Nodes.OfType<ParameterNode>().Where(n => IsScopeType(n.Type)).Select(n => new ProtectedRowNode(n, ProtectedRowNode.GetKind(n.Type)));
+            var protectedNodes = ptgOfEntry.Nodes.OfType<ParameterNode>()
+                                 .Where(n => IsScopeType(n.Type)).Select(n => new ProtectedRowNode(n, ProtectedRowNode.GetKind(n.Type)));
 
             // I no longer need this. 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
@@ -165,7 +166,10 @@ namespace ScopeProgramAnalysis
             ////var result = iteratorAnalysis.Analyze();
             //// var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
 
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager);
+            var rangeAnalysis = new RangeAnalysis(cfg);
+            var ranges = rangeAnalysis.Analyze();
+            var exitRange = ranges[cfg.Exit.Id];
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;

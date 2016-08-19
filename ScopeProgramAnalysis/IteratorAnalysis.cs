@@ -63,66 +63,155 @@ namespace Backend.Analyses
 
     }
 
+
+    public class ColumnName : ColumnDomain
+    {
+        public string Name { get; private set; }
+        public ColumnName(string columnName) 
+        {
+            this.Name = columnName;
+        }
+        public override string ToString()
+        {
+            if (IsTOP || IsAll) return base.ToString();
+            else
+            {
+                return Name.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as ColumnName;
+
+            return oth!=null && oth.Name == this.Name && base.Equals(oth);
+        }
+        public override int GetHashCode()
+        {
+            return this.Name.GetHashCode();
+        }
+    }
+
+    public class ColumnPosition : ColumnDomain
+    {
+        public RangeDomain Range{ get; private set; }
+
+        public int Position {  get { return Range.Start; } }
+        public ColumnPosition(int position )
+        {
+            this.Range = new RangeDomain(position, position);
+        }
+        public ColumnPosition(RangeDomain range) 
+        {
+            this.Range = range;
+        }
+        public override string ToString()
+        {
+            if (IsTOP || IsAll) return base.ToString();
+            else
+            {
+                return Range.ToString(); //  String.Format(CultureInfo.InvariantCulture,"[{0}..{1}]", Range.Start, Range.End);
+            }
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as ColumnPosition;
+
+            return oth != null && oth.Range.Equals(this.Range) && base.Equals(oth);
+        }
+        public override int GetHashCode()
+        {
+            return this.Range.GetHashCode();
+        }
+    }
+
+
+
     public class ColumnDomain
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
-        public static readonly ColumnDomain TOP = new ColumnDomain(-2) { ColumnName = "__TOP__", IsTOP = true };
-        public static readonly ColumnDomain ALL = new ColumnDomain(-3) { ColumnName = "__ALL__", IsTOP = false};
-        public string ColumnName { get; private set; }
-        public int ColumnPosition { get; private set; }
-        public bool IsString { get; private set; }
-        public bool IsTOP { get; private set; }
-        public bool IsAll { get { return ColumnPosition == -3; } }
+        public static readonly ColumnDomain TOP = new ColumnDomain() { IsTOP = true };
+        public static readonly ColumnDomain ALL = new ColumnPosition(RangeAnalysis.TOP); //  ColumnPosition (-3) { ColumnName = "__ALL__", IsTOP = false};
+        //public string ColumnName { get; private set; }
+        //public int ColumnPosition { get; private set; }
+        //public bool IsString { get; private set; }
+        public virtual bool IsTOP { get; private set; }
+        public virtual bool IsAll { get { return this == ALL; } }
 
-        public ColumnDomain(string columnName)
+
+
+        public ColumnDomain()
         {
-            this.ColumnName = columnName;
-            this.IsString = true;
-            this.ColumnPosition = -1;
-            IsTOP = columnName == "_TOP_";
-            if (IsTOP)
-            {
-                this.ColumnPosition = -2;
-            }
+
         }
-        public ColumnDomain(int columnPosition)
-        {
-            this.ColumnName = "_TOP_";
-            this.IsString = false;
-            this.ColumnPosition = columnPosition;
-            IsTOP = columnPosition == -2;
-        }
+
         public override string ToString()
         {
             if (IsTOP)
                 return "_TOP_";
             if (IsAll)
                 return "_All_";
-            if (IsString)
-            {
-                return ColumnName;
-            }
-            else
-            {
-                return ColumnPosition.ToString(CultureInfo.InvariantCulture);
-            }
+            return "";
         }
         public override bool Equals(object obj)
         {
             var oth = obj as ColumnDomain;
 
-            return oth.IsString==this.IsString && oth.IsTOP == oth.IsTOP 
-                    && oth.ColumnName==this.ColumnName 
-                    && oth.ColumnPosition==this.ColumnPosition;
+            return this.IsTOP == oth.IsTOP && this.IsAll == oth.IsAll;
         }
         public override int GetHashCode()
         {
-            if (IsString)
-            {
-                return this.ColumnName.GetHashCode();
-            }
-            return this.ColumnPosition.GetHashCode();
+            return this.IsTOP?1:0;
         }
+
+        //public ColumnDomain(string columnName)
+        //{
+        //    this.ColumnName = columnName;
+        //    this.IsString = true;
+        //    this.ColumnPosition = -1;
+        //    IsTOP = columnName == "_TOP_";
+        //    if (IsTOP)
+        //    {
+        //        this.ColumnPosition = -2;
+        //    }
+        //}
+        //public ColumnDomain(int columnPosition)
+        //{
+        //    this.ColumnName = "_TOP_";
+        //    this.IsString = false;
+        //    this.ColumnPosition = columnPosition;
+        //    IsTOP = columnPosition == -2;
+        //}
+        //public override string ToString()
+        //{
+        //    if (IsTOP)
+        //        return "_TOP_";
+        //    if (IsAll)
+        //        return "_All_";
+        //    if (IsString)
+        //    {
+        //        return ColumnName;
+        //    }
+        //    else
+        //    {
+        //        return ColumnPosition.ToString(CultureInfo.InvariantCulture);
+        //    }
+        //}
+        //public override bool Equals(object obj)
+        //{
+        //    var oth = obj as ColumnDomain;
+
+        //    return oth.IsString==this.IsString && oth.IsTOP == oth.IsTOP 
+        //            && oth.ColumnName==this.ColumnName 
+        //            && oth.ColumnPosition==this.ColumnPosition;
+        //}
+        //public override int GetHashCode()
+        //{
+        //    if (IsString)
+        //    {
+        //        return this.ColumnName.GetHashCode();
+        //    }
+        //    return this.ColumnPosition.GetHashCode();
+        //}
     }
 
 
@@ -251,6 +340,10 @@ namespace Backend.Analyses
             return "[" + ptgNode.ToString() +"."+  Field.ToString() + "]";
         }
     }
+
+    /// <summary>
+    /// Not used yet: Part of the plan of having A2 : SymbolicValue -> 2^Traceables instead of A2 : Variable -> 2^Traceables 
+    /// </summary>
     public interface ISymbolicValue
     {
         string Name { get; }
@@ -337,7 +430,7 @@ namespace Backend.Analyses
             }
             internal void UpdateColumnMap(MethodCallInstruction methodCallStmt, ColumnDomain columnLiteral)
             {
-                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ColumnName;
+                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
             }
 
             internal void PropagateLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
@@ -380,6 +473,7 @@ namespace Backend.Analyses
             private CFGNode cfgNode;
             private MethodDefinition method;
             private PTAVisitor visitorPTA;
+            private VariableRangeDomain variableRanges;
 
             public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, PTAVisitor visitorPTA,
                                    CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
@@ -394,6 +488,7 @@ namespace Backend.Analyses
                 this.cfgNode = cfgNode;
                 this.method = iteratorDependencyAnalysis.method;
                 this.visitorPTA = visitorPTA;
+                this.variableRanges = this.iteratorDependencyAnalysis.rangeAnalysis.Result[cfgNode.Id].Output;
             }
 
             private bool ISClousureField(IVariable instance, IFieldReference field)
@@ -522,14 +617,10 @@ namespace Backend.Analyses
                 else if (operand is InstanceFieldAccess)
                 {
                     var fieldAccess = operand as InstanceFieldAccess;
-                    var o = fieldAccess.Instance;
-                    var field = fieldAccess.Field;
-
                     ProcessLoad(loadStmt, fieldAccess);
 
                     // TODO: Filter for columns only
                     scopeData.PropagateLoad(loadStmt, fieldAccess);
-
                 }
                 else if (operand is ArrayElementAccess)
                 {
@@ -581,23 +672,42 @@ namespace Backend.Analyses
 
             private void ProcessLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
             {
+
                 // a2:= [v <- a2[o] U a3[loc(o.f)] if loc(o.f) is CF
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
                 var traceables = this.State.GetTraceables(fieldAccess.Instance);
+
+
+                //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
                 if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                 {
                     // this is a[loc(o.f)]
                     foreach (var ptgNode in currentPTG.GetTargets(fieldAccess.Instance))
                     {
                         var loc = new Location(ptgNode, fieldAccess.Field);
+                        if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
+                        { }
                         if (this.State.Dependencies.A3_Clousures.ContainsKey(loc))
                         {
+                            if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
+                            { }
+
                             traceables.UnionWith(this.State.Dependencies.A3_Clousures[loc]);
                         }
                     }
                 }
                 this.State.AssignTraceables(loadStmt.Result, traceables);
+            }
+
+            private bool MaybeProctectedNode(PTGNode node)
+            {
+                return this.iteratorDependencyAnalysis.protectedNodes.Contains(node);
+            }
+            private bool IsProctectedAccess(IVariable instance, IFieldReference field)
+            {
+                var nodes  = this.State.PTG.GetTargets(instance, field);
+                return nodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
             }
 
             private void ProcessStaticLoad(LoadInstruction loadStmt, StaticFieldAccess fieldAccess)
@@ -754,13 +864,13 @@ namespace Backend.Analyses
 
                 // We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
                 // to maintain a mapping between column numbers and literals 
-                var isSchemaMethod = AnalyzeSchemaRelatedMethod(methodCallStmt, methodInvoked);
+                var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
                 if (!isSchemaMethod)
                 {
-                    var isScopeRowMethod = AnalyzeScopeRowMethods(methodCallStmt, methodInvoked);
+                    var isScopeRowMethod = HandleScopeRowMethods(methodCallStmt, methodInvoked);
                     if (!isScopeRowMethod)
                     {
-                        var isCollectionMethod = AnalyzeCollectionMethods(methodCallStmt, methodInvoked);
+                        var isCollectionMethod = HandleCollectionMethod(methodCallStmt, methodInvoked);
                         if(!isCollectionMethod)
                         {
                             // Pure Methods
@@ -822,7 +932,7 @@ namespace Backend.Analyses
             {
                 if (instruction.Result != null && !instruction.Result.Type.IsValueType())
                 {
-                    var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type);
+                    var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type, PTGNodeKind.Object);
 
                     foreach (var result in instruction.ModifiedVariables)
                     {
@@ -872,6 +982,7 @@ namespace Backend.Analyses
                     catch (Exception e)
                     {
                         System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
+                        System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                         AnalysisStats.TotalofFrameworkErrors++;
                         HandleNoAnalyzableMethod(instruction, methodCallStmt);
                     }
@@ -949,10 +1060,10 @@ namespace Backend.Analyses
             /// <param name="methodCallStmt"></param>
             /// <param name="methodInvoked"></param>
             /// <returns></returns>
-            private bool AnalyzeCollectionMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+            private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
-                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count" };
-                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy"};
+                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count", "First" };
+                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min"};
                  
 
                 var result = true;
@@ -962,6 +1073,11 @@ namespace Backend.Analyses
                     //var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
                     //                    .Select(table_i => new TraceableCounter(table_i));
                     //var any = tablesCounters.Any();
+                    UpdateUsingDefUsed(methodCallStmt);
+                }
+                // Check for a predefined set of pure methods
+                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.ResolvedType !=null && TypeHelper.Type1ImplementsType2(methodInvoked.ContainingType.ResolvedType,PlatformTypes.ICollection))
+                {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
                 else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) 
@@ -1010,10 +1126,16 @@ namespace Backend.Analyses
                 {
                     result = false;
                 }
+                if (result && methodCallStmt.HasResult)
+                {
+                    UpdatePTAForPure(methodCallStmt);
+                    //var node = new PTGNode(new PTGID(new MethodContex(this.method), (int)methodCallStmt.Offset), methodCallStmt.Result.Type);
+                    //this.State.PTG.PointsTo(methodCallStmt.Result, node);
+                }
                 return result;
             }
 
-            private bool  AnalyzeScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+            private bool  HandleScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
                 // This is when you get rows
@@ -1128,6 +1250,14 @@ namespace Backend.Analyses
                 {
                     result = false;
                 }
+
+                if(result && methodCallStmt.HasResult)
+                {
+                    UpdatePTAForPure(methodCallStmt);
+                    //var node = new PTGNode(new PTGID(new MethodContex(this.method), (int)methodCallStmt.Offset), methodCallStmt.Result.Type);
+                    //this.State.PTG.PointsTo(methodCallStmt.Result, node);
+                }
+
                 return result;
 
             }
@@ -1147,7 +1277,7 @@ namespace Backend.Analyses
                     if (columnValue is Constant)
                     {
                         columnLiteral = columnValue.ToString();
-                        result = new ColumnDomain(columnLiteral);
+                        result = new ColumnName(columnLiteral);
                     }
                 }
                 else
@@ -1155,15 +1285,21 @@ namespace Backend.Analyses
                     if (scopeData.columnVariable2Literal.ContainsKey(col))
                     {
                         columnLiteral = scopeData.columnVariable2Literal[col];
-                        result = new ColumnDomain(columnLiteral);
+                        result = new ColumnName(columnLiteral);
                     }
                     else
                     {
                         var colValue = this.equalities.GetValue(col);
+                        var rangeForColumn = variableRanges.GetValue(col);
+                        if(!rangeForColumn.IsBottom)
+                        {
+                            result = new ColumnPosition(rangeForColumn);
+                        }
+                        else
                         if(colValue is Constant)
                         {
                             var value = colValue as Constant;
-                            result = new ColumnDomain((int)value.Value);
+                            result = new ColumnPosition((int)value.Value);
                         }
                     }
                 }
@@ -1190,10 +1326,13 @@ namespace Backend.Analyses
             }
 
             private bool IsMethodToInline(IMethodReference methodInvoked, IType clousureType)
-            { 
-               var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
-               return methodInvoked.ContainingType!=null && methodInvoked.ContainingType.Equals(clousureType) &&
-                    patterns.Any(pattern => methodInvoked.Name.StartsWith(pattern));
+            {
+                var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
+                var specialMethods = new Tuple<string,string>[] { Tuple.Create("IDisposable", "Dispose") };
+                var result = methodInvoked.ContainingType != null 
+                    && ( methodInvoked.ContainingType.Equals(clousureType) && patterns.Any(pattern => methodInvoked.Name.StartsWith(pattern))
+                         || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.Name && sm.Item2 == methodInvoked.Name));
+               return result;
              }
 
             /// <summary>
@@ -1203,7 +1342,7 @@ namespace Backend.Analyses
             /// <param name="methodInvoked"></param>
             /// <param name="callResult"></param>
             /// <returns></returns>
-            private bool AnalyzeSchemaRelatedMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+            private bool HandleSchemaRelatedMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
                 // this is callResult = arg.Schema(...)
@@ -1282,11 +1421,12 @@ namespace Backend.Analyses
         private IEnumerable<ProtectedRowNode> protectedNodes;
 
         private IteratorPointsToAnalysis pta;
+        private RangeAnalysis rangeAnalysis;
 
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
-                                            InterproceduralManager interprocManager) : base(cfg)
+                                            InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
         {
             this.method = method;
             this.iteratorClass = method.ContainingType;
@@ -1301,12 +1441,15 @@ namespace Backend.Analyses
             this.ReturnVariable.Type = PlatformTypes.Object;
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
+            this.rangeAnalysis = rangeAnalysis;
         }
         public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
-                                    DependencyPTGDomain initValue) : this(method, cfg, pta, protectedNodes, equalitiesMap, interprocManager) //base(cfg)
+                                    RangeAnalysis rangeAnalysis,
+                                    DependencyPTGDomain initValue) : this(method, cfg, pta, protectedNodes, 
+                                                                          equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
         {            
             this.initValue = initValue;
         }

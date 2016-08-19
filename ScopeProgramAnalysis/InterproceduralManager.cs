@@ -141,10 +141,13 @@ namespace ScopeProgramAnalysis
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
             SongTaoDependencyAnalysis.PropagateExpressions(calleeCFG, equalities);
 
+            var rangesAnalysis = new RangeAnalysis(calleeCFG);
+            rangesAnalysis.Analyze();
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDomain = BindCallerCallee(callInfo);
             calleeDomain.PTG = calleePTG;
-            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, calleeDomain);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, 
+                                                                    equalities, this, rangesAnalysis, calleeDomain);
             dependencyAnalysis.Analyze();
             stackDepth--;
             this.callStack.Pop();
@@ -269,7 +272,7 @@ namespace ScopeProgramAnalysis
             if (resolvedCallee.Body.Instructions.Any())
             {
                 ControlFlowGraph calleeCFG = this.GetCFG(resolvedCallee);
-                DGMLSerializer.Serialize(calleeCFG);
+                //DGMLSerializer.Serialize(calleeCFG);
                 stackDepth++;
                 IteratorPointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
                 stackDepth--;
@@ -328,6 +331,7 @@ namespace ScopeProgramAnalysis
                 argParamMap[arguments[i]] = resolvedCallee.Body.Parameters[i];
             }
             bindPtg.NewFrame(argParamMap);
+            bindPtg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, PointsToGraph.GlobalNode);
             return bindPtg;
         }
         #endregion
@@ -363,7 +367,9 @@ namespace ScopeProgramAnalysis
                     var candidateCalless = types.Select(t => host.FindMethodImplementation(t as IBasicType, instruction.Method));
                     var resolvedInvocations = candidateCalless.Select(c => (host.ResolveReference(c) as IMethodReference));
                     resolvedCallees.UnionWith(resolvedInvocations.OfType<MethodDefinition>());
-                    unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !(c is MethodDefinition)));
+                    unresolvedCallees.UnionWith(candidateCalless.Where(c => !resolvedInvocations.Contains(c) 
+                                                                        && (c.Name!="Dispose" && c.ContainingType.ContainingAssembly.Name=="mscorlib")));
+                    //unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !(c is MethodDefinition)));
                 }
                 else
                 {

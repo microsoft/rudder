@@ -68,6 +68,13 @@ namespace ScopeProgramAnalysis
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
+            // Zvo Example 1 
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
+            // Zvo Example 2
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll";
+            // Zvo 3
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
+
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
@@ -92,10 +99,11 @@ namespace ScopeProgramAnalysis
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, referenceFiles, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
+            AnalyzeDll(input, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
         }
 
-        public static void AnalyzeDll(string inputPath, IEnumerable<string> referenceFiles, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, StreamWriter outputStream = null)
+        public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind, 
+                                      bool useScopeFactory = true, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = true;
@@ -111,14 +119,13 @@ namespace ScopeProgramAnalysis
             var scopeGenAssembly = loader.LoadMainAssembly(inputPath);
             AnalysisStats.TotalDllsFound++;
 
-            // LoadExternalReferences(referenceFiles, loader);
-            //loader.LoadCoreAssembly();
+            loader.LoadCoreAssembly();
 
             var program = new Program(host, loader);
 
             // program.interprocAnalysisManager = new InterproceduralManager(host);
             program.ScopeGenAssembly = scopeGenAssembly;
-            program.ReferenceFiles = referenceFiles;
+            //program.ReferenceFiles = referenceFiles;
 
             program.ClassFilter = "Reducer";
             program.ClousureFilter = "<Reduce>d__";
@@ -159,7 +166,6 @@ namespace ScopeProgramAnalysis
 
                     try
                     {
-
                         var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                         System.Console.WriteLine("Done!");
@@ -236,6 +242,7 @@ namespace ScopeProgramAnalysis
                     catch (Exception e)
                     {
                         System.Console.WriteLine("Could not analyze {0}", inputPath);
+                        System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                         AnalysisStats.TotalofDepAnalysisErrors++;
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod, moveNextMethod.Body.Instructions[0],
                                         String.Format(CultureInfo.InvariantCulture, "Throw exception {0}", e.StackTrace.ToString())));
@@ -339,8 +346,10 @@ namespace ScopeProgramAnalysis
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
             var operationFactoryClass = this.ScopeGenAssembly.RootNamespace.GetAllTypes().OfType<ClassDefinition>()
-                                        .Where(c => c.Name == "__OperatorFactory__" && c.ContainingType != null & c.ContainingType.Name == "___Scope_Generated_Classes___").Single();
+                                        .Where(c => c.Name == "__OperatorFactory__" && c.ContainingType != null & c.ContainingType.Name == "___Scope_Generated_Classes___").SingleOrDefault();
 
+            if (operationFactoryClass == null)
+                return new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
             // Hack: use actual ScopeRuntime Types
             var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal) && m.ReturnType.ToString() == this.ClassFilter);
 
