@@ -9,6 +9,9 @@ using Microsoft.Cci;
 
 namespace ScopeAnalyzer.Interfaces
 {
+    /// <summary>
+    /// Interface for providing information about results of constant-set propagation.
+    /// </summary>
     interface ConstantsInfoProvider
     {
         /// <summary>

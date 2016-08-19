@@ -277,7 +277,8 @@ namespace ScopeAnalyzer.Analyses
     /// exception are the variables related to types Row and Rowset. We know that special closure Row(set) related fields do 
     /// not escape upon entering the method.That being said, the analysis assumes that all other fields (and array elements)
     /// may escape and overapproximates the escapage of Row(set) related variables and the mentioned closure fields.
-    /// Currently, we assume all Row(set) variables may alias.TODO: include aliasing information.
+    /// Currently, we assume all Row(set) variables may alias. Implementation does not rely on object sharing, yet it makes 
+    /// object operations as pure as possible.
     /// </summary>
     public class NaiveScopeMayEscapeAnalysis : ForwardDataFlowAnalysis<ScopeEscapeDomain>
     {

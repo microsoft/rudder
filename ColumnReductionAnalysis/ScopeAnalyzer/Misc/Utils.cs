@@ -7,6 +7,10 @@ using System.Threading.Tasks;
 
 namespace ScopeAnalyzer
 {
+    /// <summary>
+    /// Class that provides varisous helper functionalities, such as printing to a file,
+    /// getting all dll files from a folder, and so on.
+    /// </summary>
     public class Utils
     {
         public const string MAIN_DLL_NAME = "__ScopeCodeGen__.dll";

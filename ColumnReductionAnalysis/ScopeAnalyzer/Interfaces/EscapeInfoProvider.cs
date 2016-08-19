@@ -9,6 +9,9 @@ using Microsoft.Cci;
 
 namespace ScopeAnalyzer.Interfaces
 {
+    /// <summary>
+    /// Interface for providin information about results of escape analysis.
+    /// </summary>
     interface EscapeInfoProvider
     {
         bool Escaped(Instruction instruction, IVariable var);

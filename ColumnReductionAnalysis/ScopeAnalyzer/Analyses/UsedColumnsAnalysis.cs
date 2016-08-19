@@ -12,6 +12,9 @@ using ScopeAnalyzer.Misc;
 
 namespace ScopeAnalyzer.Analyses
 {
+    /// <summary>
+    /// Domain that simply keeps track of what constants are used for Row column accesses.
+    /// </summary>
     public class ColumnsDomain : SetDomain<Constant>
     {
         private ColumnsDomain(List<Constant> columns)
@@ -56,8 +59,9 @@ namespace ScopeAnalyzer.Analyses
 
 
     /// <summary>
-    /// Analysis assumes no rows can escape. If some rows can indeed escape,
-    /// then this analysis should not be used.
+    /// Analysis that overraproximates constants used in accessing columns, i.e., constants
+    /// passed to Row get_Item method. The analysis assumes no rows can escape and it uses the
+    /// results of constant-set propagation analysis.  
     /// </summary>
     class UsedColumnsAnalysis
     {
@@ -120,6 +124,7 @@ namespace ScopeAnalyzer.Analyses
             {
                 foreach(Instruction instruction in node.Instructions)
                 {
+                    // We are only interested in method calls, since that is how columns are accessed.
                     if (!(instruction is MethodCallInstruction || instruction is IndirectMethodCallInstruction)) continue;
 
                     if (instruction is MethodCallInstruction)
@@ -131,7 +136,7 @@ namespace ScopeAnalyzer.Analyses
                         cd = ColumnsDomain.Top;
                     }
 
-                    // This is a doomed point, jump out.
+                    // This is a doomed point, jump out, no point in continuing forward..
                     if (cd.IsTop)
                         return cd;
                 }
@@ -142,7 +147,8 @@ namespace ScopeAnalyzer.Analyses
 
 
         /// <summary>
-        /// If the caller is a row, then we only accept get_Item method.
+        /// Check if a method stands for accessing a column and soundly compute
+        /// what columns are actually accessed.
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
@@ -154,10 +160,12 @@ namespace ScopeAnalyzer.Analyses
             if (rowTypes.All(rt => ct != null && !ct.SubtypeOf(rt, host)))
                 return ColumnsDomain.Bottom;
 
+            // If we don't trust the method, then only safe thing to do is to
+            // set all columns have been used.
             if (!trustedRowMethods.Contains(instruction.Method.Name.Value))
                 return ColumnsDomain.Top;
 
-            // Leting get_Schema through
+            // get_Schema function is safe.
             if (instruction.Arguments.Count == 1)
             {
                 return ColumnsDomain.Bottom;
@@ -166,8 +174,8 @@ namespace ScopeAnalyzer.Analyses
             var arg = instruction.Arguments.ElementAt(1);
             var cons = constInfo.GetConstants(instruction, arg);
             // If we don't know the initial value of the variable or the 
-            // variable cannot take value froma finite a set of constants,
-            // then we cannot say what column was used here.
+            // variable cannot take value from a finite set of constants,
+            // then we cannot say what column was used here, and in general.
             if (cons == null || cons.Count() == 0)
             {
                 return ColumnsDomain.Top;
@@ -182,7 +190,11 @@ namespace ScopeAnalyzer.Analyses
             }                       
         }
 
-
+        /// <summary>
+        /// Method used to update statistics on how columns are accesed, by
+        /// a string or integer indices.
+        /// </summary>
+        /// <param name="type"></param>
         private void UpdateColumnAccessesStats(ITypeReference type)
         {
             if (type.FullName() == "System.String")

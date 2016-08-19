@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace ScopeAnalyzer.Interfaces
 {
+    /// <summary>
+    /// Abstract domain for sets. Empty set is bottom, null is universe.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public abstract class SetDomain<T>
     {
         protected List<T> elements = new List<T>();

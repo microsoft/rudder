@@ -15,6 +15,9 @@ namespace ScopeAnalyzer.Misc
         }
     }
 
+    /// <summary>
+    /// Class for parsing and making sense of command line options.
+    /// </summary>
     public class Options
     {
 
@@ -23,8 +26,11 @@ namespace ScopeAnalyzer.Misc
         private List<string> referenceAssemblies = new List<string>();
         private string referenceAssembliesPath;
 
+        // Path where to print the analysis trace and results.
         private string outputPath;
+        // Path to file that keeps mapping from processor/reducer/combiner names to ids.
         private string processorIdPath;
+        // Path to file that contains ScopeVertexDef xml content.
         private string vertexDefPath;
 
 
