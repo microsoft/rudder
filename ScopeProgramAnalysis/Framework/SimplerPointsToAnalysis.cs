@@ -74,8 +74,14 @@ namespace Backend.Analyses
                 else if(operand is StaticFieldAccess)
                 {
                     var access = operand as StaticFieldAccess;
-                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result,  this.ptAnalysis.GlobalVariable, access.Field);
+                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result,  IteratorPointsToAnalysis.GlobalVariable, access.Field);
 
+                }
+                else if(operand is ArrayElementAccess)
+                {
+                    var arrayAccess = operand as ArrayElementAccess;
+                    var baseArray = arrayAccess.Array;
+                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result, baseArray, new FieldReference("[]", operand.Type, this.ptAnalysis.method.ContainingType));
                 }
                 else if (operand is VirtualMethodReference)
                 {
@@ -110,8 +116,15 @@ namespace Backend.Analyses
                 else if(lhs is StaticFieldAccess)
                 {
                     var access = lhs as StaticFieldAccess;
-                    ptAnalysis.ProcessStore(ptg, this.ptAnalysis.GlobalVariable, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(ptg, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
                 }
+                else if (lhs is ArrayElementAccess)
+                {
+                    var arrayAccess = lhs as ArrayElementAccess;
+                    var baseArray = arrayAccess.Array;
+                    ptAnalysis.ProcessStore(ptg, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
+                }
+
             }
             public override void Visit(CreateObjectInstruction instruction)
             {
@@ -194,7 +207,7 @@ namespace Backend.Analyses
         private PointsToGraph initialGraph;
         private MethodDefinition method;
         public IVariable ReturnVariable { get; private set; }
-        public IVariable GlobalVariable { get; private set; }
+        public static IVariable GlobalVariable = new LocalVariable("$Global") { Type = PlatformTypes.Object };  //   { get; private set; }
         public DataFlowAnalysisResult<PointsToGraph>[] Result { get; private set; }
         public IVariable ThisVariable { get; private set; }
 
@@ -215,7 +228,10 @@ namespace Backend.Analyses
             this.method = method;
             this.CreateInitialGraph(false);
             this.initialGraph.Union(initPTG);
+            if (!this.initialGraph.Roots.Any(k => k.Name == "$Global"))
+            { }
             this.initPTG = this.initialGraph; // initPTG;
+
         }
        
         public PointsToGraph GetInitialValue()
@@ -282,8 +298,8 @@ namespace Backend.Analyses
             this.ReturnVariable = new LocalVariable(this.method.Name+"_"+"$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
 
-            this.GlobalVariable= new LocalVariable("$Global");
-            this.GlobalVariable.Type = PlatformTypes.Object;
+            //IteratorPointsToAnalysis.GlobalVariable= new LocalVariable("$Global");
+            //IteratorPointsToAnalysis.GlobalVariable.Type = PlatformTypes.Object;
 
             var ptg = new PointsToGraph();
 			var variables = cfg.GetVariables();
@@ -339,8 +355,8 @@ namespace Backend.Analyses
             //    ptg.PointsTo(thisNode, new FieldReference(fieldName, variable.Type, method.ContainingType), node);
             //}
             ptg.Add(this.ReturnVariable);
-            ptg.Add(this.GlobalVariable);
-            ptg.PointsTo(this.GlobalVariable, PointsToGraph.GlobalNode);
+            ptg.Add(IteratorPointsToAnalysis.GlobalVariable);
+            ptg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, PointsToGraph.GlobalNode);
 			this.initialGraph = ptg;
 		}
 
