@@ -163,7 +163,9 @@ namespace ScopeAnalyzer
             {
                 var id = pIdMapping[pTypeFullName];
                 var operators = vDef.Descendants("operator");
-                var process = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value.Equals(id)).Single();
+                // Id can appear several times in the xml file since the same reducer can be used multiple times
+                // and contained within different Scope vertices.
+                var process = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value.Equals(id)).ToList().First();
 
                 var input_schema = process.Descendants("input").Single().Attribute("schema").Value.Split(',');
                 var inputColumns = new List<string>();
@@ -184,8 +186,13 @@ namespace ScopeAnalyzer
                     else if (val is int)
                     {
                         int index = Int32.Parse(val.ToString());
-                        usedColumns.Add(inputColumns[index]);
-                        usedColumns.Add(outputColumns[index]);
+                        if (index < inputColumns.Count)
+                            usedColumns.Add(inputColumns[index]);
+                        if (index < outputColumns.Count)
+                            usedColumns.Add(outputColumns[index]);
+
+                        if (index >= inputColumns.Count && index >= outputColumns.Count)
+                            Utils.WriteLine("WARNING: index out of schema: " + index);
                     }
                     else
                     {
