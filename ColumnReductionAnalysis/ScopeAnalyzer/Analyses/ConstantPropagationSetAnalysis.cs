@@ -634,13 +634,68 @@ namespace ScopeAnalyzer.Analyses
                     }
                     else
                     {
-                        DefaultVarTop(instruction, instruction.Result);
+                        // Here we explicitly handle string concatenation. In other words, if we have
+                        // String.Concat method and both arguments are finite set of constants, then
+                        // we do cross-product concatenation. Column string concat happens in Scope.
+                        if (IsStringConcatenationPossible(instruction, State))
+                        {
+                            var cons1 = State.Constants(instruction.Arguments.ElementAt(0));
+                            var cons2 = State.Constants(instruction.Arguments.ElementAt(1));
+                            
+                            var strings = new HashSet<string>();
+                            foreach (var c1 in cons1.Elements)
+                            {
+                                foreach (var c2 in cons2.Elements)
+                                {
+                                    var s1 = c1.Value == null ? String.Empty : c1.Value.ToString();
+                                    var s2 = c2.Value == null ? String.Empty : c2.Value.ToString();
+                                    strings.Add(s1 + s2);
+                                }
+                            }
+
+                            var cpd = ConstantSetDomain.Bottom;
+                            foreach(var s in strings) cpd.Add(new Constant(s));
+
+                            SavePreState(instruction, FreshCurrent());
+                            var nstate = FreshCurrent();
+                            nstate.Set(instruction.Result, cpd);
+                            SetCurrent(nstate);
+                            SavePostState(instruction, FreshCurrent());
+                        }
+                        else
+                        {
+                            DefaultVarTop(instruction, instruction.Result);
+                        }
                     }
                 }
                 else
                 {
                     Default(instruction);
                 }
+            }
+
+
+            private bool IsStringConcatenationPossible(MethodCallInstruction instruction, ConstantPropagationDomain state)
+            {
+                if (!instruction.HasResult)
+                    return false;
+
+                if (instruction.Arguments.Count != 2)
+                    return false;
+
+                if (instruction.Method.ContainingType.FullName() != "System.String")
+                    return false;
+
+                if (instruction.Method.Name.Value != "Concat")
+                    return false;
+
+                var cons1 = state.Constants(instruction.Arguments.ElementAt(0));
+                var cons2 = state.Constants(instruction.Arguments.ElementAt(1));
+
+                if (cons1.IsBottom || cons2.IsBottom || cons1.IsTop || cons2.IsTop)
+                    return false;
+
+                return true;
             }
 
 
