@@ -14,36 +14,35 @@ using ScopeAnalyzer.Interfaces;
 namespace ScopeAnalyzer.Analyses
 {
 
-
     /// <summary>
-    /// Domain that keeps track of which variables may have escaped.
+    /// Domain that keeps track of which variables may have escaped, variables being fixed..
     /// </summary>
-    public class VarEscapeSet : BooleanMapDomain<IVariable>
+    public class VarEscapeDomain : BooleanMapDomain<IVariable>
     {
 
-        private VarEscapeSet(Dictionary<IVariable, Boolean> vs)
+        private VarEscapeDomain(Dictionary<IVariable, Boolean> vs)
         {
             mapping = vs;
         }
 
-        public static VarEscapeSet Bottom(IEnumerable<IVariable> vars)
+        public static VarEscapeDomain Bottom(IEnumerable<IVariable> vars)
         {
             Dictionary<IVariable, Boolean> vs = new Dictionary<IVariable, Boolean>();
             foreach (var v in vars)
             {
                 vs[v] = false;
             }
-            return new VarEscapeSet(vs);
+            return new VarEscapeDomain(vs);
         }
 
-        public static VarEscapeSet Top(IEnumerable<IVariable> vars)
+        public static VarEscapeDomain Top(IEnumerable<IVariable> vars)
         {
             Dictionary<IVariable, Boolean> vs = new Dictionary<IVariable, bool>();
             foreach (var v in vars)
             {
                 vs[v] = true;
             }
-            return new VarEscapeSet(vs);
+            return new VarEscapeDomain(vs);
         }
 
         public void Escape(IVariable v)
@@ -66,9 +65,9 @@ namespace ScopeAnalyzer.Analyses
             SetAllTrue();
         }
 
-        public VarEscapeSet Clone()
+        public VarEscapeDomain Clone()
         {
-            return new VarEscapeSet(new Dictionary<IVariable, Boolean>(mapping));
+            return new VarEscapeDomain(new Dictionary<IVariable, Boolean>(mapping));
         }
 
         public override string ToString()
@@ -86,32 +85,32 @@ namespace ScopeAnalyzer.Analyses
     /// <summary>
     /// Domain that keeps track of which fields may have escaped, fields being fixed.
     /// </summary>
-    public class FieldEscapeSet : BooleanMapDomain<IFieldAccess>
+    public class FieldEscapeDomain : BooleanMapDomain<IFieldAccess>
     {
 
-        private FieldEscapeSet(Dictionary<IFieldAccess, Boolean> fe)
+        private FieldEscapeDomain(Dictionary<IFieldAccess, Boolean> fe)
         {
             mapping = fe;
         }
 
-        public static FieldEscapeSet Bottom(IEnumerable<IFieldAccess> fields)
+        public static FieldEscapeDomain Bottom(IEnumerable<IFieldAccess> fields)
         {
             Dictionary<IFieldAccess, Boolean> fe = new Dictionary<IFieldAccess, bool>();
             foreach (var f in fields)
             {
                 fe[f] = false;
             }
-            return new FieldEscapeSet(fe);
+            return new FieldEscapeDomain(fe);
         }
 
-        public static FieldEscapeSet Top(IEnumerable<IFieldAccess> fields)
+        public static FieldEscapeDomain Top(IEnumerable<IFieldAccess> fields)
         {
             Dictionary<IFieldAccess, Boolean> fe = new Dictionary<IFieldAccess, bool>();
             foreach (var f in fields)
             {
                 fe[f] = true;
             }
-            return new FieldEscapeSet(fe);
+            return new FieldEscapeDomain(fe);
         }
 
         public void Escape(IFieldAccess f)
@@ -134,9 +133,9 @@ namespace ScopeAnalyzer.Analyses
             SetAllTrue();
         }
 
-        public FieldEscapeSet Clone()
+        public FieldEscapeDomain Clone()
         {
-            return new FieldEscapeSet(new Dictionary<IFieldAccess, bool>(mapping));
+            return new FieldEscapeDomain(new Dictionary<IFieldAccess, bool>(mapping));
         }
 
         public override string ToString()
@@ -151,15 +150,17 @@ namespace ScopeAnalyzer.Analyses
 
     }
 
+
     /// <summary>
-    /// Lattice product between VarEscapeSet and FieldEscapeSet.
+    /// Lattice product between VarEscapeDomain and FieldEscapeDomain. Array accesses
+    /// are not tracked.
     /// </summary>
     public class ScopeEscapeDomain
     {
-        VarEscapeSet vset;
-        FieldEscapeSet fset;
+        VarEscapeDomain vset;
+        FieldEscapeDomain fset;
 
-        private ScopeEscapeDomain(VarEscapeSet vs, FieldEscapeSet fs)
+        private ScopeEscapeDomain(VarEscapeDomain vs, FieldEscapeDomain fs)
         {
             vset = vs;
             fset = fs;
@@ -168,12 +169,12 @@ namespace ScopeAnalyzer.Analyses
 
         public static ScopeEscapeDomain Top(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
-            return new ScopeEscapeDomain(VarEscapeSet.Top(vars), FieldEscapeSet.Top(fields));
+            return new ScopeEscapeDomain(VarEscapeDomain.Top(vars), FieldEscapeDomain.Top(fields));
         }
 
         public static ScopeEscapeDomain Bottom(IEnumerable<IVariable> vars, IEnumerable<IFieldAccess> fields)
         {
-            return new ScopeEscapeDomain(VarEscapeSet.Bottom(vars), FieldEscapeSet.Bottom(fields));
+            return new ScopeEscapeDomain(VarEscapeDomain.Bottom(vars), FieldEscapeDomain.Bottom(fields));
         }
 
         public bool IsTop
@@ -186,12 +187,12 @@ namespace ScopeAnalyzer.Analyses
             get { return vset.IsBottom && fset.IsBottom; }
         }
 
-        public VarEscapeSet Variables
+        public VarEscapeDomain Variables
         {
             get { return vset; }
         }
 
-        public FieldEscapeSet Fields
+        public FieldEscapeDomain Fields
         {
             get { return fset; }
         }
@@ -268,15 +269,16 @@ namespace ScopeAnalyzer.Analyses
         }
     }
 
-
-    /*
-     * This is a very naive implementation of an escape analysis particularly targeted for Scope Reducer/Processor
-     * methods. We implicitly assume that all reference values may be escaped so we don't need to keep track of them. 
-     * The only exception are the variables of type Row/Rowset. We know that special "this" Row(set) fields do not 
-     * escape upon entering the method. That being said, the analysis assumes that all other fields and array elements
-     * may escape and overapproximates the escapage of Row(set) variables and the mentioned fields. 
-     * Currently, we assume all Row(set) variables may alias. TODO: include aliasing information.
-     */
+     
+      
+    /// <summary>
+    /// This is a very naive implementation of an escape analysis particularly targeted for Scope Reducer/Processor/Combiner
+    /// closure methods.We implicitly assume that all reference values may escape so we don't need to keep track of them. The only 
+    /// exception are the variables related to types Row and Rowset. We know that special closure Row(set) related fields do 
+    /// not escape upon entering the method.That being said, the analysis assumes that all other fields (and array elements)
+    /// may escape and overapproximates the escapage of Row(set) related variables and the mentioned closure fields.
+    /// Currently, we assume all Row(set) variables may alias.TODO: include aliasing information.
+    /// </summary>
     public class NaiveScopeMayEscapeAnalysis : ForwardDataFlowAnalysis<ScopeEscapeDomain>
     {
         IMethodDefinition method;
@@ -284,8 +286,11 @@ namespace ScopeAnalyzer.Analyses
         List<ITypeDefinition> rowTypes;
         List<ITypeDefinition> rowsetTypes;
 
+        // Analysis results for each instruction, before and after the instruction is executed.
         Dictionary<Instruction, ScopeEscapeDomain> preResults = new Dictionary<Instruction, ScopeEscapeDomain>();
         Dictionary<Instruction, ScopeEscapeDomain> postResults = new Dictionary<Instruction, ScopeEscapeDomain>();
+
+        // Remember which variables and fields we track during the analysis.
         IEnumerable<Tuple<IFieldAccess, IFieldReference>> fieldsToTrack;
         IEnumerable<IVariable> varsToTrack; 
       
@@ -341,7 +346,7 @@ namespace ScopeAnalyzer.Analyses
         }
 
         /// <summary>
-        /// Tells if some Row(ish) type escaped at any point.
+        /// Tells if some Row(ish) type object escaped at any point.
         /// </summary>
         public bool InterestingRowEscaped
         {
@@ -367,32 +372,33 @@ namespace ScopeAnalyzer.Analyses
                     }
                     else
                     {
+                        // This should never happen, given how closure is generated. TODO: remove this check.
                         unsupported = true;
                         Utils.WriteLine("WARNING: too many closure environments found!");
                     }
                 }
-
+                // Save row related closure field.
                 if (!field.IsStatic && PossiblyRow(field.Type)) fieldDefinitions.Add(field);
             }
 
             if (env == null)
             {
-                //unsupported = true;
+                //Sometimes environment is not used so it will not appear in the closure class.
                 Utils.WriteLine("WARNING: no closure environment found!");
             }
 
-            /*
-             * We keep track of the syntactic field accesses that correspond to field definitions of the enclosing
-             * closure class. These acceses are assumed to be safe. Note that this is fine since generated closure
-             * class is singleton: every processor is assigned a different closure class. Hence there won't be any
-             * other accesses that correspond to closure field definitions and that can be potentialy unsafe.
-             */
+            // We keep track of the syntactic field accesses that correspond to row field definitions
+            // of the enclosing closure class. These acceses are assumed to not escape at the beginning.
+            // Note that this is fine since generated closure class is singleton: every processor is 
+            // assigned a different closure class. Hence there won't be any other accesses that correspond
+            // to closure field definitions and that can be potentialy unsafe.
             var frefs = cfg.FieldAccesses();
             fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Contains(f.Item2.Resolve(host))).AsEnumerable();
 
             var vars = cfg.GetVariables();
             varsToTrack = vars.Where(v => PossiblyRow(v.Type)).ToList();
 
+            // We currently do not support exception handling.
             var instructions = new List<Instruction>();
             foreach (var block in cfg.Nodes)
                 instructions.AddRange(block.Instructions);
@@ -401,6 +407,11 @@ namespace ScopeAnalyzer.Analyses
                 unsupported = true;
         }
 
+
+        /// <summary>
+        /// Updates the results of the analysis.
+        /// </summary>
+        /// <param name="visitor"></param>
         private void UpdateResults(EscapeTransferVisitor visitor)
         {
             interestingRowEscaped |= visitor.SomeRowEscaped;
@@ -417,8 +428,14 @@ namespace ScopeAnalyzer.Analyses
         }
 
 
-        #region Checking for a row
+        #region Checking for a Row
 
+        /// <summary>
+        /// Conservatively is given type related to Row, i.e., is it a subtype of Row,
+        /// a collection of Rows, and so forth.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public bool PossiblyRow(ITypeReference type)
         {
             // when type is unknown.
@@ -430,6 +447,7 @@ namespace ScopeAnalyzer.Analyses
                 if (PossiblyRow(type, rt, host)) return true;
             }
 
+            // Rowset is a custom collection of rows, so we check it as well.
             foreach (var rst in rowsetTypes)
             {
                 if (PossiblyRow(type, rst, host)) return true;
@@ -437,6 +455,16 @@ namespace ScopeAnalyzer.Analyses
             return false;
         }
 
+
+        /// <summary>
+        /// Check if a type is related to Row or Rowset. Check if type is subtype of
+        /// rowishType, is it a collection of rowishType, a pointer to a rowishType,
+        /// a generic instantiated by a rowishType, etc.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="rowishType"></param>
+        /// <param name="host"></param>
+        /// <returns></returns>
         public bool PossiblyRow(ITypeReference type, ITypeDefinition rowishType, IMetadataHost host)
         {
             if (type.IsEnum || type.IsValueType) return false;
@@ -469,6 +497,12 @@ namespace ScopeAnalyzer.Analyses
             return join;
         }
 
+        /// <summary>
+        /// Performs transfer function on a block represent by node.
+        /// </summary>
+        /// <param name="node"></param>
+        /// <param name="input"></param>
+        /// <returns></returns>
         protected override ScopeEscapeDomain Flow(CFGNode node, ScopeEscapeDomain input)
         {
             var nState = input.Clone();
@@ -486,15 +520,13 @@ namespace ScopeAnalyzer.Analyses
         #endregion
 
 
-     
-
-        /* 
-        * All reference variables except Row/Rowset are assumed to be escaped. A Row(set) variable is set as escaped if (1) 
-        * it is assigned to a static variable, (2) it is assigned to a field, (3) it is passed as a parameter to a foreign 
-        * method or it is a result of such a method, or (4) it is being assigned by an escaped Row(set) variable/field. 
-        * Hence, the computed escape variables should all be of type Row. However, sometimes the actual types are not 
-        * available so we safely add such variables as escaped, just to be sure.
-        */
+        /// <summary>
+        /// All reference variables except Row/Rowset are assumed to be escaped. A Row(set) variable is set as escaped if (1) 
+        /// it is assigned to a static variable, (2) it is assigned to a field, (3) it is passed as a parameter to a foreign
+        /// method or it is a result of such a method, or(4) it is being assigned by an escaped Row(set) variable / field.
+        /// Hence, the computed escape variables should all be of type Row.However, sometimes the actual types are not
+        /// available so we safely add such variables as escaped, just to be sure.
+        /// </summary>
         class EscapeTransferVisitor : InstructionVisitor
         {
             ScopeEscapeDomain currentState;
@@ -527,17 +559,14 @@ namespace ScopeAnalyzer.Analyses
                 Default(instruction);
             }
 
-            public override void Visit(DefinitionInstruction instruction)
-            {
-                Default(instruction);
-            }
-
             public override void Default(Instruction instruction)
             {
                 SavePreState(instruction, FreshCurrent());
                 SetCurrent(FreshCurrent());
                 SavePostState(instruction, FreshCurrent());
             }
+
+
 
             public override void Visit(StoreInstruction instruction)
             {
@@ -549,6 +578,8 @@ namespace ScopeAnalyzer.Analyses
 
                 if (PossiblyRow(operand.Type))
                 {
+                    // Make row escaped if it is tracked and is set to non-tracked field,
+                    // static field, and any sort of reference/dereferences.
                     if (result is InstanceFieldAccess)
                     {             
                         var r = result as InstanceFieldAccess;
@@ -567,67 +598,12 @@ namespace ScopeAnalyzer.Analyses
                 SavePostState(instruction, FreshCurrent());
             }
 
-            public override void Visit(LoadInstruction instruction)
-            {
-                #region deprecated
-                //SavePreState(instruction, FreshCurrent());
-                //var nstate = FreshCurrent();
-                //var result = instruction.Result;
-                //var operand = instruction.Operand;
-
-                //if (PossiblyRow(result.Type))
-                //{
-                //    // If the operand has anything to do with (de)referencing a pointer, then we set
-                //    // everything as escaped.
-                //    if (operand is Dereference || operand is Reference)
-                //    {
-                //        SetAllEscaped(nstate);
-                //    }
-                //    else if (operand is InstanceFieldAccess)
-                //    {
-                //        var op = operand as InstanceFieldAccess;
-                //        if (!IsFieldTracked(op.Field))
-                //        {
-                //            SetEscaped(nstate, result, instruction, false);
-                //        }
-                //        else
-                //        {
-                //            ProjectState(nstate, result, op.Field, false);
-
-                //            //if (nstate.Escaped(op.Field))
-                //            //    SetEscaped(nstate, result, instruction);
-                //            //else if (nstate.Escaped(result))
-                //            //    SetEscaped(nstate, op.Field, instruction);
-                //        }
-                //    }
-                //    // Set results as escaped in this case
-                //    else if (operand is UnknownValue || operand is StaticFieldAccess || operand is ArrayElementAccess)
-                //    {
-                //        SetEscaped(nstate, result, instruction, false);
-                //    }
-                //    // TODO: should this case even occur? Typing should not allow this.
-                //    else if (operand is VirtualMethodReference || operand is StaticMethodReference)
-                //    {
-                //        SetEscaped(nstate, result, instruction, false);
-                //    }
-                //    // We add result as escaped only if the operand variable is escaped too.
-                //    else if (operand is IVariable)
-                //    {
-                //        var op = operand as IVariable;
-                //        ProjectState(nstate, result, op, false);
-                //    }
-                //    // Other cases either don't occur (expressions) at this code layer or don't do much.                
-                //}
-
-                //SetCurrent(nstate);
-                //SavePostState(instruction, FreshCurrent());
-                #endregion
-                Default(instruction);
-            }
 
 
             public override void Visit(MethodCallInstruction instruction)
             {
+                // We don't classify rows as escaped if they are passed
+                // to whitelisted trusted methods.
                 if (IsClearlySafe(instruction))
                 {
                     SavePreState(instruction, FreshCurrent());
@@ -652,6 +628,7 @@ namespace ScopeAnalyzer.Analyses
 
                 var beginIndex = isStatic ? 0 : 1; // to avoid "this".
                 bool escaped = false;
+                // Make every argument row (except receiver) escaped.
                 for (int i = beginIndex; i < arguments.Count; i++)
                 {
                     var v = arguments[i];
@@ -662,12 +639,7 @@ namespace ScopeAnalyzer.Analyses
                     }
                 }
 
-                //if (hasResult && PossiblyRow(result.Type))
-                //{
-                //    escaped = true;
-                //    SetEscaped(nstate, result, instruction);
-                //}
-
+                // If some argument has escaped, we make say receiver had escaped as well.
                 if (escaped && !isStatic && PossiblyRow(arguments[0].Type))
                 {
                     SetEscaped(nstate, arguments[0], instruction);
@@ -680,6 +652,7 @@ namespace ScopeAnalyzer.Analyses
             private bool IsClearlySafe(MethodCallInstruction instruction)
             {
                 //TODO: can this be done better?
+
                 var method = instruction.Method;
                 var mtype = method.ContainingType;
 
@@ -690,7 +663,6 @@ namespace ScopeAnalyzer.Analyses
                 if (instruction.Arguments.Count != 1)
                     return false;
 
-                // TODO: can we do this better?
                 var name = mtype.NestedName();
                 if (name.StartsWith("IEnumerator<") || name.StartsWith("IEnumerable<") ||
                     name.StartsWith("List<") || name.StartsWith("HashSet<") ||
@@ -699,26 +671,10 @@ namespace ScopeAnalyzer.Analyses
                     name.StartsWith("SortedList<") || name.StartsWith("SortedSet<"))
                     return true;
 
-                //if (method.Name.Value == "get_Current" && instruction.Arguments.Count == 1
-                //    && method.ContainingType.FullName() == "System.Collections.Generic.IEnumerator<ScopeRuntime.Row>")
-                //    return true;
-
-                //if (method.Name.Value == "get_Rows" && instruction.Arguments.Count == 1
-                //    && method.ContainingType.FullName() == "ScopeRuntime.RowSet")
-                //    return true;
-
-                //if (method.Name.Value == "GetEnumerator" && instruction.Arguments.Count == 1
-                //    && method.ContainingType.FullName() == "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>")
-                //    return true;
-
-                //if (method.ContainingType.FullName() == "ScopeRuntime.Row" &&
-                //    (method.Name.Value == "CopyTo" || method.Name.Value == "CopyScopeCEPStatusTo"))
-                //    return true;
-
                 return false;
             }
 
-
+ 
 
 
             public override void Visit(CopyMemoryInstruction instruction)
@@ -748,23 +704,7 @@ namespace ScopeAnalyzer.Analyses
                 SavePostState(instruction, FreshCurrent());
             }
 
-            public override void Visit(ConvertInstruction instruction)
-            {
-                #region deprecated
-                //SavePreState(instruction, FreshCurrent());
-                //var nstate = FreshCurrent();
-                
-                //if (instruction.HasResult && PossiblyRow(instruction.Result.Type))
-                //{
-                //    ProjectState(nstate, instruction.Result, instruction.Operand);
-                //}
 
-                //SetCurrent(nstate);
-                //SavePostState(instruction, FreshCurrent());
-                #endregion
-
-                Default(instruction);
-            }
 
             public override void Visit(InitializeMemoryInstruction instruction)
             {
@@ -778,38 +718,20 @@ namespace ScopeAnalyzer.Analyses
                 SavePostState(instruction, FreshCurrent());
             }
 
-            public override void Visit(PhiInstruction instruction)
-            {
-                #region deprecated
-                //SavePreState(instruction, FreshCurrent());
-                //var nstate = FreshCurrent();
-
-                //if (instruction.HasResult && PossiblyRow(instruction.Result.Type))
-                //{
-                //    foreach (var v in instruction.Arguments)
-                //    {
-                //        if (nstate.Escaped(v))
-                //        {
-                //            SetEscaped(nstate, instruction.Result, instruction);
-                //            break;
-                //        }
-                //    }
-                //}
-
-                //SetCurrent(nstate);
-                //SavePostState(instruction, FreshCurrent());
-                #endregion
-                Default(instruction);
-            }
 
             #endregion
 
 
+            /// <summary>
+            /// Check whether a field access corresponds to a field we track.
+            /// </summary>
+            /// <param name="field"></param>
+            /// <returns></returns>
             private bool IsFieldTracked(IFieldAccess field)
             {
                 if (parent.TrackedFields.Contains(field)) return true;
 
-                // sanity
+                // for sanity
                 foreach (var f in parent.TrackedFields)
                 {
                     if (f.ToExpression().ToString() == field.ToExpression().ToString()) return true;
@@ -818,7 +740,7 @@ namespace ScopeAnalyzer.Analyses
                 return false;
             }
 
-
+           
 
             private void SetEscaped(ScopeEscapeDomain state, IVariable v, Instruction instruction)
             {
@@ -868,7 +790,6 @@ namespace ScopeAnalyzer.Analyses
             private void SavePreState(Instruction instruction, ScopeEscapeDomain state)
             {
                 preState[instruction] = state;
-
             }
 
             private void SavePostState(Instruction instruction, ScopeEscapeDomain state)
@@ -886,7 +807,6 @@ namespace ScopeAnalyzer.Analyses
                 get { return preState; }
             }
         }
-
     }
 }
 

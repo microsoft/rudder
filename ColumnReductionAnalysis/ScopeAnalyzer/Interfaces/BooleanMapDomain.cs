@@ -7,6 +7,11 @@ using Backend.ThreeAddressCode.Values;
 
 namespace ScopeAnalyzer.Interfaces
 {
+    /// <summary>
+    /// Abstract domain of maps from keys (such as variables and fields) to boolean domain
+    /// where false is bottom and true is top.
+    /// </summary>
+    /// <typeparam name="Key"></typeparam>
     public abstract class BooleanMapDomain<Key>
     {
         protected Dictionary<Key, Boolean> mapping;
