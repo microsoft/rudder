@@ -397,7 +397,7 @@ namespace Backend.Analyses
 
             if (dst.Type.TypeKind == TypeKind.ValueType) return;
 
-            var targets = srcs.Where(src => src.Type.TypeKind != TypeKind.ValueType).SelectMany(src =>  ptg.GetTargets(src));
+            var targets = srcs.Where(src => src.Type.TypeKind != TypeKind.ValueType).SelectMany(src =>  ptg.GetTargets(src, false));
 
             foreach (var target in targets)
             {
