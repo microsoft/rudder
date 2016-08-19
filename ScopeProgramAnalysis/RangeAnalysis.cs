@@ -60,16 +60,24 @@ namespace ScopeProgramAnalysis
             return this.Start==oth.Start && this.End==oth.End;
         }
 
-        internal RangeDomain Sum(RangeDomain rangeDomain)
+        public RangeDomain Sum(RangeDomain rangeDomain)
         {
             return new RangeDomain(this.Start+rangeDomain.Start,this.End+rangeDomain.End);
         }
+        public RangeDomain Sub(RangeDomain rangeDomain)
+        {
+            return new RangeDomain(this.Start - rangeDomain.Start, this.End - rangeDomain.End);
+        }
+
         public override string ToString()
         {
+            if (IsTop) return "_TOP_";
+            if(IsBottom) return "_BOTTOM_";
             var result = String.Format(CultureInfo.InvariantCulture, "[{0}..{1}]", Start, End);
             if (Start == End) result = Start.ToString();
             return result;
         }
+
     }
     public class VariableRangeDomain : IAnalysisDomain<VariableRangeDomain>
     {
@@ -233,7 +241,18 @@ namespace ScopeProgramAnalysis
             {
                 var op1 = this.State.GetValue(instruction.LeftOperand);
                 var op2 = this.State.GetValue(instruction.RightOperand);
-                this.State.AssignValue(instruction.Result, op1.Sum(op2));
+                switch(instruction.Operation)
+                {
+                    case BinaryOperation.Add:
+                        this.State.AssignValue(instruction.Result, op1.Sum(op2));
+                        break;
+                    case BinaryOperation.Sub:
+                        this.State.AssignValue(instruction.Result, op1.Sub(op2));
+                        break;
+                    default:
+                        this.State.AssignValue(instruction.Result, RangeAnalysis.TOP);
+                        break;
+                }
                      
             }
 
