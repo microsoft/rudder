@@ -1,15 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Frontend;
 using Backend;
 using Microsoft.Cci;
-using Microsoft.Cci.Immutable;
 using Backend.Analysis;
-using Backend.Serialization;
-using Backend.ThreeAddressCode;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
 using ScopeAnalyzer.Analyses;
@@ -21,6 +15,10 @@ namespace ScopeAnalyzer
 {
     using Assembly = Frontend.Assembly;
 
+    /// <summary>
+    /// Class that simply bundles together relevant information about
+    /// a method and results of applying ScopeAnalysis on it.
+    /// </summary>
     public class ScopeMethodAnalysisResult
     {
         public ScopeEscapeDomain EscapeSummary { get; set; }
@@ -32,13 +30,23 @@ namespace ScopeAnalyzer
             get { return (Method.ContainingType.Resolve(Host) as INestedTypeDefinition).ContainingTypeDefinition.Resolve(Host); }
         }
 
+        /// <summary>
+        /// Number of times a Row column has been accessed by a string name.
+        /// </summary>
         public int ColumnStringAccesses { get; set; }
 
+        /// <summary>
+        /// Number of times a Row column has been accessed by an integer index.
+        /// </summary>
         public int ColumnIndexAccesses { get; set; }
 
 
         public bool Failed { get; set; }
 
+        /// <summary>
+        /// Tells whether the corresponding methods was considered
+        /// relevant for ScopeAnalysis
+        /// </summary>
         public bool Interesting { get; set; }
 
         public bool Unsupported { get; set; }
@@ -59,6 +67,10 @@ namespace ScopeAnalyzer
     }
 
 
+    /// <summary>
+    /// Main class that performs analysis on Scope processor methods in a given assembly.
+    /// The analysis overapproximates the exact columns accessed in a processor method.
+    /// </summary>
     public class ScopeAnalysis : MetadataTraverser
     {
 
@@ -70,7 +82,10 @@ namespace ScopeAnalyzer
 
         IMetadataHost mhost;
         Assembly assembly;
+        // We need reference assemblies to get necessary type definitions.
         IEnumerable<Assembly> refAssemblies;
+
+        // We keep track of all possible definitions of Scope types, for soundness reasons.
         List<ITypeDefinition> rowTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> rowsetTypes = new List<ITypeDefinition>();
         List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
@@ -82,6 +97,8 @@ namespace ScopeAnalyzer
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
 
+        // User of the ScopeAnalysis can provide (in constructor) names of the processor methods of interest using this structure.
+        // If this structure is null, the analysis will analyze all processors, otherwise it will analyze only ones listed here.
         IEnumerable<string> interestingProcessors;
 
 
@@ -96,7 +113,7 @@ namespace ScopeAnalyzer
 
             if (interestingProcessors == null)
             {
-                Utils.WriteLine("Interesting processors list not provided.");
+                Utils.WriteLine("Interesting processors list not provided, continuing without it.");
             }
 
             LoadTypes();
@@ -109,8 +126,7 @@ namespace ScopeAnalyzer
         }
 
         /// <summary>
-        /// Returns results for methods that (1) failed to be analyzed due to some bug or (2)
-        /// were successfully analyzed. Not interesting methods are not returned.
+        /// Returns analysis results for every method in the assembly.
         /// </summary>
         public IEnumerable<ScopeMethodAnalysisResult> Results
         {
@@ -118,11 +134,14 @@ namespace ScopeAnalyzer
         }
 
 
+
+
         /// <summary>
-        /// Load all necessary Scope types. Jump out if some are missing.
+        /// Load all necessary Scope types. Jump out abruptly if some are missing.
         /// </summary>
         private void LoadTypes()
         {
+            // Look for Scope types in the main assembley, but also in the reference assemblies.
             var asms = new HashSet<Assembly>(refAssemblies); asms.Add(assembly);
             foreach (var asm in asms)
             {
@@ -146,13 +165,19 @@ namespace ScopeAnalyzer
                         reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count, schemaTypes.Count, combinerTypes.Count));
         }
 
-
+        /// <summary>
+        /// Entry point method for calling analyses for every method in the main assembly.
+        /// </summary>
         public void Analyze()
         {
             base.Traverse(assembly.Module);
         }
  
 
+        /// <summary>
+        /// Main method for performing Scope analysis on a method.
+        /// </summary>
+        /// <param name="methodDefinition"></param>
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
             //if (!methodDefinition.FullName().Contains("Bao.SkuLicensingPackageReferenceLicensingKeyReducer.<Reduce>d__0.MoveNext"))
@@ -164,19 +189,23 @@ namespace ScopeAnalyzer
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition, mhost);
             try
             {
+                // We analyze only (interesting) processor methods.
                 if (IsInterestingProcessor(methodDefinition))
                 {
                     Utils.WriteLine("\n--------------------------------------------------\n");
                     Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
 
+                    // Create CFG and run basic analyses, such as copy-propagation.
                     var cfg = PrepareMethod(methodDefinition);
                     Utils.WriteLine("CFG size " + cfg.Nodes.Count);
                     //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);
-                                    
+                      
+                    // Run escape analysis.              
                     var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
                     methodResult.Unsupported = escAnalysis.Unsupported;
 
-                    // If some row has escaped or the method is unsupported, there is nothing to do here.
+                    // If some row has escaped or the method has unsupported features,
+                    // there is no need to analyze the method any further.
                     if (escAnalysis.InterestingRowEscaped || escAnalysis.Unsupported)
                     {
                         Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
@@ -184,9 +213,11 @@ namespace ScopeAnalyzer
                     }
                     else
                     {
+                        // Otherwise, do constant-set propagation (CSP) analysis.
                         var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
                         var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
 
+                        //Finally, do the actual used-columns analysis using results of the previous CSP analysis.
                         var clsAnalysis = DoUsedColumnsAnalysis(cfg, cspInfo, methodResult);
                         methodResult.Unsupported = cspAnalysis.Unsupported | clsAnalysis.Unsupported;
                     }
@@ -212,6 +243,13 @@ namespace ScopeAnalyzer
         }
 
 
+        /// <summary>
+        /// Entry point method for performing escape analysis.
+        /// </summary>
+        /// <param name="cfg"></param>
+        /// <param name="method"></param>
+        /// <param name="results"></param>
+        /// <returns></returns>
         private NaiveScopeMayEscapeAnalysis DoEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running escape analysis...");
@@ -223,6 +261,13 @@ namespace ScopeAnalyzer
             return escAnalysis;
         }
 
+        /// <summary>
+        /// Entry point method for performing constant-set propagation analysis.
+        /// </summary>
+        /// <param name="cfg"></param>
+        /// <param name="method"></param>
+        /// <param name="results"></param>
+        /// <returns></returns>
         private ConstantPropagationSetAnalysis DoConstantPropagationAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running constant propagation set analysis...");
@@ -233,6 +278,14 @@ namespace ScopeAnalyzer
             return cpsAnalysis;
         }
 
+        /// <summary>
+        /// Entry point method for performing used-columns analysis. The analysis expects results of
+        /// constant-set propagation analysis.
+        /// </summary>
+        /// <param name="cfg"></param>
+        /// <param name="cspInfo"></param>
+        /// <param name="results"></param>
+        /// <returns></returns>
         private UsedColumnsAnalysis DoUsedColumnsAnalysis(ControlFlowGraph cfg, ConstantsInfoProvider cspInfo, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running used columns analysis...");         
@@ -255,6 +308,13 @@ namespace ScopeAnalyzer
 
 
         //string _code = String.Empty;
+
+        /// <summary>
+        /// For a given methodDefinition, create a CFG and run basic analyses such as
+        /// stack removal, SSA transformation, live-variables analysis, and copy-propagation.
+        /// </summary>
+        /// <param name="methodDefinition"></param>
+        /// <returns></returns>
         private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
         {
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
@@ -267,25 +327,20 @@ namespace ScopeAnalyzer
             ControlFlowGraph.ComputeDominatorTree(cfg);
             ControlFlowGraph.ComputeDominanceFrontiers(cfg);
 
+            // Uniquely rename stack variables.
             var splitter = new WebAnalysis(cfg);
             splitter.Analyze();
             splitter.Transform();
 
             methodBody.UpdateVariables();
 
+            // Infer types for stack variables.
             var typeAnalysis = new TypeInferenceAnalysis(cfg);
             typeAnalysis.Analyze();
-            
-            //var forwardCopyAnalysis = new ForwardCopyPropagationAnalysis(cfg);
-            //forwardCopyAnalysis.Analyze();
-            //forwardCopyAnalysis.Transform(methodBody);
 
             var backwardCopyAnalysis = new BackwardCopyPropagationAnalysis(cfg);
             backwardCopyAnalysis.Analyze();
             backwardCopyAnalysis.Transform(methodBody);
-
-            //var pointsTo = new PointsToAnalysis(cfg);
-            //var result = pointsTo.Analyze();
 
             var lva = new LiveVariablesAnalysis(cfg);
             lva.Analyze();
@@ -296,14 +351,13 @@ namespace ScopeAnalyzer
 
             methodBody.UpdateVariables();
 
-            //var dot = DOTSerializer.Serialize(cfg);
-            //var dgml = DGMLSerializer.Serialize(cfg);
             //_code = methodBody.ToString();
             return cfg;
         }
 
         /// <summary>
-        /// Check if a method is a processor (reducer) method.
+        /// Check if a method is a processor (reducer) method. Also, include the check
+        /// for method being declared interesting by the class user.
         /// </summary>
         /// <param name="method"></param>
         /// <returns></returns>
@@ -323,9 +377,11 @@ namespace ScopeAnalyzer
                 return false;
             var type = (rmtype as INestedTypeDefinition).ContainingTypeDefinition.Resolve(mhost);
 
+            //TODO: push this check up later. Here currently to test CCI types for robustness.
             if (interestingProcessors != null && !interestingProcessors.Contains(type.FullName()))
                 return false;
-
+            
+            // We are interested in processors, reducers, and combiners.
             if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && 
                 processorTypes.All(pt => !type.SubtypeOf(pt, mhost)) &&
                 combinerTypes.All(ct => !type.SubtypeOf(ct, mhost)))
@@ -339,7 +395,10 @@ namespace ScopeAnalyzer
         }
 
 
-
+        /*
+         * The following two classes are simple implementations of escape and constant propagation
+         * results interfaces, using the results of the actual analysis used by ScopeAnalysis.
+         */
 
         private class NaiveScopeEscapeInfoProvider : EscapeInfoProvider
         {
@@ -370,6 +429,7 @@ namespace ScopeAnalyzer
                 return domain.Escaped(field);
             }
 
+            // We currently don't have any escape analysis for array accesses.
             public bool Escaped(Instruction instruction, IVariable array, int index)
             {
                 return true;
@@ -386,7 +446,6 @@ namespace ScopeAnalyzer
                 info = results;
                 host = h;
             }
-
 
             public IEnumerable<Constant> GetConstants(Instruction instruction, IVariable var)
             {
@@ -412,6 +471,7 @@ namespace ScopeAnalyzer
                 return new HashSet<Constant>(fieldDomain.Elements);
             }
 
+            // We currently don't have any constant-set propagation analysis for array accesses.
             public IEnumerable<Constant> GetConstants(Instruction instruction, IVariable array, int index)
             {
                 return null;
