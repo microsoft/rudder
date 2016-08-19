@@ -13,6 +13,7 @@ using Model;
 using System.Globalization;
 using ScopeProgramAnalysis;
 using static Backend.Analyses.IteratorPointsToAnalysis;
+using ScopeProgramAnalysis.Framework;
 
 namespace Backend.Analyses
 {
@@ -884,7 +885,14 @@ namespace Backend.Analyses
                                 // I first check in the calle may a input/output row
                                 var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
                                                     .Where(n => n!=PointsToGraph.NullNode);
-                                var escaping = currentPTG.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+
+                                // If it is a method within the same class it will be able to acesss all the fiealds 
+                                var isInternalClassInvocation = methodInvoked.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass);
+
+                                Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nf => isInternalClassInvocation ||
+                                                   nf.Item2.ContainingType != this.iteratorDependencyAnalysis.iteratorClass);
+                                argRootNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
+                                var escaping = argRootNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                                 if (escaping)
                                 {
                                     if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled 
@@ -983,6 +991,8 @@ namespace Backend.Analyses
                     {
                         System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
                         System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
+                                    String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
                         AnalysisStats.TotalofFrameworkErrors++;
                         HandleNoAnalyzableMethod(instruction, methodCallStmt);
                     }
@@ -1076,16 +1086,15 @@ namespace Backend.Analyses
                     UpdateUsingDefUsed(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods
-                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.ResolvedType !=null && TypeHelper.Type1ImplementsType2(methodInvoked.ContainingType.ResolvedType,PlatformTypes.ICollection))
+                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsCollectionMethod())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) 
-                                                  && methodInvoked.ContainingType.Name.Contains("Enumerable"))
+                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.IsEnumerableMethod())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-                else if(pureCollectionMethods.Contains(methodInvoked.Name) &&  TypeHelper.IsContainer(methodInvoked.ContainingType))
+                else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsContainerMethod())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
@@ -1328,7 +1337,7 @@ namespace Backend.Analyses
             private bool IsMethodToInline(IMethodReference methodInvoked, IType clousureType)
             {
                 var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
-                var specialMethods = new Tuple<string,string>[] { Tuple.Create("IDisposable", "Dispose") };
+                var specialMethods = new Tuple<string, string>[] { }; //  { Tuple.Create("IDisposable", "Dispose") };
                 var result = methodInvoked.ContainingType != null 
                     && ( methodInvoked.ContainingType.Equals(clousureType) && patterns.Any(pattern => methodInvoked.Name.StartsWith(pattern))
                          || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.Name && sm.Item2 == methodInvoked.Name));
