@@ -9,6 +9,7 @@ using System.Diagnostics;
 using Microsoft.Cci;
 using Frontend;
 using ScopeAnalyzer;
+using ScopeAnalyzer.Misc;
 
 
 namespace BulkScopeAnalyzer
@@ -25,9 +26,12 @@ namespace BulkScopeAnalyzer
 
         static void DoParallel()
         {
-            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            string tracePath = "bulk-trace.txt";
+            Utils.SetOutput(tracePath);
+
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
             //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
 
             string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
@@ -35,7 +39,7 @@ namespace BulkScopeAnalyzer
             string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
             var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
-            Console.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
+            Utils.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
             var tasks = new List<Task>();
             int skippedProjects = 0;
             for (int i = 0; i < subdirs.Length; i++)
@@ -48,7 +52,7 @@ namespace BulkScopeAnalyzer
                 // then there is no need to analyze this Scope project.
                 if (!CreateProcessorIdMapping(subdir, libs, mapping))
                 {
-                    Console.WriteLine("Skipping Scope project since processor mapping computation was unsuccessful: " + subdir);
+                    Utils.WriteLine("Skipping Scope project since processor mapping computation was unsuccessful: " + subdir);
                     skippedProjects++;
                     continue;
                 }
@@ -73,10 +77,10 @@ namespace BulkScopeAnalyzer
                 }
             }
 
-            Console.WriteLine("Skipped projects: " + skippedProjects);
-            Console.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
+            Utils.WriteLine("Skipped projects: " + skippedProjects);
+            Utils.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
             Task.WaitAll(tasks.ToArray());
-            Console.WriteLine("Done");
+            Utils.WriteLine("Done");
         }
 
 
@@ -86,7 +90,7 @@ namespace BulkScopeAnalyzer
             var mainDll = subdir + "\\" + Utils.MAIN_DLL_NAME;
             if (!libs.Contains(mainDll))
             {
-                Console.WriteLine("Did not find main scope dll: " + subdir);
+                Utils.WriteLine("Did not find main scope dll: " + subdir);
                 return false;
             }
 
@@ -113,11 +117,11 @@ namespace BulkScopeAnalyzer
                 {
                     file.Write(summary);
                 }
-                Console.WriteLine("Successfully extracted processor to id mapping for the main dll: " + subdir);
+                Utils.WriteLine("Successfully extracted processor to id mapping for the main dll: " + subdir);
             }
             catch
             {
-                Console.WriteLine("WARNING: failed to extract processor to id mapping the main dll: " + subdir);
+                Utils.WriteLine("WARNING: failed to extract processor to id mapping the main dll: " + subdir);
                 return false;
             }
             return true;
@@ -132,7 +136,7 @@ namespace BulkScopeAnalyzer
             }
             catch (Exception e)
             {
-                Console.WriteLine("WARNING: failed to get dll paths " + e.Message);
+                Utils.WriteLine("WARNING: failed to get dll paths " + e.Message);
             }
             return dlls;
         }

@@ -180,7 +180,7 @@ namespace ScopeAnalyzer
         /// <param name="methodDefinition"></param>
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
-            //if (!methodDefinition.FullName().Contains("Bao.SkuLicensingPackageReferenceLicensingKeyReducer.<Reduce>d__0.MoveNext"))
+            //if (!methodDefinition.FullName().Contains("MMRV2.IndexSelection.DPGenDomainKeyProcessor"))
             //    return;
 
             //if (!methodDefinition.FullName().Contains("ScopeML.Prediction.CompactModelBuilderReducer") || !methodDefinition.FullName().Contains("MoveNext"))
@@ -273,7 +273,7 @@ namespace ScopeAnalyzer
             Utils.WriteLine("Running constant propagation set analysis...");
             var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost, schemaTypes);
             results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
-            Utils.WriteLine(results.CPropagationSummary.ToString());
+            //Utils.WriteLine(results.CPropagationSummary.ToString());
             Utils.WriteLine("Done with constant propagation set analysis\n");
             return cpsAnalysis;
         }

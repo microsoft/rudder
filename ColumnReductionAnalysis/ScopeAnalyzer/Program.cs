@@ -1,6 +1,4 @@
-﻿// Copyright (c) Edgardo Zoppi.  All Rights Reserved.  Licensed under the MIT License.  See License.txt in the project root for license information.
-
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Collections.Generic;
