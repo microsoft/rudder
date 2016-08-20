@@ -34,7 +34,7 @@ namespace BulkScopeAnalyzer
             string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
             string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
-            var subdirs = SubDirectoryPaths(mainFolder);
+            var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
             Console.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
             var tasks = new List<Task>();
             int skippedProjects = 0;
@@ -52,7 +52,7 @@ namespace BulkScopeAnalyzer
                     skippedProjects++;
                     continue;
                 }
-
+                
                 for (int j = 0; j < libs.Count; j++)
                 {
                     string output = outputPrefix + String.Format("output_{0}.txt", (tasks.Count + 1));
@@ -80,27 +80,6 @@ namespace BulkScopeAnalyzer
         }
 
 
-
-
-
-        private static string[] SubDirectoryPaths(string dir)
-        {
-            return Directory.GetDirectories(dir);
-        }
-
-        private static List<string> LibraryPaths(string dir)
-        {
-            var dlls = new List<string>();
-            try
-            {
-                dlls = Utils.CollectAssemblies(dir);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("WARNING: failed to get dll paths " + e.Message);
-            }
-            return dlls;
-        }
 
         private static bool CreateProcessorIdMapping(string subdir, IEnumerable<string> libs, string outpath)
         {
@@ -144,6 +123,19 @@ namespace BulkScopeAnalyzer
             return true;
         }
 
+        private static List<string> LibraryPaths(string dir)
+        {
+            var dlls = new List<string>();
+            try
+            {
+                dlls = Utils.CollectAssemblies(dir);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("WARNING: failed to get dll paths " + e.Message);
+            }
+            return dlls;
+        }
 
         #region deprecated
 
@@ -157,7 +149,7 @@ namespace BulkScopeAnalyzer
             string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
             string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
-            var subdirs = SubDirectoryPaths(mainFolder);
+            var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
             Console.WriteLine(String.Format("Analyzing {0} Scope projects\n", subdirs.Length));
             int dll_count = 0;
             for (int i = 0; i < subdirs.Length; i++)

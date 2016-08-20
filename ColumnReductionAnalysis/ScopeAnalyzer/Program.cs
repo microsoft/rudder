@@ -31,7 +31,6 @@ namespace ScopeAnalyzer
         public int NotCPropagationDummies;
         public int NotColumnDummies;
 
-
         public int Mapped;
 
         public int ColumnsContained;
@@ -52,6 +51,31 @@ namespace ScopeAnalyzer
             ColumnsContained = ColumnsEqual = ColumnsWarnings = ColumnsSavings = 0;
             ColumnIndexAccesses = ColumnStringAccesses = 0;
         }
+
+        public override string ToString()
+        {
+            string summary = String.Empty;
+            summary += "Assemblies: " + Assemblies + "\n";
+            summary += "Assemblies loaded: " + AssembliesLoaded + "\n";
+            summary += "\n";
+            summary += "Methods: " + Methods + "\n";
+            summary += "Methods failed: " + FailedMethods + "\n";
+            summary += "\n";
+            summary += "Interesting methods (not failed): " + InterestingMethods + "\n";
+            summary += "Unsupported feature methods: " + UnsupportedMethods + "\n";
+            summary += "\n";
+            summary += "Concrete-columns-found methods: " + NotColumnDummies + "\n";
+            summary += "\n";
+            summary += "Concrete methods successfully mapped: " + Mapped + "\n";
+            summary += "Used columns proper subset: " + ColumnsContained + "\n";
+            summary += "Used columns equal: " + ColumnsEqual + "\n";
+            summary += "Used columns warnings: " + ColumnsWarnings + "\n";
+            summary += "Used columns savings: " + ColumnsSavings + "\n";
+            summary += "\n";
+            summary += "Used columns string accesses: " + ColumnStringAccesses + "\n";
+            summary += "Used columns index accesses: " + ColumnIndexAccesses + "\n";
+            return summary;
+        }
     }
 
 
@@ -61,7 +85,7 @@ namespace ScopeAnalyzer
         public static void Main(string[] args)
         {
             var stats = AnalyzeAssemblies(args);
-            PrintScopeAnalysisStats(stats);
+            Utils.WriteLine(stats.ToString());
             Utils.WriteLine("SUCCESS");
             Utils.OutputClose();
         }
@@ -226,29 +250,6 @@ namespace ScopeAnalyzer
         }
 
 
-
-        public static void PrintScopeAnalysisStats(ScopeAnalysisStats stats)
-        {
-            Utils.WriteLine("Assemblies: " + stats.Assemblies);
-            Utils.WriteLine("Assemblies loaded: " + stats.AssembliesLoaded);
-            Utils.WriteLine("");
-            Utils.WriteLine("Methods: " + stats.Methods);
-            Utils.WriteLine("Methods failed: " + stats.FailedMethods);
-            Utils.WriteLine("");
-            Utils.WriteLine("Interesting methods (not failed): " + stats.InterestingMethods);
-            Utils.WriteLine("Unsupported feature methods: " + stats.UnsupportedMethods);
-            Utils.WriteLine("");          
-            Utils.WriteLine("Concrete-columns-found methods: " + stats.NotColumnDummies);
-            Utils.WriteLine("");
-            Utils.WriteLine("Concrete methods successfully mapped: " + stats.Mapped);
-            Utils.WriteLine("Used columns proper subset: " + stats.ColumnsContained);
-            Utils.WriteLine("Used columns equal: " + stats.ColumnsEqual);
-            Utils.WriteLine("Used columns warnings: " + stats.ColumnsWarnings);
-            Utils.WriteLine("Used columns savings: " + stats.ColumnsSavings);
-            Utils.WriteLine("");
-            Utils.WriteLine("Used columns string accesses: " + stats.ColumnStringAccesses);
-            Utils.WriteLine("Used columns index accesses: " + stats.ColumnIndexAccesses);
-        }
 
 
         [HandleProcessCorruptedStateExceptions]

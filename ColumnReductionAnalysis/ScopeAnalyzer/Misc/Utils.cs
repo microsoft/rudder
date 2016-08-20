@@ -62,5 +62,11 @@ namespace ScopeAnalyzer
             foreach (var file in dllFiles) assemblies.Add(file.FullName);
             return assemblies;
         }
+
+
+        public static string[] GetSubDirectoriesPaths(string dir)
+        {
+            return Directory.GetDirectories(dir);
+        }
     }
 }
