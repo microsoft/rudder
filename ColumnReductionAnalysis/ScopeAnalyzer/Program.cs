@@ -227,8 +227,9 @@ namespace ScopeAnalyzer
                 if (usedColumns.IsProperSubsetOf(allSchemaColumns))
                 {
                     stats.ColumnsContained += 1;
-                    stats.ColumnsSavings += (allSchemaColumns.Count - usedColumns.Count);
-                    Utils.WriteLine("SAVINGS: used columns subset of defined columns: " + stats.ColumnsSavings);
+                    var savings = (allSchemaColumns.Count - usedColumns.Count);
+                    stats.ColumnsSavings += savings;
+                    Utils.WriteLine("SAVINGS: used columns subset of defined columns: " + savings);
                 }
                 else if (allSchemaColumns.SetEquals(usedColumns))
                 {
