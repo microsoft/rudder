@@ -179,13 +179,18 @@ namespace ScopeProgramAnalysis
         }
         public static bool IsScopeType(IType type)
         {
-            string[] scopeTypes = new[] { "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
+            string[] scopeTypes = new[] { "RowList", "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
+            string[] scopeUsageTypes = new[] { "ScopeMapUsage",  "IEnumerable<ScopeMapUsage>", "IEnumerator<ScopeMapUsage>" };
             var basicType = type as IBasicType;
             if (basicType == null)
             {
                 return false;
             }
             if (basicType.ContainingAssembly.Name == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
+            {
+                return true;
+            }
+            if ( scopeUsageTypes.Contains(basicType.Name))
             {
                 return true;
             }

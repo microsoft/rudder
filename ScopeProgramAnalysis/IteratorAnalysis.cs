@@ -469,7 +469,15 @@ namespace Backend.Analyses
                     this.schemaFieldMap[fieldAccess.Field] = instruction.Operand;
                 }
             }
+            internal void PropagateCopy(LoadInstruction loadStmt, IVariable v)
+            {
+                if (this.columnVariable2Literal.ContainsKey(v))
+                {
+                    this.columnVariable2Literal[loadStmt.Result] = this.columnVariable2Literal[v];
+                }
+            }
         }
+
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
         {
             private IDictionary<IVariable, IExpression> equalities;
@@ -516,15 +524,29 @@ namespace Backend.Analyses
                     instanceType= (instanceType as PointerType).TargetType;
                 }
 
-                if ( ((IBasicType)instanceType).Name == this.iteratorDependencyAnalysis.iteratorClass.Name) 
+                if ( instanceType.Equals(this.iteratorDependencyAnalysis.iteratorClass)) 
                     // && !fieldAccess.FieldName.StartsWith.Contains("<>1__state"))
                 {
                     return true;
                 }
-                var isClousureField = this.iteratorDependencyAnalysis.iteratorClass.Name == field.ContainingType.Name;
+                var isClousureField = this.iteratorDependencyAnalysis.iteratorClass.Equals(field.ContainingType);
+
+                // TODO: need to read an attribute of something
+
+                bool isCompilerGenerated = false;
+                var typeAsClass = (instance.Type as IBasicType);
+                if (typeAsClass != null && typeAsClass.ResolvedType != null)
+                {
+                    var typeAsClassResolved = (typeAsClass.ResolvedType as ClassDefinition);
+                    isCompilerGenerated = typeAsClassResolved.ContainingType!=null &&
+                                          this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
+                                        && typeAsClassResolved.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
+                }
                 var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
-                                        && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == field.ContainingType.Name;
-                if(isClousureField || isReducerField)
+                    && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Equals(field.ContainingType);
+
+
+                if(isClousureField || isReducerField || isCompilerGenerated)
                 {
                     return true;
                 }
@@ -573,7 +595,7 @@ namespace Backend.Analyses
                     if (operand is Reference)
                     {
                         var referencedValue = (operand as Reference).Value;
-                        if (SongTaoDependencyAnalysis.IsScopeType(referencedValue.Type))
+                        //if (SongTaoDependencyAnalysis.IsScopeType(referencedValue.Type))
                         {
                             var isHandled = HandleLoadWithOperand(loadStmt, referencedValue);
                             if (!isHandled)
@@ -586,7 +608,7 @@ namespace Backend.Analyses
                     else if (operand is Dereference)
                     {
                         var reference = (operand as Dereference).Reference;
-                        if (SongTaoDependencyAnalysis.IsScopeType(reference.Type))
+                        //if (SongTaoDependencyAnalysis.IsScopeType(reference.Type))
                         {
                             var isHandled = HandleLoadWithOperand(loadStmt, reference);
                             if (!isHandled)
@@ -665,6 +687,10 @@ namespace Backend.Analyses
                 {
                     var v = operand as IVariable;
                     this.State.CopyTraceables(loadStmt.Result, v);
+                    if (v.Type.IsInteger())
+                    {
+                        scopeData.PropagateCopy(loadStmt, v);
+                    }
                 }
                 // For these cases I'm doing nothing
                 else if (operand is Constant)
@@ -684,22 +710,27 @@ namespace Backend.Analyses
                 // a2:= [v <- a2[o] U a3[loc(o.f)] if loc(o.f) is CF
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
-                //var traceables = this.State.GetTraceables(fieldAccess.Instance);
                 var traceables = new HashSet<Traceable>();
+                // TODO: Check this. I think it is too conservative to add a2[o]
+                // this is a2[o]
+                if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
+                {
+                    traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
+                }
 
-                //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
+                    //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
                 if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                 {
                     // this is a[loc(o.f)]
                     foreach (var ptgNode in currentPTG.GetTargets(fieldAccess.Instance))
                     {
                         var loc = new Location(ptgNode, fieldAccess.Field);
-                        if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
-                        { }
+                        //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
+                        //{ }
                         if (this.State.Dependencies.A3_Clousures.ContainsKey(loc))
                         {
-                            if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
-                            { }
+                            //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
+                            //{ }
 
                             traceables.UnionWith(this.State.Dependencies.A3_Clousures[loc]);
                         }
@@ -1040,10 +1071,10 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                if (containingType is BasicType && metodCallStmt.Method.Name==".ctor")
-                {
-                    return true;
-                }
+                //if (containingType is BasicType && metodCallStmt.Method.Name==".ctor")
+                //{
+                //    return true;
+                //}
                 if (containingType.TypeKind == TypeKind.ValueType)
                 {
                     return true;
@@ -1156,18 +1187,19 @@ namespace Backend.Analyses
                 var result = true;
                 // This is when you get rows
                 // a2 = a2[v<- a[arg_0]] 
-                if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.Name == "RowSet"
-                    && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType()) 
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
 
                     // TODO: I don't know I need this
-                    //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+                    scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
-                else if (methodInvoked.Name == "GetEnumerator" && methodInvoked.ContainingType.GenericName== "IEnumerable<Row>")
+                else if (methodInvoked.Name == "GetEnumerator" 
+                    && (methodInvoked.ContainingType.GenericName== "IEnumerable<Row>"
+                       || methodInvoked.ContainingType.GenericName == "IEnumerable<ScopeMapUsage>"))
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1194,8 +1226,8 @@ namespace Backend.Analyses
                 }
                 // v = arg.getItem(col)
                 // a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "get_Item" && methodInvoked.ContainingType.GenericName== "Row"
-                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                else if (methodInvoked.Name == "get_Item" && methodInvoked.ContainingType.IsRowType())
+//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
 
                 {
                     var arg = methodCallStmt.Arguments[0];
@@ -1210,8 +1242,8 @@ namespace Backend.Analyses
                 }
                 // arg.Set(arg1)
                 // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
-                else if (methodInvoked.Name == "Set" && methodInvoked.ContainingType.Name == "ColumnData"
-                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                else if (methodInvoked.Name == "Set" && methodInvoked.ContainingType.IsColumnDataType())
+//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
@@ -1223,8 +1255,8 @@ namespace Backend.Analyses
                 }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
-                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.Name == "Row"
-                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsRowType())
+//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     // TODO: This is a pass-through!
                     var arg0 = methodCallStmt.Arguments[0];
@@ -1244,19 +1276,19 @@ namespace Backend.Analyses
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg1, traceables);
                 }
-                else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.Name == "ColumnData"
-                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.IsColumnDataType())
+//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
-                else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.Name == "RowList" 
-                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.IsRowListType()) 
+//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
 
                 {
                     var receiver = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
-                    this.State.CopyTraceables(receiver, arg1);
+                    this.State.AddTraceables(receiver, arg1);
                 }
                 else if(methodInvoked.ContainingType.ContainingNamespace=="ScopeRuntime")
                 {
@@ -1374,9 +1406,8 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var tables= scopeData.GetTableFromSchemaMap(arg);
-
-                    ColumnDomain column = GetColumnData(methodCallStmt);
-                    this.State.AddTraceables(methodCallStmt.Result, tables.OfType<TraceableTable>().Select(t => new TraceableColumn(t, column)));
+                    ColumnDomain column = UpdateColumnData(methodCallStmt);
+                    //this.State.AssignTraceables(methodCallStmt.Result, tables.OfType<TraceableTable>().Select(t => new TraceableColumn(t, column)));
                 }
                 else
                 {
@@ -1385,7 +1416,7 @@ namespace Backend.Analyses
                 return result;
             }
 
-            private ColumnDomain GetColumnData(MethodCallInstruction methodCallStmt)
+            private ColumnDomain UpdateColumnData(MethodCallInstruction methodCallStmt)
             {
                 var columnn = ObtainColumn(methodCallStmt.Arguments[1]);
                 scopeData.UpdateColumnMap(methodCallStmt, columnn);

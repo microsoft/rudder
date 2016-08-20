@@ -19,6 +19,7 @@ namespace ScopeProgramAnalysis
 
         public static readonly BasicType Row = New(scopeAssembly, scopeNameSpace, "Row", TypeKind.ReferenceType);
         public static readonly BasicType RowSet = New(scopeAssembly, scopeNameSpace, "RowSet", TypeKind.ReferenceType);
+        public static readonly BasicType RowList = New(scopeAssembly, scopeNameSpace, "RowList", TypeKind.ReferenceType);
         public static readonly BasicType IEnumerable_Row = New(scopeAssembly, scopeNameSpace, "IEnumerable", TypeKind.ReferenceType, "Row");
         public static readonly BasicType IEnumerator_Row = New(scopeAssembly, scopeNameSpace, "IEnumerator", TypeKind.ReferenceType, "Row");
      

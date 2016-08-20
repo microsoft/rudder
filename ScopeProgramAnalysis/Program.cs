@@ -43,8 +43,11 @@ namespace ScopeProgramAnalysis
         static void Main(string[] args)
         {
             var useScopeFactory = true;
+            var scopeKind = ScopeMethodKind.All;
+
             //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
             //const string input = root + @"__ScopeCodeGen__.dll";
+            //scopeKind = ScopeMethodKind.Reducer;
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
 
             // Mike example: FileChunker
@@ -89,7 +92,7 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
+            AnalyzeOneDll(input, outputPath, scopeKind, useScopeFactory);
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -107,7 +110,7 @@ namespace ScopeProgramAnalysis
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, outputPath, ScopeMethodKind.All, useScopeFactory);
+            AnalyzeDll(input, outputPath, kind, useScopeFactory);
         }
 
         public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind, 
