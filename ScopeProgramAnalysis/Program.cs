@@ -175,7 +175,6 @@ namespace ScopeProgramAnalysis
 
                 foreach (var methodPair in scopeMethodPairs)
                 {
-                    var results = new List<Result>();
 
                     var entryMethodDef = methodPair.Item1;
                     var moveNextMethod = methodPair.Item2;
@@ -190,72 +189,8 @@ namespace ScopeProgramAnalysis
 
                         program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
 
-                        var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult);
 
-                        var result = new Result();
-
-                        var inputUses = new HashSet<Traceable>();
-                        var outputModifies = new HashSet<Traceable>();
-
-
-                        if (!depAnalysisResult.IsTop)
-                        {
-                            if (depAnalysisResult.Dependencies.A4_Ouput.Any())
-                            {
-                                foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
-                                {
-                                    result = new Result();
-                                    foreach (var column in depAnalysisResult.Dependencies.A2_Variables[outColum])
-                                    {
-                                        var columnString = column.ToString();
-                                        var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
-                                        result.SetProperty("column", columnString);
-                                        result.SetProperty("depends", dependsOn.Select(traceable => traceable.ToString()));
-                                        result.SetProperty("escapes", escapes);
-                                        results.Add(result);
-
-                                        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
-                                        outputModifies.Add(column);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                result = new Result();
-                                result.SetProperty("column", "_EMPTY_");
-                                result.SetProperty("escapes", escapes);
-                                results.Add(result);
-                            }
-                        }
-                        else
-                        {
-                            result = new Result();
-                            result.SetProperty("column", "_TOP_");
-                            result.SetProperty("depends", "_TOP_");
-                            results.Add(result);
-                        }
-                        var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
-                        var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
-
-                        result = new Result();
-                        result.SetProperty("Inputs", inputsString);
-                        result.SetProperty("Ouputs", outputsString);
-                        results.Add(result);
-
-                        if (outputStream != null)
-                        {
-                            outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
-                            if (depAnalysisResult.IsTop)
-                            {
-                                outputStream.WriteLine("Analysis returns TOP");
-                            }
-                            outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
-                            outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
-                        }
-                        
-
-                        AddRunToSarifOutput(log, inputPath, moveNextMethod, results);
-                
                     }
                     catch (Exception e)
                     {
@@ -335,6 +270,81 @@ namespace ScopeProgramAnalysis
             //{
             //    System.Console.WriteLine("No {0} class in {1}", kind, inputPath);
             //}
+        }
+
+        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult)
+        {
+            var results = new List<Result>();
+
+            var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+
+            var result = new Result();
+
+            var inputUses = new HashSet<Traceable>();
+            var outputModifies = new HashSet<Traceable>();
+
+            if (!depAnalysisResult.IsTop)
+            {
+                if (depAnalysisResult.Dependencies.A4_Ouput.Any())
+                {
+                    foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
+                    {
+                        result = new Result();
+                        var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
+                                                                    .Where(t => t.TableKind == ProtectedRowKind.Output);
+                        foreach (var column in outColumns)
+                        {
+                            var columnString = column.ToString();
+                            var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
+                            var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
+                            //dependsOn.AddRange(traceables);
+                            result.SetProperty("column", columnString);
+                            result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
+                            result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
+                            result.SetProperty("escapes", escapes);
+                            results.Add(result);
+
+                            inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                            outputModifies.Add(column);
+                        }
+                    }
+                }
+                else
+                {
+                    result = new Result();
+                    result.SetProperty("column", "_EMPTY_");
+                    result.SetProperty("escapes", escapes);
+                    results.Add(result);
+                }
+            }
+            else
+            {
+                result = new Result();
+                result.SetProperty("column", "_TOP_");
+                result.SetProperty("depends", "_TOP_");
+                results.Add(result);
+            }
+            var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
+            var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
+
+            result = new Result();
+            result.SetProperty("Inputs", inputsString);
+            result.SetProperty("Ouputs", outputsString);
+            results.Add(result);
+
+            if (outputStream != null)
+            {
+                outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
+                if (depAnalysisResult.IsTop)
+                {
+                    outputStream.WriteLine("Analysis returns TOP");
+                }
+                outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
+                outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
+            }
+
+
+            AddRunToSarifOutput(log, inputPath, moveNextMethod, results);
         }
 
         private static void LoadExternalReferences(IEnumerable<string> referenceFiles, Loader loader)

@@ -184,9 +184,13 @@ namespace ScopeProgramAnalysis
                 {
                     calleeDepDomain.AssignTraceables(param, callInfo.CallerState.GetTraceables(arg));
                 }
-                if (callInfo.CallerState.Dependencies.A4_Ouput.ContainsKey(arg))
+                //if (callInfo.CallerState.Dependencies.A4_Ouput.ContainsKey(arg))
                 {
                     calleeDepDomain.AssignOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
+                }
+                //if (callInfo.CallerState.Dependencies.A4_Ouput_Control.ContainsKey(arg))
+                {
+                    calleeDepDomain.AssignOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
                 }
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
@@ -224,18 +228,31 @@ namespace ScopeProgramAnalysis
 
                 callInfo.CallerState.AddTraceables(arg, exitResult.GetTraceables(param));
 
-                if (exitResult.Dependencies.A4_Ouput.ContainsKey(param))
+//                if (exitResult.Dependencies.A4_Ouput.ContainsKey(param))
                 {
                     callInfo.CallerState.AddOutputTraceables(arg, exitResult.GetOutputTraceables(param));
                 }
+//               if (exitResult.Dependencies.A4_Ouput_Control.ContainsKey(param))
+                {
+                    callInfo.CallerState.AddOutputControlTraceables(arg, exitResult.GetOutputControlTraceables(param));
+                }
+
             }
 
-            foreach(var outputVar in exitResult.Dependencies.A4_Ouput.Keys)
+            foreach (var outputVar in exitResult.Dependencies.A4_Ouput.Keys)
             {
                 var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
                 newVar.Type = outputVar.Type;
                 callInfo.CallerState.AssignTraceables(newVar, exitResult.GetTraceables(outputVar));
                 callInfo.CallerState.AssignOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
+                callInfo.CallerState.AssignOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
+            }
+            foreach (var outputVar in exitResult.Dependencies.A4_Ouput_Control.Keys.Except(exitResult.Dependencies.A4_Ouput.Keys))
+            {
+                var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
+                newVar.Type = outputVar.Type;
+                callInfo.CallerState.AssignTraceables(newVar, exitResult.GetTraceables(outputVar));
+                callInfo.CallerState.AssignOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
             }
 
             callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);

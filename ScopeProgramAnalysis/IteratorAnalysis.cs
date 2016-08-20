@@ -36,11 +36,12 @@ namespace Backend.Analyses
         public override bool Equals(object obj)
         {
             var oth = obj as Traceable;
-            return oth!= null && oth.TableName.Equals(this.TableName);
+            return oth!= null && oth.TableName.Equals(this.TableName)
+                && oth.TableKind.Equals(this.TableKind);
         }
         public override int GetHashCode()
         {
-            return TableName.GetHashCode();
+            return TableName.GetHashCode()+TableKind.GetHashCode();
         }
         public override string ToString()
         {
@@ -48,10 +49,16 @@ namespace Backend.Analyses
         }
 
     }
+
+    public class Other : Traceable
+    {
+        public Other(string name) : base(name, ProtectedRowKind.Unknown)
+        {
+        }
+    }
     public class TraceableTable: Traceable
     {
         private ProtectedRowNode node;
-
 
         public TraceableTable(ProtectedRowNode node) : base(node.KindToString(), node.RowKind)
         {
@@ -88,7 +95,7 @@ namespace Backend.Analyses
         }
         public override int GetHashCode()
         {
-            return this.Name.GetHashCode();
+            return this.Name.GetHashCode() + base.GetHashCode();
         }
     }
 
@@ -677,8 +684,8 @@ namespace Backend.Analyses
                 // a2:= [v <- a2[o] U a3[loc(o.f)] if loc(o.f) is CF
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
-                var traceables = this.State.GetTraceables(fieldAccess.Instance);
-
+                //var traceables = this.State.GetTraceables(fieldAccess.Instance);
+                var traceables = new HashSet<Traceable>();
 
                 //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
                 if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
@@ -1212,7 +1219,7 @@ namespace Backend.Analyses
                     this.State.AddOutputTraceables(arg0, arg1);
 
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputTraceables(arg0, traceables);
+                    this.State.AddOutputControlTraceables(arg0, traceables);
                 }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
@@ -1235,7 +1242,7 @@ namespace Backend.Analyses
                     this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
                     //
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputTraceables(arg1, traceables);
+                    this.State.AddOutputControlTraceables(arg1, traceables);
                 }
                 else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.Name == "ColumnData"
                                         && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
@@ -1501,6 +1508,13 @@ namespace Backend.Analyses
                                                                         new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type))));
                             }
                         }
+                    }
+                }
+                foreach(var v in cfg.GetVariables())
+                {
+                    if(!SongTaoDependencyAnalysis.IsScopeType(v.Type))
+                    {
+                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
                     }
                 }
             }

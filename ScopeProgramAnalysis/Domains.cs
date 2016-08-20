@@ -74,8 +74,8 @@ namespace ScopeProgramAnalysis
 
         public void CopyTraceables(IVariable destination, IVariable source)
         {
-            HashSet<Traceable> union = GetTraceables(source);
-            this.Dependencies.A2_Variables[destination] = union;
+            HashSet<Traceable> traceables = GetTraceables(source);
+            this.Dependencies.A2_Variables[destination] = traceables;
         }
 
         public void AssignTraceables(IVariable destination, IEnumerable<Traceable> traceables)
@@ -121,6 +121,19 @@ namespace ScopeProgramAnalysis
             //return this.Dependencies.A4_Ouput[arg];
         }
 
+        public HashSet<Traceable> GetOutputControlTraceables(IVariable arg)
+        {
+            var union = new HashSet<Traceable>();
+            foreach (var argAlias in this.PTG.GetAliases(arg))
+            {
+                if (this.Dependencies.A4_Ouput.ContainsKey(argAlias))
+                {
+                    union.UnionWith(this.Dependencies.A4_Ouput_Control[argAlias]);
+                }
+            }
+            return union;
+            //return this.Dependencies.A4_Ouput[arg];
+        }
 
         public void AssignOutputTraceables(IVariable destination, IVariable source)
         {
@@ -142,6 +155,18 @@ namespace ScopeProgramAnalysis
         {
             this.Dependencies.A4_Ouput.AddRange(destination, traceables);
         }
+
+        public void AssignOutputControlTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A4_Ouput_Control[destination] = new HashSet<Traceable>(traceables);
+        }
+
+        public void AddOutputControlTraceables(IVariable destination, IEnumerable<Traceable> traceables)
+        {
+            this.Dependencies.A4_Ouput_Control.AddRange(destination, traceables);
+        }
+
+
 
         public void SetTOP()
         {
@@ -175,6 +200,7 @@ namespace ScopeProgramAnalysis
         public MapSet<Location, Traceable> A3_Clousures { get; set; }
 
         public MapSet<IVariable, Traceable> A4_Ouput { get; private set; }
+        public MapSet<IVariable, Traceable> A4_Ouput_Control { get; private set; }
 
         public ISet<Traceable> A1_Escaping { get; set; }
 
@@ -187,6 +213,7 @@ namespace ScopeProgramAnalysis
             A2_Variables = new MapSet<IVariable, Traceable>();
             A3_Clousures = new MapSet<Location, Traceable>();
             A4_Ouput = new MapSet<IVariable, Traceable>();
+            A4_Ouput_Control = new MapSet<IVariable, Traceable>();
 
             A1_Escaping = new HashSet<Traceable>();
 
@@ -229,6 +256,7 @@ namespace ScopeProgramAnalysis
                 && MapLessEqual(A2_Variables, oth.A2_Variables)
                 && MapLessEqual(A3_Clousures, oth.A3_Clousures)
                 && MapLessEqual(A4_Ouput, oth.A4_Ouput)
+                && MapLessEqual(A4_Ouput_Control, oth.A4_Ouput_Control)
                 && ControlVariables.IsSubsetOf(oth.ControlVariables);
         }
         public override bool Equals(object obj)
@@ -243,6 +271,7 @@ namespace ScopeProgramAnalysis
             //    && MapEquals(oth.A2_Variables, A2_Variables)
             //    && MapEquals(oth.A3_Clousures, A3_Clousures)
             //    && MapEquals(oth.A4_Ouput, A4_Ouput)
+            //    && MapEquals(oth.A4_Ouput_Control, A4_Ouput_Control)
             //    && oth.ControlVariables.IsSubsetOf(ControlVariables);
         }
         public override int GetHashCode()
@@ -263,6 +292,7 @@ namespace ScopeProgramAnalysis
             result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
             result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
             result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
+            result.A4_Ouput_Control = new MapSet<IVariable, Traceable>(this.A4_Ouput_Control);
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
             return result;
         }
@@ -297,6 +327,7 @@ namespace ScopeProgramAnalysis
                 result.A2_Variables.UnionWith(right.A2_Variables);
                 result.A3_Clousures.UnionWith(right.A3_Clousures);
                 result.A4_Ouput.UnionWith(right.A4_Ouput);
+                result.A4_Ouput_Control.UnionWith(right.A4_Ouput_Control);
 
                 result.ControlVariables.UnionWith(right.ControlVariables);
             }
@@ -324,6 +355,11 @@ namespace ScopeProgramAnalysis
             {
                 result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput[var]));
             }
+            result += "A4_Control\n";
+            foreach (var var in this.A4_Ouput_Control.Keys)
+            {
+                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput_Control[var]));
+            }
             result += "Escape\n";
             result += ToString(A1_Escaping);
 
@@ -344,8 +380,8 @@ namespace ScopeProgramAnalysis
                 && oth.A2_Variables.MapEquals(A2_Variables)
                 && oth.A3_Clousures.MapEquals(A3_Clousures)
                 && oth.A4_Ouput.MapEquals(A4_Ouput)
+                && oth.A4_Ouput_Control.MapEquals(A4_Ouput_Control)
                 && oth.ControlVariables.SetEquals(ControlVariables);
-
         }
 
     }
