@@ -210,13 +210,13 @@ namespace ScopeAnalyzer
                     else if (val is int)
                     {
                         int index = Int32.Parse(val.ToString());
-                        if (index < inputColumns.Count)
+                        if (index >= 0 && index < inputColumns.Count)
                             usedColumns.Add(inputColumns[index]);
-                        if (index < outputColumns.Count)
+                        if (index >= 0 && index < outputColumns.Count)
                             usedColumns.Add(outputColumns[index]);
 
-                        if (index >= inputColumns.Count && index >= outputColumns.Count)
-                            Utils.WriteLine("WARNING: index out of schema: " + index);
+                        if ((index >= inputColumns.Count && index >= outputColumns.Count) || index < 0)
+                            Utils.WriteLine("WARNING: some index was out of schema range: " + index);
                     }
                     else
                     {
