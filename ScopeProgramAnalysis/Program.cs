@@ -27,9 +27,9 @@ namespace ScopeProgramAnalysis
 
         public Assembly ScopeGenAssembly { get; private set; }
         public IEnumerable<string> ReferenceFiles { get; private set; }
-        public string ClassFilter { get; private set; }
-        public string EntryMethod { get; private set; }
-        public string ClousureFilter { get; private set; }
+        public HashSet<string>  ClassFilters { get; private set; }
+        public HashSet<string> EntryMethods { get; private set; }
+        public HashSet<string> ClousureFilters { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
 
         public Program(Host host, Loader loader)
@@ -42,6 +42,7 @@ namespace ScopeProgramAnalysis
 
         static void Main(string[] args)
         {
+            var useScopeFactory = true;
             //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
             //const string input = root + @"__ScopeCodeGen__.dll";
             //const string input = @"D:\MadanExamples\3213e974-d0b7-4825-9fd4-6068890d3327\__ScopeCodeGen__.dll";
@@ -50,6 +51,7 @@ namespace ScopeProgramAnalysis
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\\ExampleWithXML\ILAnalyzer.exe";
+            useScopeFactory = false;
 
             // const string input = @"D:\MadanExamples\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll";
             //const string input = @"D:\MadanExamples\15444206-b209-437e-b23b-2d916f18cd35\__ScopeCodeGen__.dll";
@@ -72,8 +74,14 @@ namespace ScopeProgramAnalysis
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             // Zvo Example 2
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll";
-            // Zvo 3
+
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ab0de7e-6110-4cd4-8c30-6e72c013c2f0\__ScopeCodeGen__.dll";
+
+            // Mike's example: 
+            //const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -81,7 +89,7 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, false);
+            AnalyzeOneDll(input, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -92,14 +100,14 @@ namespace ScopeProgramAnalysis
 
         }
 
-        public enum ScopeMethodKind { Producer, Reducer };
+        public enum ScopeMethodKind { Producer, Reducer, All };
 
         private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
         {
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, outputPath, ScopeMethodKind.Reducer, useScopeFactory);
+            AnalyzeDll(input, outputPath, ScopeMethodKind.All, useScopeFactory);
         }
 
         public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind, 
@@ -127,15 +135,25 @@ namespace ScopeProgramAnalysis
             program.ScopeGenAssembly = scopeGenAssembly;
             //program.ReferenceFiles = referenceFiles;
 
-            program.ClassFilter = "Reducer";
-            program.ClousureFilter = "<Reduce>d__";
-            program.EntryMethod = "Reduce";
+            program.ClassFilters = new HashSet<string>();
+            program.ClousureFilters = new HashSet<string>() ;
 
-            if (kind == ScopeMethodKind.Producer)
+            program.EntryMethods = new HashSet<string>(); 
+
+            if (kind == ScopeMethodKind.Reducer || kind == ScopeMethodKind.All)
             {
-                program.ClassFilter = "Producer";
-                program.ClousureFilter = "<Produce>d__";
-                program.EntryMethod = "Produce";
+                program.ClassFilters.Add("Reducer");
+                program.ClousureFilters.Add("<Reduce>d__");
+                program.EntryMethods.Add("Reduce");
+            }
+            if (kind == ScopeMethodKind.Producer || kind == ScopeMethodKind.All)
+            {
+                program.ClassFilters.Add("Process");
+                program.ClousureFilters.Add("<Process>d__");
+                program.EntryMethods.Add("Process");
+                //program.ClassFilter = "Producer";
+                //program.ClousureFilter = "<Produce>d__";
+                //program.EntryMethod = "Produce";
             }
 
             program.MethodUnderAnalysisName = "MoveNext";
@@ -245,14 +263,14 @@ namespace ScopeProgramAnalysis
                         System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                         AnalysisStats.TotalofDepAnalysisErrors++;
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(moveNextMethod, moveNextMethod.Body.Instructions[0],
-                                        String.Format(CultureInfo.InvariantCulture, "Throw exception {0}", e.StackTrace.ToString())));
+                                        String.Format(CultureInfo.InvariantCulture, "Throw exception {0}\n{1}", e.Message, e.StackTrace.ToString())));
                     }
                 }
                 WriteSarifOutput(log, outputPath);
             }
             else
             {
-                System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilter, inputPath);
+                System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
             }
 
 
@@ -343,6 +361,8 @@ namespace ScopeProgramAnalysis
         /// <returns></returns>
         private IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
+            var processorsToAnalyze = new HashSet<ClassDefinition>();
+
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
             var operationFactoryClass = this.ScopeGenAssembly.RootNamespace.GetAllTypes().OfType<ClassDefinition>()
@@ -351,7 +371,8 @@ namespace ScopeProgramAnalysis
             if (operationFactoryClass == null)
                 return new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
             // Hack: use actual ScopeRuntime Types
-            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal) && m.ReturnType.ToString() == this.ClassFilter);
+            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal) 
+                            /*&& m.ReturnType.ToString() == this.ClassFilter*/);
 
             // var referencesLoaded = false;
 
@@ -368,8 +389,13 @@ namespace ScopeProgramAnalysis
 
                     if (resolvedEntryClass != null)
                     {
+                        if (processorsToAnalyze.Contains(resolvedEntryClass))
+                            continue;
+
+                        processorsToAnalyze.Add(resolvedEntryClass);
+
                         var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
-                                       .Where(c => c.Name.StartsWith(this.ClousureFilter));
+                                       .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
                         foreach (var candidateClousure in candidateClousures)
                         {
                             var moveNextMethods = candidateClousure.Methods
@@ -380,7 +406,7 @@ namespace ScopeProgramAnalysis
                             {
                                 AnalysisStats.TotalReducers++;
 
-                                var entryMethod = resolvedEntryClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
+                                var entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name) ).Single();
                                 var getEnumeratorMethod = getEnumMethods.Single();
                                 scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
 
@@ -409,7 +435,7 @@ namespace ScopeProgramAnalysis
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
             var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
-                            .Where(c => c.Base != null && c.Base.Name == this.ClassFilter);
+                            .Where(c => c.Base != null && this.ClassFilters.Contains(c.Base.Name));
             if (candidateClasses.Any())
             {
                 var results = new List<Result>();
@@ -417,7 +443,7 @@ namespace ScopeProgramAnalysis
                 {
                     var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
                     var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
-                                    .Where(c => c.Name.StartsWith(this.ClousureFilter));
+                                    .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
                     foreach (var candidateClousure in candidateClousures)
                     {
                         var methods = candidateClousure.Members.OfType<MethodDefinition>()
@@ -426,7 +452,7 @@ namespace ScopeProgramAnalysis
 
                         if (methods.Any())
                         {
-                            var entryMethod = candidateClass.Methods.Where(m => m.Name == this.EntryMethod).Single();
+                            var entryMethod = candidateClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
                             var moveNextMethod = methods.First();
                             var getEnumMethods = candidateClousure.Methods
                                                         .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);

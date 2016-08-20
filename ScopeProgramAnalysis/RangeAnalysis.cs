@@ -16,14 +16,14 @@ namespace ScopeProgramAnalysis
 {
     public struct RangeDomain : IAnalysisDomain<RangeDomain>
     {
-        public int Start { get; set; }
-        public int End { get; set; }
+        public int LowerBound { get; set; }
+        public int UpperBound { get; set; }
 
         public bool IsTop
         {
             get
             {
-                return Start==int.MinValue && End==int.MaxValue;
+                return LowerBound==int.MinValue && UpperBound==int.MaxValue;
             }
         }
 
@@ -31,53 +31,76 @@ namespace ScopeProgramAnalysis
         {
             get
             {
-                return Start == 0 && End == -1;
+                return LowerBound == 0 && UpperBound == -1;
             }
         }
 
 
         public RangeDomain(int start, int end)
         {
-            this.Start = start;
-            this.End = end;
+            this.LowerBound = start;
+            this.UpperBound = end;
         }
         public RangeDomain Join(RangeDomain oth)
         {
-            return new RangeDomain(Math.Min(Start, oth.Start), Math.Max(End, oth.End));
+            var prevInterval = this;
+            var newInterval = new RangeDomain(Math.Min(LowerBound, oth.LowerBound), Math.Max(UpperBound, oth.UpperBound));
+            return newInterval.Widening(prevInterval);
         }
+
+        public RangeDomain Widening(RangeDomain prev)
+        {
+            // Trivial cases
+            if (this.IsBottom)
+                return prev;
+            if (this.IsTop)
+                return this;
+            if (prev.IsBottom)
+                return this;
+            if (prev.IsTop)
+                return prev;
+
+            var wideningInf = this.LowerBound < prev.LowerBound ? int.MinValue : prev.LowerBound;
+
+            var wideningSup = this.UpperBound > prev.UpperBound ? int.MaxValue : prev.UpperBound;
+
+            return new RangeDomain(wideningInf, wideningSup);
+        }
+
         public RangeDomain Clone()
         {
-            return  new RangeDomain(this.Start, this.End);
+            return  new RangeDomain(this.LowerBound, this.UpperBound);
         }
 
         public bool LessEqual(RangeDomain oth)
         {
-            return this.Start>=oth.Start && oth.End<=this.End;
+            return this.LowerBound>=oth.LowerBound && oth.UpperBound<=this.UpperBound;
         }
 
         public bool Equals(RangeDomain oth)
         {
-            return this.Start==oth.Start && this.End==oth.End;
+            return this.LowerBound==oth.LowerBound && this.UpperBound==oth.UpperBound;
         }
 
         public RangeDomain Sum(RangeDomain rangeDomain)
         {
-            return new RangeDomain(this.Start+rangeDomain.Start,this.End+rangeDomain.End);
+            if (IsTop) return this;
+            return new RangeDomain(this.LowerBound+rangeDomain.LowerBound,this.UpperBound+rangeDomain.UpperBound);
         }
         public RangeDomain Sub(RangeDomain rangeDomain)
         {
-            return new RangeDomain(this.Start - rangeDomain.Start, this.End - rangeDomain.End);
+            if (IsTop) return this;
+            return new RangeDomain(this.LowerBound - rangeDomain.LowerBound, this.UpperBound - rangeDomain.UpperBound);
         }
 
         public override string ToString()
         {
             if (IsTop) return "_TOP_";
             if(IsBottom) return "_BOTTOM_";
-            var result = String.Format(CultureInfo.InvariantCulture, "[{0}..{1}]", Start, End);
-            if (Start == End) result = Start.ToString();
+            var result = String.Format(CultureInfo.InvariantCulture, "[{0}..{1}]", LowerBound, UpperBound);
+            if (LowerBound == UpperBound) result = LowerBound.ToString();
             return result;
         }
-
     }
     public class VariableRangeDomain : IAnalysisDomain<VariableRangeDomain>
     {

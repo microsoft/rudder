@@ -96,7 +96,7 @@ namespace Backend.Analyses
     {
         public RangeDomain Range{ get; private set; }
 
-        public int Position {  get { return Range.Start; } }
+        public int Position {  get { return Range.LowerBound; } }
         public ColumnPosition(int position )
         {
             this.Range = new RangeDomain(position, position);
