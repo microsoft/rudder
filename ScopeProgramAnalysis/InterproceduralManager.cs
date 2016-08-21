@@ -48,6 +48,9 @@ namespace ScopeProgramAnalysis
         public MethodDefinition Caller { get; set; }
         public DependencyPTGDomain CallerState { get; set; }
         public PointsToGraph CallerPTG { get; set; }
+
+        public IteratorDependencyAnalysis.ScopeInfo ScopeData { get; set; }
+
         public IList<IVariable> CallArguments { get; set; }
         public IVariable CallLHS { get; set; }
         public MethodDefinition Callee { get; set; }
@@ -107,6 +110,9 @@ namespace ScopeProgramAnalysis
                 { }
                 return interProcresult;
             }
+            else
+            {
+            }
             return new InterProceduralReturnInfo(callInfo.CallerState);
             
         }
@@ -147,7 +153,7 @@ namespace ScopeProgramAnalysis
             var calleeDomain = BindCallerCallee(callInfo);
             calleeDomain.PTG = calleePTG;
             var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, 
-                                                                    equalities, this, rangesAnalysis, calleeDomain);
+                                                                    equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
             dependencyAnalysis.Analyze();
             stackDepth--;
             this.callStack.Pop();
@@ -352,6 +358,18 @@ namespace ScopeProgramAnalysis
         #endregion
 
 
+        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, PointsToGraph ptg)
+        {
+            var resolvedCallees = new HashSet<MethodDefinition>();
+            var unresolvedCallees = new HashSet<IMethodReference>();
+            var potentialDelegates = ptg.GetTargets(delegateArgument);
+            var resolvedInvocations = potentialDelegates.OfType<DelegateNode>()
+                .Select(d => this.host.FindMethodImplementation(d.Instance.Type as BasicType, d.Method) as IMethodReference);
+            resolvedCallees.UnionWith(resolvedInvocations.OfType<MethodDefinition>());
+            unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !resolvedCallees.Contains(c)));
+            return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
+        }
+
         public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, PointsToGraph ptg)
         {
             var resolvedCallees = new HashSet<MethodDefinition>();
@@ -365,12 +383,12 @@ namespace ScopeProgramAnalysis
                 if (classDef != null && classDef.IsDelegate)
                 {
                     var delegateVar = instruction.Arguments[0];
-                    var potentialDelegates = ptg.GetTargets(delegateVar);
-                    var resolvedDelegateCallees = potentialDelegates.OfType<DelegateNode>()
-                        .Select(d => host.FindMethodImplementation(d.Instance.Type as BasicType, d.Method) as MethodDefinition);
-
-                    resolvedCallees.UnionWith(resolvedDelegateCallees.Where(c => c is MethodDefinition));
-                    unresolvedCallees.UnionWith(resolvedDelegateCallees.Where(c => !(c is MethodDefinition)));
+                    return ComputeDelegate(delegateVar, ptg);
+                    //var potentialDelegates = ptg.GetTargets(delegateVar);
+                    //var resolvedInvocations = potentialDelegates.OfType<DelegateNode>()
+                    //    .Select(d => this.host.FindMethodImplementation(d.Instance.Type as BasicType, d.Method) as IMethodReference);
+                    //resolvedCallees.UnionWith(resolvedInvocations.OfType<MethodDefinition>());
+                    //unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !resolvedCallees.Contains(c)));
                 }
             }
             else

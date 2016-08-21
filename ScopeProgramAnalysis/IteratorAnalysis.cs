@@ -414,7 +414,7 @@ namespace Backend.Analyses
         // This class maintains info about columns and tables 
         // TODO: I think the column info can be replace by a column propagation dataflow 
         // And the schema are already propagated by A2_Variables
-        internal class ScopeInfo
+        public class ScopeInfo
         {
             internal MapSet<IVariable, TraceableTable> schemaTableMap = new MapSet<IVariable, TraceableTable>();
             internal IDictionary<IFieldReference, IVariable> schemaFieldMap = new Dictionary<IFieldReference, IVariable>();
@@ -895,8 +895,18 @@ namespace Backend.Analyses
                     this.State.CopyTraceables(this.iteratorDependencyAnalysis.ReturnVariable, rv);
                 }
             }
+            public override void Visit(CreateObjectInstruction instruction)
+            {
+                instruction.Accept(visitorPTA);
+                //if(!instruction.AllocationType.IsDelegateType())
+                //{
+                //    Default(instruction);
+                //}
+            }
             public override void Visit(MethodCallInstruction instruction)
             {
+                instruction.Accept(visitorPTA);
+
                 var methodCallStmt = instruction;
                 var methodInvoked = methodCallStmt.Method;
                 var callResult = methodCallStmt.Result;
@@ -943,12 +953,12 @@ namespace Backend.Analyses
                                         // If there are unresolved calles
                                         if (computedCalles.Item2.Any())
                                         {
-                                            HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                                            HandleNoAnalyzableMethod(methodCallStmt);
                                         }
                                     }
                                     else
                                     {
-                                        HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                                        HandleNoAnalyzableMethod(methodCallStmt);
                                     }
                                 }
                                 else
@@ -1016,6 +1026,7 @@ namespace Backend.Analyses
                             CallLHS = methodCallStmt.Result,
                             CallerState = this.State,
                             CallerPTG = currentPTG,
+                            ScopeData = this.scopeData,
                             Instruction = instruction,
                             ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
                         };
@@ -1032,12 +1043,12 @@ namespace Backend.Analyses
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
                                     String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
                         AnalysisStats.TotalofFrameworkErrors++;
-                        HandleNoAnalyzableMethod(instruction, methodCallStmt);
+                        HandleNoAnalyzableMethod(methodCallStmt);
                     }
                 }
             }
 
-            private void HandleNoAnalyzableMethod(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt)
+            private void HandleNoAnalyzableMethod(MethodCallInstruction methodCallStmt)
             {
                 UpdatePTAForPure(methodCallStmt);
                 UpdateUsingDefUsed(methodCallStmt);
@@ -1047,7 +1058,7 @@ namespace Backend.Analyses
                 //if(escaping)
                 //{
                     this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, 
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, 
                                                     String.Format(CultureInfo.InvariantCulture, "Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
                     this.State.SetTOP();
                 // }
@@ -1440,12 +1451,70 @@ namespace Backend.Analyses
                     var traceables = new HashSet<Traceable>();
                     foreach (var arg in instruction.UsedVariables)
                     {
-                        var tables = this.State.GetTraceables(arg);
-                        traceables.UnionWith(tables);
-
+                        // If a paramete is a delegate we try to evaluate it with the parameters available
+                        if(instruction is MethodCallInstruction && arg.Type.IsDelegateType())
+                        {
+                            var methodCall = instruction as MethodCallInstruction;
+                            traceables.UnionWith(EvaluateDelegate(arg, methodCall));
+                        }
+                        else
+                        {
+                            var tables = this.State.GetTraceables(arg);
+                            traceables.UnionWith(tables);
+                        }
                     }
                     this.State.AssignTraceables(result, traceables);
                 }
+            }
+
+            // Evaluate a delegate within a non analyzed method invocation
+            // Example result = v.Select(lambda). We don;t analyze Select but we need to do somthing with lambda 
+            private IEnumerable<Traceable> EvaluateDelegate(IVariable delegateArgument, MethodCallInstruction methodCall)
+            {               
+                var traceablesFromDelegate = new HashSet<Traceable>();
+                var candidates = this.iteratorDependencyAnalysis.interproceduralManager.ComputeDelegate(delegateArgument, this.currentPTG);
+                foreach (var resolvedCallee in candidates.Item1)
+                {
+                    try
+                    {
+                        var arguments = new List<IVariable>();
+                        //for(int i=0; i<resolvedCallee.Body.Parameters.Count;i++)
+                        //{
+                        var instance = this.currentPTG.GetTargets(delegateArgument).OfType<DelegateNode>().First().Instance;
+                        arguments.Add(instance);
+                        arguments.Add(methodCall.Arguments[0]);
+                        //}
+                        var interProcInfo = new InterProceduralCallInfo()
+                        {
+                            Caller = this.method,
+                            Callee = resolvedCallee,
+                            CallArguments = arguments,
+                            CallLHS = methodCall.Result,
+                            CallerState = this.State,
+                            CallerPTG = currentPTG,
+                            ScopeData = this.scopeData,
+                            Instruction = methodCall,
+                            ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+                        };
+
+                        var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
+
+                        this.State = interProcResult.State;
+                        currentPTG = interProcResult.State.PTG;
+                        traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
+                    }
+                    catch (Exception e)
+                    {
+                        System.Console.WriteLine("Could not analyze delegate {0}", resolvedCallee.ToSignatureString());
+                        System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCall,
+                                    String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
+                        AnalysisStats.TotalofFrameworkErrors++;
+                        this.State.SetTOP();
+                    }
+                }
+            
+                return traceablesFromDelegate;
             }
         }
 
@@ -1495,10 +1564,13 @@ namespace Backend.Analyses
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
                                     RangeAnalysis rangeAnalysis,
-                                    DependencyPTGDomain initValue) : this(method, cfg, pta, protectedNodes, 
+                                    DependencyPTGDomain initValue,
+                                    ScopeInfo scopeData) : this(method, cfg, pta, protectedNodes, 
                                                                           equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
         {            
             this.initValue = initValue;
+            this.scopeData = new ScopeInfo();
+            this.scopeData.columnFieldMap = scopeData.columnFieldMap;
         }
 
         public override DataFlowAnalysisResult<DependencyPTGDomain>[] Analyze()

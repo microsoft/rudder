@@ -74,7 +74,7 @@ namespace ScopeProgramAnalysis
 
         public void CopyTraceables(IVariable destination, IVariable source)
         {
-            HashSet<Traceable> traceables = GetTraceables(source);
+            var traceables = GetTraceables(source);
             this.Dependencies.A2_Variables[destination] = traceables;
         }
 
