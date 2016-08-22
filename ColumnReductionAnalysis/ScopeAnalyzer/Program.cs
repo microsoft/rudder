@@ -13,7 +13,7 @@ using ScopeAnalyzer.Misc;
 namespace ScopeAnalyzer
 {
     /// <summary>
-    /// Struct that saves basic statistics about Scope analysis.
+    /// Struct that saves basic statistics about Scope analysis performance.
     /// </summary>
     public struct ScopeAnalysisStats
     {
@@ -81,18 +81,23 @@ namespace ScopeAnalyzer
     public static class Program
     {
         public static void Main(string[] args)
-        {
-            var stats = AnalyzeAssemblies(args);
+        {           
+            Options options = Options.ParseCommandLineArguments(args);
+            if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
+            Utils.WriteLine("Parsed input arguments, starting the analysis...");
+
+            var stats = AnalyzeAssemblies(options);
+
+            Utils.IsVerbose = true;
             Utils.WriteLine(stats.ToString());
             Utils.WriteLine("SUCCESS");
             Utils.OutputClose();
         }
 
 
-        public static ScopeAnalysisStats AnalyzeAssemblies(string[] args)
+        public static ScopeAnalysisStats AnalyzeAssemblies(Options options)
         {
-            Options options = Options.ParseCommandLineArguments(args);
-            if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
+            Utils.IsVerbose = options.Verbose;
 
             var vertexDef = LoadVertexDef(options);
             var processorIdMapping = LoadProcessorMapping(options);
@@ -132,8 +137,6 @@ namespace ScopeAnalyzer
             }
             return stats;
         }
-
-  
 
 
         private static void UpdateStats(IEnumerable<ScopeMethodAnalysisResult> results, ref ScopeAnalysisStats stats, 

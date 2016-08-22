@@ -33,8 +33,10 @@ namespace ScopeAnalyzer.Misc
         // Path to file that contains ScopeVertexDef xml content.
         private string vertexDefPath;
 
+        public bool Verbose { get; }
 
-        private Options(string asmbPath, string refAssemblyPath, string outPath, string prcIdPath, string vrxPath)
+
+        private Options(string asmbPath, string refAssemblyPath, string outPath, string prcIdPath, string vrxPath, bool verbose)
         {
             mainAssembliesPath = asmbPath;
 
@@ -62,12 +64,14 @@ namespace ScopeAnalyzer.Misc
             {
                 vertexDefPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.VERTEX_DEF_NAME;
             }
+
+            Verbose = verbose;
         }
 
         public static Options ParseCommandLineArguments(string[] args)
         {
             string assembly = null, libs = null, output = null, processor = null, vertex = null;
-
+            bool verbose = false;
             foreach(var arg in args)
             {
                 if (arg.StartsWith("/assembly:")) assembly = arg.Split(new string[] { "/assembly:" }, StringSplitOptions.None)[1];
@@ -75,12 +79,13 @@ namespace ScopeAnalyzer.Misc
                 else if (arg.StartsWith("/output:")) output = arg.Split(new string[] { "/output:" }, StringSplitOptions.None)[1];
                 else if (arg.StartsWith("/processorIds:")) processor = arg.Split(new string[] { "/processorIds:" }, StringSplitOptions.None)[1];
                 else if (arg.StartsWith("/vertexDef:")) vertex = arg.Split(new string[] { "/vertexDef:" }, StringSplitOptions.None)[1];
+                else if (arg.Trim() == "/verbose") verbose = true;
             }
 
             if (assembly == null)
                 throw new ParsingOptionsException("No given assembly to analyze!");
 
-            return new Options(assembly, libs, output, processor, vertex);
+            return new Options(assembly, libs, output, processor, vertex, verbose);
         }
 
 

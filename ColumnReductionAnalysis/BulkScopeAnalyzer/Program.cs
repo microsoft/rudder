@@ -19,30 +19,32 @@ namespace BulkScopeAnalyzer
     {
         const string GEN_STATS_PATH = "scripts/compute_stats.py";
         const string MAP_STATS_PATH = "scripts/compute_mappings_stats.py";
+        const string MAPPINGS_DIR = @"C:\Users\t-zpavli\Desktop\test output\mappings";
 
         static void Main(string[] args)
         {
-            //DoNaiveParallel();
-            string tracePath = "bulk-trace.txt";
-            Utils.SetOutput(tracePath);
-            DoParallel();
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
+            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            //string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            //string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
+            //string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output";
+
+            var options = Options.ParseCommandLineArguments(args);
+            if (options.TracePath != null) Utils.SetOutput(options.TracePath);
+
+            DoParallel(options);
+
             Utils.OutputClose();
         }
 
 
-        static void DoParallel()
-        {
-            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-
-            string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
-            string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output";
-            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings";
-
-            var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
+        static void DoParallel(Options options)
+        { 
+            var subdirs = Utils.GetSubDirectoriesPaths(options.ScopeDirPath);
             Utils.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
+
+            Utils.IsVerbose = options.Verbose;
             var tasks = new List<Task>();
             int skippedProjects = 0;
             for (int i = 0; i < subdirs.Length; i++)
@@ -50,7 +52,7 @@ namespace BulkScopeAnalyzer
                 var subdir = subdirs[i];
                 var libs = LibraryPaths(subdir);
 
-                string mapping = mappingPrefix + "\\" + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
+                string mapping = MAPPINGS_DIR + "\\" + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
                 // If mapping from processors to ids was not possible,
                 // then there is no need to analyze this Scope project.
                 if (!CreateProcessorIdMapping(subdir, libs, mapping))
@@ -62,15 +64,15 @@ namespace BulkScopeAnalyzer
 
                 for (int j = 0; j < libs.Count; j++)
                 {
-                    string output = outputPrefix + "\\" + String.Format("output_{0}.txt", (tasks.Count + 1));
+                    string output = options.OutputPath + "\\" + String.Format("output_{0}.txt", (tasks.Count + 1));
                     string input = libs[j];
 
                     var task = Task.Run(delegate
                     {
                         Process process = new Process();
-                        process.StartInfo.FileName = scopeAnalyzer;
-                        process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\"",
-                                                                    input, libPath, output, mapping);
+                        process.StartInfo.FileName = options.ScopeAnalyzerPath;
+                        process.StartInfo.Arguments = String.Format("/assembly:\"{0}\" /libs:\"{1}\" /output:\"{2}\" /processorIds:\"{3}\" /verbose",
+                                                                    input, options.LibPath, output, mapping);
                         process.StartInfo.UseShellExecute = false;
                         process.StartInfo.CreateNoWindow = true;
                         process.Start();
@@ -80,15 +82,16 @@ namespace BulkScopeAnalyzer
                 }
             }
 
+            Utils.IsVerbose = true;
             Utils.WriteLine("Skipped projects: " + skippedProjects);
             Utils.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
             Task.WaitAll(tasks.ToArray());
             Utils.WriteLine("Done with analysis, computing summary of the results...\n");
 
             // Compute summary stats by calling respective python scripts.
-            // TODO: implement script functionalities in C#.
-            ComputeGeneralStats(outputPrefix);
-            ComputeMappingStats(mappingPrefix);
+            // TODO: implement the script functionalities in C#.
+            ComputeGeneralStats(options.OutputPath);
+            ComputeMappingStats(MAPPINGS_DIR);
 
             Utils.WriteLine("Done!");
         }
