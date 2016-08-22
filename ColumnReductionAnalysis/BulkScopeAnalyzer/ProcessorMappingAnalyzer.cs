@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Cci;
 using Frontend;
 using Backend;
+using ScopeAnalyzer;
 
 namespace BulkScopeAnalyzer
 {
@@ -14,7 +15,9 @@ namespace BulkScopeAnalyzer
         private Dictionary<string, string> mapping = new Dictionary<string, string>();
 
         private Regex[] compilerGeneretedMethodMatchers = new Regex[] { new Regex(@"^___Scope_Generated_Classes___.ScopeFilterTransformer_\d+$", RegexOptions.Compiled),
-                                                                        new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled) };
+                                                                        new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
+                                                                        new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
+                                                                        new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled) };
 
         public ProcessorMappingAnalyzer(Assembly asm)
         {
@@ -34,7 +37,7 @@ namespace BulkScopeAnalyzer
             if (name == "___Scope_Generated_Classes___.__OperatorFactory__")
             {
                 var mname = methodDefinition.Name.Value;
-                if (mname.StartsWith("Create_"))
+                if (mname.StartsWith("Create_Process"))
                 {
                     try
                     {
@@ -45,7 +48,7 @@ namespace BulkScopeAnalyzer
                     }
                     catch
                     {
-                        Console.WriteLine("ERROR: failed to extract specific processor id: " + mname);
+                        Utils.WriteLine("ERROR: failed to extract specific processor id: " + mname);
                     }
                 }
             }
