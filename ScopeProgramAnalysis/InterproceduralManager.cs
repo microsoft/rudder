@@ -200,7 +200,7 @@ namespace ScopeProgramAnalysis
                 }
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
-            calleeDepDomain.Dependencies.A3_Clousures = callInfo.CallerState.Dependencies.A3_Clousures;
+            calleeDepDomain.Dependencies.A3_Fields = callInfo.CallerState.Dependencies.A3_Fields;
             calleeDepDomain.Dependencies.ControlVariables = callInfo.CallerState.Dependencies.ControlVariables;
             //calleeDepDomain.Dependencies.A1_Escaping.UnionWith(callInfo.CallerState.Dependencies.A1_Escaping);
             //calleeDepDomain.Dependencies.A3_Clousures.UnionWith(callInfo.CallerState.Dependencies.A3_Clousures);
@@ -256,7 +256,7 @@ namespace ScopeProgramAnalysis
             }
 
             callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);
-            callInfo.CallerState.Dependencies.A3_Clousures.UnionWith(exitResult.Dependencies.A3_Clousures);
+            callInfo.CallerState.Dependencies.A3_Fields.UnionWith(exitResult.Dependencies.A3_Fields);
 
             callInfo.CallerState.Dependencies.IsTop = exitResult.Dependencies.IsTop;
 

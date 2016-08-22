@@ -671,9 +671,9 @@ namespace Backend.Analyses
                         var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                         //fakeField.ContainingType = PlatformTypes.Object;
                         var loc = new Location(ptgNode, fakeField);
-                        if (this.State.Dependencies.A3_Clousures.ContainsKey(loc))
+                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                         {
-                            traceables.UnionWith(this.State.Dependencies.A3_Clousures[loc]);
+                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
                         }
                     }
                     this.State.AssignTraceables(loadStmt.Result, traceables);
@@ -727,12 +727,12 @@ namespace Backend.Analyses
                         var loc = new Location(ptgNode, fieldAccess.Field);
                         //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
                         //{ }
-                        if (this.State.Dependencies.A3_Clousures.ContainsKey(loc))
+                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                         {
                             //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
                             //{ }
 
-                            traceables.UnionWith(this.State.Dependencies.A3_Clousures[loc]);
+                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
                         }
                     }
                 }
@@ -765,9 +765,9 @@ namespace Backend.Analyses
                     {
                         // this is a[loc(C.f)]
                         var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
-                        if (this.State.Dependencies.A3_Clousures.ContainsKey(loc))
+                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                         {
-                            traceables.UnionWith(this.State.Dependencies.A3_Clousures[loc]);
+                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
                         }
 
                     }
@@ -835,7 +835,7 @@ namespace Backend.Analyses
                         var traceables = this.State.GetTraceables(instruction.Operand);
                         foreach (var ptgNode in currentPTG.GetTargets(o))
                         {
-                            this.State.Dependencies.A3_Clousures[new Location(ptgNode, field)] = traceables;
+                            this.State.Dependencies.A3_Fields[new Location(ptgNode, field)] = traceables;
                         }
                     }
 
@@ -860,14 +860,14 @@ namespace Backend.Analyses
                         var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                         //fakeField.ContainingType = PlatformTypes.Object;
                         var loc = new Location(ptgNode, fakeField);
-                        this.State.Dependencies.A3_Clousures[new Location(ptgNode, fakeField)] = traceables;
+                        this.State.Dependencies.A3_Fields[new Location(ptgNode, fakeField)] = traceables;
                     }
                 }
                 else if (instructionResult is StaticFieldAccess)
                 {
                     var field = (instructionResult as StaticFieldAccess).Field;
                     var traceables = this.State.GetTraceables(instruction.Operand);
-                    this.State.Dependencies.A3_Clousures[new Location(PointsToGraph.GlobalNode, field)] = traceables;
+                    this.State.Dependencies.A3_Fields[new Location(PointsToGraph.GlobalNode, field)] = traceables;
 
                     this.State.Dependencies.A1_Escaping.UnionWith(traceables);
                 }
@@ -1348,17 +1348,20 @@ namespace Backend.Analyses
                     }
                     else
                     {
-                        var colValue = this.equalities.GetValue(col);
                         var rangeForColumn = variableRanges.GetValue(col);
-                        if(!rangeForColumn.IsBottom)
+                        if (!rangeForColumn.IsBottom)
                         {
                             result = new ColumnPosition(rangeForColumn);
                         }
                         else
-                        if(colValue is Constant)
                         {
-                            var value = colValue as Constant;
-                            result = new ColumnPosition((int)value.Value);
+                            var colValue = this.equalities.GetValue(col);
+
+                            if (colValue is Constant)
+                            {
+                                var value = colValue as Constant;
+                                result = new ColumnPosition((int)value.Value);
+                            }
                         }
                     }
                 }
@@ -1607,7 +1610,7 @@ namespace Backend.Analyses
                             //if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
                             if (protectedNodes.Contains(potentialRowNode))
                             {
-                                depValues.Dependencies.A3_Clousures.Add(new Location(ptgNode, target.Key),  
+                                depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key),  
                                                                         new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type))));
                             }
                         }

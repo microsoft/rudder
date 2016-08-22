@@ -197,7 +197,7 @@ namespace ScopeProgramAnalysis
         }
 
         public MapSet<IVariable, Traceable> A2_Variables { get; private set; }
-        public MapSet<Location, Traceable> A3_Clousures { get; set; }
+        public MapSet<Location, Traceable> A3_Fields { get; set; }
 
         public MapSet<IVariable, Traceable> A4_Ouput { get; private set; }
         public MapSet<IVariable, Traceable> A4_Ouput_Control { get; private set; }
@@ -211,7 +211,7 @@ namespace ScopeProgramAnalysis
         public DependencyDomain()
         {
             A2_Variables = new MapSet<IVariable, Traceable>();
-            A3_Clousures = new MapSet<Location, Traceable>();
+            A3_Fields = new MapSet<Location, Traceable>();
             A4_Ouput = new MapSet<IVariable, Traceable>();
             A4_Ouput_Control = new MapSet<IVariable, Traceable>();
 
@@ -254,7 +254,7 @@ namespace ScopeProgramAnalysis
             return oth != null
                 && this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
                 && MapLessEqual(A2_Variables, oth.A2_Variables)
-                && MapLessEqual(A3_Clousures, oth.A3_Clousures)
+                && MapLessEqual(A3_Fields, oth.A3_Fields)
                 && MapLessEqual(A4_Ouput, oth.A4_Ouput)
                 && MapLessEqual(A4_Ouput_Control, oth.A4_Ouput_Control)
                 && ControlVariables.IsSubsetOf(oth.ControlVariables);
@@ -279,7 +279,7 @@ namespace ScopeProgramAnalysis
             // Add ControlVariables
             return A1_Escaping.GetHashCode()
                 + A2_Variables.GetHashCode()
-                + A3_Clousures.GetHashCode()
+                + A3_Fields.GetHashCode()
                 + A4_Ouput.GetHashCode()
                 + ControlVariables.GetHashCode();
 
@@ -290,7 +290,7 @@ namespace ScopeProgramAnalysis
             result.IsTop = this.IsTop;
             result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
             result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
-            result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
+            result.A3_Fields = new MapSet<Location, Traceable>(this.A3_Fields);
             result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
             result.A4_Ouput_Control = new MapSet<IVariable, Traceable>(this.A4_Ouput_Control);
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
@@ -317,7 +317,7 @@ namespace ScopeProgramAnalysis
                 result.IsTop = this.IsTop;
                 result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
                 result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
-                result.A3_Clousures = new MapSet<Location, Traceable>(this.A3_Clousures);
+                result.A3_Fields = new MapSet<Location, Traceable>(this.A3_Fields);
                 result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
 
                 result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
@@ -325,7 +325,7 @@ namespace ScopeProgramAnalysis
                 result.isTop = result.isTop || right.isTop;
                 result.A1_Escaping.UnionWith(right.A1_Escaping);
                 result.A2_Variables.UnionWith(right.A2_Variables);
-                result.A3_Clousures.UnionWith(right.A3_Clousures);
+                result.A3_Fields.UnionWith(right.A3_Fields);
                 result.A4_Ouput.UnionWith(right.A4_Ouput);
                 result.A4_Ouput_Control.UnionWith(right.A4_Ouput_Control);
 
@@ -346,9 +346,9 @@ namespace ScopeProgramAnalysis
             var result = "";
             if (IsTop) return "__TOP__";
             result += "A3\n";
-            foreach (var var in this.A3_Clousures.Keys)
+            foreach (var var in this.A3_Fields.Keys)
             {
-                result += String.Format(CultureInfo.InvariantCulture, "{0}:{1}\n", var, ToString(A3_Clousures[var]));
+                result += String.Format(CultureInfo.InvariantCulture, "{0}:{1}\n", var, ToString(A3_Fields[var]));
             }
             result += "A4\n";
             foreach (var var in this.A4_Ouput.Keys)
@@ -378,7 +378,7 @@ namespace ScopeProgramAnalysis
                 && oth.IsTop == this.IsTop
                 && oth.A1_Escaping.SetEquals(A1_Escaping)
                 && oth.A2_Variables.MapEquals(A2_Variables)
-                && oth.A3_Clousures.MapEquals(A3_Clousures)
+                && oth.A3_Fields.MapEquals(A3_Fields)
                 && oth.A4_Ouput.MapEquals(A4_Ouput)
                 && oth.A4_Ouput_Control.MapEquals(A4_Ouput_Control)
                 && oth.ControlVariables.SetEquals(ControlVariables);
