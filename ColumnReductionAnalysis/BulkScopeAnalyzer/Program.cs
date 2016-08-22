@@ -17,26 +17,29 @@ namespace BulkScopeAnalyzer
 
     class Program
     {
+        const string GEN_STATS_PATH = "scripts/compute_stats.py";
+        const string MAP_STATS_PATH = "scripts/compute_mappings_stats.py";
+
         static void Main(string[] args)
         {
             //DoNaiveParallel();
+            string tracePath = "bulk-trace.txt";
+            Utils.SetOutput(tracePath);
             DoParallel();
+            Utils.OutputClose();
         }
 
 
         static void DoParallel()
         {
-            string tracePath = "bulk-trace.txt";
-            Utils.SetOutput(tracePath);
-
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
+            string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
             //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
 
             string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
-            string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output\";
-            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
+            string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output";
+            string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings";
 
             var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
             Utils.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
@@ -47,7 +50,7 @@ namespace BulkScopeAnalyzer
                 var subdir = subdirs[i];
                 var libs = LibraryPaths(subdir);
 
-                string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
+                string mapping = mappingPrefix + "\\" + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
                 // If mapping from processors to ids was not possible,
                 // then there is no need to analyze this Scope project.
                 if (!CreateProcessorIdMapping(subdir, libs, mapping))
@@ -56,10 +59,10 @@ namespace BulkScopeAnalyzer
                     skippedProjects++;
                     continue;
                 }
-                
+
                 for (int j = 0; j < libs.Count; j++)
                 {
-                    string output = outputPrefix + String.Format("output_{0}.txt", (tasks.Count + 1));
+                    string output = outputPrefix + "\\" + String.Format("output_{0}.txt", (tasks.Count + 1));
                     string input = libs[j];
 
                     var task = Task.Run(delegate
@@ -80,9 +83,68 @@ namespace BulkScopeAnalyzer
             Utils.WriteLine("Skipped projects: " + skippedProjects);
             Utils.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
             Task.WaitAll(tasks.ToArray());
-            Utils.WriteLine("Done");
+            Utils.WriteLine("Done with analysis, computing summary of the results...\n");
+
+            // Compute summary stats by calling respective python scripts.
+            // TODO: implement script functionalities in C#.
+            ComputeGeneralStats(outputPrefix);
+            ComputeMappingStats(mappingPrefix);
+
+            Utils.WriteLine("Done!");
         }
 
+
+
+        private static void ComputeMappingStats(string mappingPrefix)
+        {
+            Process mapStatsProcess = new Process();
+            mapStatsProcess.StartInfo.FileName = "python";
+            mapStatsProcess.StartInfo.Arguments = String.Format("{0} \"{1}\"", MAP_STATS_PATH, mappingPrefix);
+            mapStatsProcess.StartInfo.UseShellExecute = false;
+            mapStatsProcess.StartInfo.CreateNoWindow = true;
+            mapStatsProcess.StartInfo.RedirectStandardOutput = true;
+            mapStatsProcess.StartInfo.RedirectStandardError = true;
+            mapStatsProcess.Start();
+            string text = String.Empty;
+            while (!mapStatsProcess.StandardOutput.EndOfStream)
+            {
+                text += mapStatsProcess.StandardOutput.ReadLine() + "\n";
+            }
+            string err = String.Empty;
+            while (!mapStatsProcess.StandardError.EndOfStream)
+            {
+                err += mapStatsProcess.StandardError.ReadLine() + "\n";
+            }
+            mapStatsProcess.WaitForExit();
+            Utils.WriteLine(text);
+            Utils.WriteLine(err);
+        }
+
+        private static void ComputeGeneralStats(string outputPrefix)
+        {
+            Process genStatsProcess = new Process();
+            genStatsProcess.StartInfo.FileName = "python";
+            genStatsProcess.StartInfo.Arguments = String.Format("{0} \"{1}\"", GEN_STATS_PATH, outputPrefix);
+            genStatsProcess.StartInfo.UseShellExecute = false;
+            genStatsProcess.StartInfo.CreateNoWindow = true;
+            genStatsProcess.StartInfo.RedirectStandardOutput = true;
+            genStatsProcess.StartInfo.RedirectStandardError = true;
+            genStatsProcess.Start();
+            string text = String.Empty;
+            while (!genStatsProcess.StandardOutput.EndOfStream)
+            {
+                text += genStatsProcess.StandardOutput.ReadLine() + "\n";
+            }
+            string err = String.Empty;
+            while (!genStatsProcess.StandardError.EndOfStream)
+            {
+                err += genStatsProcess.StandardError.ReadLine() + "\n";
+            }
+
+            genStatsProcess.WaitForExit();
+            Utils.WriteLine(text);
+            Utils.WriteLine(err);
+        }
 
 
         private static bool CreateProcessorIdMapping(string subdir, IEnumerable<string> libs, string outpath)
@@ -126,6 +188,7 @@ namespace BulkScopeAnalyzer
             }
             return true;
         }
+
 
         private static List<string> LibraryPaths(string dir)
         {
