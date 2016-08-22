@@ -12,6 +12,9 @@ using ScopeAnalyzer.Misc;
 
 namespace ScopeAnalyzer.Analyses
 {
+    /// <summary>
+    /// Set domain for object model constants.
+    /// </summary>
     public class ConstantSetDomain : SetDomain<Constant>
     {
         private ConstantSetDomain(List<Constant> cons)
@@ -58,6 +61,10 @@ namespace ScopeAnalyzer.Analyses
         }
     }
 
+    /// <summary>
+    /// Domain for constant-set propagation analysis. It keeps track of
+    /// set of constants for variables and fields.
+    /// </summary>
     public class ConstantPropagationDomain
     {
         Dictionary<IVariable, ConstantSetDomain> varMapping;
@@ -331,19 +338,28 @@ namespace ScopeAnalyzer.Analyses
     }
 
 
-
+    /// <summary>
+    /// Constant-set propagation analysis class. It over-approximates the set of values
+    /// for variables and fields that are value-typed. The reason behind the name is that
+    /// the analysis is done in constant propagation style. We save constants upon strong
+    /// -updates and do set union on joins. We grossly overapproximate everything else.
+    /// Implementation does not rely on object sharing, yet it makes object operations as pure as possible.
+    /// </summary>
     class ConstantPropagationSetAnalysis : ForwardDataFlowAnalysis<ConstantPropagationDomain>
     {
         IMethodDefinition method;
+        // Remember which variables and fields we track during the analysis.
         IEnumerable<IVariable> variables;
         IEnumerable<Tuple<IFieldAccess, IFieldReference>> fields;
         IEnumerable<IFieldDefinition> fieldDefinitions;
+        // We need Schema type for handling the case of Schema.IndexOf.
         IEnumerable<ITypeDefinition> schemaTypes;
 
         IMetadataHost host;
 
         bool unsupported = false;
 
+        // Analysis results for each instruction, before and after the instruction is executed.
         Dictionary<Instruction, ConstantPropagationDomain> preResults = new Dictionary<Instruction, ConstantPropagationDomain>();
         Dictionary<Instruction, ConstantPropagationDomain> postResults = new Dictionary<Instruction, ConstantPropagationDomain>();
 
@@ -356,6 +372,9 @@ namespace ScopeAnalyzer.Analyses
             Initialize();
         }
 
+        /// <summary>
+        /// Compute variables and field accesses to track.
+        /// </summary>
         private void Initialize()
         {
             var vars = cfg.GetVariables();
@@ -367,7 +386,8 @@ namespace ScopeAnalyzer.Analyses
             var fdefs = new List<IFieldDefinition>();
             var mtype = (method.ContainingType as INamedTypeReference).Resolve(host);
 
-            // Now we find all constant closure fields.
+            // Now we find all constant closure fields. We need them when doing strong updates
+            // for fields.
             foreach (var field in mtype.Fields)
             {
                 if (IsConstantType(field.Type, host))
@@ -375,7 +395,7 @@ namespace ScopeAnalyzer.Analyses
             }
             fieldDefinitions = fdefs;
 
-
+            // We currently do not support exception handling.
             var instructions = new List<Instruction>();
             foreach (var block in cfg.Nodes)
                 instructions.AddRange(block.Instructions);
@@ -405,7 +425,11 @@ namespace ScopeAnalyzer.Analyses
             get { return postResults; }
         }
 
-
+        /// <summary>
+        /// Check if the given type reference is Scope Schema.
+        /// </summary>
+        /// <param name="tref"></param>
+        /// <returns></returns>
         public bool IsSchema(ITypeReference tref)
         {
             return schemaTypes.Any(s => tref.SubtypeOf(s, host));
@@ -476,6 +500,13 @@ namespace ScopeAnalyzer.Analyses
             }
         }
 
+        /// <summary>
+        /// Check if a given type reference is of value type of string.
+        /// We call such types constant types.
+        /// </summary>
+        /// <param name="tref"></param>
+        /// <param name="host"></param>
+        /// <returns></returns>
         public static bool IsConstantType(ITypeReference tref, IMetadataHost host)
         {
             // when type is unknown.
@@ -491,6 +522,8 @@ namespace ScopeAnalyzer.Analyses
 
         public static bool IsConstantType(ITypeDefinition type)
         {
+            // Bunch of checks to make sure the given type is value type or string.
+
             if (type.IsEnum || type.IsGeneric || type.IsAbstract || (type.IsStruct && !type.IsValueType) || type.IsComObject ||
                 type.IsDummy() || type.IsDelegate || type.IsInterface || type.IsRuntimeSpecial)
                 return false;
@@ -508,7 +541,12 @@ namespace ScopeAnalyzer.Analyses
             return true;
         }
 
-
+        /// <summary>
+        /// Class implementing transfer functions for constant-set propagation. Essentially, upon 
+        /// strong update of a variable with a constant, we memorize the constant as singleton set. 
+        /// Constant sets are unoined on joins. Also, we support string concatenation of variables/fields known
+        /// to be constants. Upon strong updating, special care needs to be taken for fields.
+        /// </summary>
         class ConstantPropagationTransferVisitor : InstructionVisitor
         {
             ConstantPropagationSetAnalysis parent;
@@ -624,6 +662,9 @@ namespace ScopeAnalyzer.Analyses
             {
                 if (instruction.HasResult)
                 {
+
+                    // If we have Schema.IndexOf(param) and param is a constnat, then we remember param
+                    // as return value.
                     if (IsSchemaGetItem(instruction))
                     {
                         SavePreState(instruction, FreshCurrent());
@@ -636,7 +677,7 @@ namespace ScopeAnalyzer.Analyses
                     {
                         // Here we explicitly handle string concatenation. In other words, if we have
                         // String.Concat method and both arguments are finite set of constants, then
-                        // we do cross-product concatenation. Column string concat happens in Scope.
+                        // we do cross-product concatenation. Column string concat happens in Scope scripts.
                         if (IsStringConcatenationPossible(instruction, State))
                         {
                             var cons1 = State.Constants(instruction.Arguments.ElementAt(0));
@@ -797,7 +838,6 @@ namespace ScopeAnalyzer.Analyses
                     {
                         UpdateStateNotConstant(nstate);
                     }
-                    //TODO: see other assignable values
                 }
 
                 SetCurrent(nstate);
@@ -908,9 +948,6 @@ namespace ScopeAnalyzer.Analyses
 
             private void UpdateStateCopy(ConstantPropagationDomain state, IFieldAccess dest, IVariable src)
             {
-                //var cl = state.Constants(src).Clone();
-                //state.Set(dest, cl);
-
                 /*
                  * When we set a field of an object O to a constant, we also need to set the same field
                  * to objects that are must aliased to O. We know that all field accesses corresponding
