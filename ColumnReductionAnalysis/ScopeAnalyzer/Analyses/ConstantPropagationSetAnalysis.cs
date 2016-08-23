@@ -663,9 +663,9 @@ namespace ScopeAnalyzer.Analyses
                 if (instruction.HasResult)
                 {
 
-                    // If we have Schema.IndexOf(param) and param is a constnat, then we remember param
+                    // If we have Schema.IndexOf(param) and param is a constant, then we remember param
                     // as return value.
-                    if (IsSchemaGetItem(instruction))
+                    if (IsSchemaGetColumnIndex(instruction))
                     {
                         SavePreState(instruction, FreshCurrent());
                         var nstate = FreshCurrent();
@@ -715,7 +715,13 @@ namespace ScopeAnalyzer.Analyses
                 }
             }
 
-
+            /// <summary>
+            /// Method that conservatively checks if the current method is string concatenation
+            /// and parameters are known string constants.
+            /// </summary>
+            /// <param name="instruction"></param>
+            /// <param name="state"></param>
+            /// <returns></returns>
             private bool IsStringConcatenationPossible(MethodCallInstruction instruction, ConstantPropagationDomain state)
             {
                 if (!instruction.HasResult)
@@ -730,8 +736,14 @@ namespace ScopeAnalyzer.Analyses
                 if (instruction.Method.Name.Value != "Concat")
                     return false;
 
-                var cons1 = state.Constants(instruction.Arguments.ElementAt(0));
-                var cons2 = state.Constants(instruction.Arguments.ElementAt(1));
+                var arg0 = instruction.Arguments.ElementAt(0);
+                var arg1 = instruction.Arguments.ElementAt(1);
+
+                if (arg0.Type.FullName() != "System.String" || arg1.Type.FullName() != "System.String")
+                    return false;
+
+                var cons1 = state.Constants(arg0);
+                var cons2 = state.Constants(arg1);
 
                 if (cons1.IsBottom || cons2.IsBottom || cons1.IsTop || cons2.IsTop)
                     return false;
@@ -740,7 +752,7 @@ namespace ScopeAnalyzer.Analyses
             }
 
 
-            private bool IsSchemaGetItem(MethodCallInstruction instruction)
+            private bool IsSchemaGetColumnIndex(MethodCallInstruction instruction)
             {
                 if (!instruction.HasResult || instruction.Arguments.Count != 2)
                     return false;
@@ -748,7 +760,7 @@ namespace ScopeAnalyzer.Analyses
                 if (!IsConstantType(instruction.Arguments.ElementAt(1).Type))
                     return false;
 
-                if (instruction.Method.Name.Value != "get_Item")
+                if (instruction.Method.Name.Value != "get_Item" && instruction.Method.Name.Value != "IndexOf")
                     return false;
 
                 if (!parent.IsSchema(instruction.Method.ContainingType))

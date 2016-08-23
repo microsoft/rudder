@@ -61,7 +61,7 @@ namespace ScopeAnalysisTester
             var results = scopeAnalysis.Results;
 
             var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count, 1);
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
 
             var result = interestingResults.ElementAt(0);
             Assert.IsFalse(result.EscapeSummary.IsTop);
@@ -84,7 +84,7 @@ namespace ScopeAnalysisTester
             var results = scopeAnalysis.Results;
 
             var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count, 1);
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
 
             var result = interestingResults.ElementAt(0);
             Assert.IsFalse(result.EscapeSummary.IsTop);
@@ -114,7 +114,7 @@ namespace ScopeAnalysisTester
             var results = scopeAnalysis.Results;
 
             var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count, 1);
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
 
             var result = interestingResults.ElementAt(0);
             Assert.IsFalse(result.EscapeSummary.IsTop);
@@ -144,7 +144,7 @@ namespace ScopeAnalysisTester
             var results = scopeAnalysis.Results;
 
             var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count, 1);
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
 
             var result = interestingResults.ElementAt(0);
             Assert.IsFalse(result.EscapeSummary.IsTop);
@@ -181,8 +181,9 @@ namespace ScopeAnalysisTester
             var scopeAnalysis = new ScopeAnalysis(host, assembly, refAssemblies, null);
             scopeAnalysis.Analyze();
             var results = scopeAnalysis.Results;
-            var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count(), 8);
+            var interestingResults = results.Where(r => r.Interesting && !r.Failed).ToList();
+            //Check that all reducers in PeriScope.dll have been analyzed successfuly.
+            Assert.AreEqual(interestingResults.Count(), 11);
         }
 
 
@@ -195,13 +196,13 @@ namespace ScopeAnalysisTester
             var assembly = data.Item2;
             var refAssemblies = data.Item3;
             var interestingReducer = new HashSet<string>() { "PeriScope.BadCallIEnumerableRowMethod", "PeriScope.BadSetOutterField",
-                                                             "PeriScope.BadSetStaticField", "PeriScope.BadEscapeByCall" };
+                                                             "PeriScope.BadSetStaticField", "PeriScope.BadEscapeByCall", "PeriScope.BadEscapeByRecursion" };
 
             var scopeAnalysis = new ScopeAnalysis(host, assembly, refAssemblies, interestingReducer);
             scopeAnalysis.Analyze();
             var results = scopeAnalysis.Results;
             var interestingResults = results.Where(r => r.Interesting).ToList();
-            Assert.AreEqual(interestingResults.Count(), 4);
+            Assert.AreEqual(interestingResults.Count(), interestingReducer.Count);
             foreach(var r in interestingResults)
             {
                 Assert.IsTrue(r.EscapeSummary.IsTop);
@@ -209,5 +210,61 @@ namespace ScopeAnalysisTester
         }
 
 
+
+        [TestMethod]
+        public void TestMethod8()
+        {
+            var data = Initialize();
+            var host = data.Item1;
+            var assembly = data.Item2;
+            var refAssemblies = data.Item3;
+            var interestingReducer = new HashSet<string>() { "PeriScope.FineSchema" };
+
+            var scopeAnalysis = new ScopeAnalysis(host, assembly, refAssemblies, interestingReducer);
+            scopeAnalysis.Analyze();
+            var results = scopeAnalysis.Results;
+
+            var interestingResults = results.Where(r => r.Interesting).ToList();
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
+
+            var result = interestingResults.ElementAt(0);
+            Assert.IsFalse(result.EscapeSummary.IsTop);
+            Assert.IsFalse(result.UsedColumnsSummary.IsTop);
+
+            var columns = ColumnIndicesAsStrings(result.UsedColumnsSummary);
+            Assert.IsTrue(columns.Count == 1);
+
+            var expected = new HashSet<string>() { "key" };
+            Assert.IsTrue(columns.SetEquals(expected));
+        }
+
+
+
+        [TestMethod]
+        public void TestMethod9()
+        {
+            var data = Initialize();
+            var host = data.Item1;
+            var assembly = data.Item2;
+            var refAssemblies = data.Item3;
+            var interestingReducer = new HashSet<string>() { "PeriScope.FineStringConcatenation" };
+
+            var scopeAnalysis = new ScopeAnalysis(host, assembly, refAssemblies, interestingReducer);
+            scopeAnalysis.Analyze();
+            var results = scopeAnalysis.Results;
+
+            var interestingResults = results.Where(r => r.Interesting).ToList();
+            Assert.AreEqual(interestingResults.Count, interestingReducer.Count);
+
+            var result = interestingResults.ElementAt(0);
+            Assert.IsFalse(result.EscapeSummary.IsTop);
+            Assert.IsFalse(result.UsedColumnsSummary.IsTop);
+
+            var columns = ColumnIndicesAsStrings(result.UsedColumnsSummary);
+            Assert.IsTrue(columns.Count == 4);
+
+            var expected = new HashSet<string>() { "prename", "preage", "name", "age" };
+            Assert.IsTrue(columns.SetEquals(expected));
+        }
     }
 }

@@ -80,7 +80,6 @@
     <Compile Include="ScopeAnalysisUnitTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Content Include="dlls\PeriScope.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
