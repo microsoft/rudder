@@ -23,6 +23,9 @@ def do_work(path):
 	no_column_string_accesses = 0
 	no_column_index_accesses = 0
 	no_concrete_methods_mapped = 0
+	no_column_percentages = 0
+	no_column_byte_savings = 0
+	no_column_byte_percentages = 0
 	for txt in txts:
 		f = open(path + "\\" + txt, "r")
 		trace = f.read()
@@ -53,13 +56,19 @@ def do_work(path):
 				no_interesting_methods += cnt
 			elif line.startswith("Unsupported"): no_unsupported_methods += extract_stat(line)
 			elif line.startswith("Concrete-columns"): no_concrete_methods += extract_stat(line)
-			elif line.startswith("Used columns proper subset:"): no_proper_subset_methods += extract_stat(line)
-			elif line.startswith("Used columns equal"): no_equal_set_methods += extract_stat(line)
-			elif line.startswith("Used columns warnings"): no_imprecision_methods += extract_stat(line)
+			elif line.startswith("Proper subset:"): no_proper_subset_methods += extract_stat(line)
+			elif line.startswith("Equal"): no_equal_set_methods += extract_stat(line)
+			elif line.startswith("Superset"): no_imprecision_methods += extract_stat(line)
 			elif line.startswith("Concrete methods"): no_concrete_methods_mapped += extract_stat(line)
-			elif line.startswith("Used columns savings"): no_column_savings += extract_stat(line)
 			elif line.startswith("Used columns string accesses"): no_column_string_accesses += extract_stat(line)
 			elif line.startswith("Used columns index accesses"): no_column_index_accesses += extract_stat(line)
+
+
+			elif line.startswith("!Columns count cumulative"): no_column_savings += extract_stat(line)			
+			elif line.startswith("!Columns percentage count cumulative"): no_column_percentages += extract_stat_float(line)
+			elif line.startswith("!Columns byte cumulative"): no_column_byte_savings += extract_stat(line)			
+			elif line.startswith("!Columns percentage byte cumulative"): no_column_byte_percentages += extract_stat_float(line)
+			
 
 
 	print("")
@@ -82,7 +91,10 @@ def do_work(path):
 	print("")
 
 	print(str(no_proper_subset_methods) + " mapped methods used less columns than declared.")
-	print(str(0 if no_proper_subset_methods == 0 else no_column_savings/no_proper_subset_methods) + " average unused columns count.")
+	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_savings/no_proper_subset_methods) + " average unused columns count.")
+	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_percentages/no_proper_subset_methods) + " average unused columns percentage.")
+	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_savings/no_proper_subset_methods) + " average unused columns byte size.")
+	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_percentages/no_proper_subset_methods) + " average unused columns byte size percentage.")
 	print(str(no_equal_set_methods) + " mapped methods used exactly the columns declared.")
 	print(str(no_imprecision_methods) + " mapped methods with imprecise column analysis.")
 	print("")
@@ -109,7 +121,9 @@ def extract_stat(line):
 	stat = line.split(":")[1].strip()
 	return int(stat)
 
-
+def extract_stat_float(line):
+	stat = line.split(":")[1].strip()
+	return float(stat)
 
 
 

@@ -3,7 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Microsoft.Cci;
@@ -33,8 +33,13 @@ namespace BulkScopeAnalyzer
             var options = Options.ParseCommandLineArguments(args);
             if (options.TracePath != null) Utils.SetOutput(options.TracePath);
 
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
             DoParallel(options);
+            stopWatch.Stop();
+            var ts = stopWatch.Elapsed;
 
+            Utils.WriteLine(String.Format("Total analysis time: {0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10));
             Utils.OutputClose();
         }
 
@@ -95,6 +100,7 @@ namespace BulkScopeAnalyzer
 
             Utils.WriteLine("Done!");
         }
+
 
 
 
