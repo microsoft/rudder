@@ -97,6 +97,13 @@ namespace ScopeAnalyzer
         public static void Main(string[] args)
         {           
             Options options = Options.ParseCommandLineArguments(args);
+
+            if (options.AskingForHelp)
+            {
+                Utils.WriteLine("Check README file in the project root.");
+                return;
+            }
+
             if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
             Utils.WriteLine("Parsed input arguments, starting the analysis...");
 

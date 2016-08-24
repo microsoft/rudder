@@ -31,6 +31,13 @@ namespace BulkScopeAnalyzer
             //string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output";
 
             var options = Options.ParseCommandLineArguments(args);
+
+            if (options.AskingForHelp)
+            {
+                Utils.WriteLine("Check README file in the project root.");
+                return;
+            }
+
             if (options.TracePath != null) Utils.SetOutput(options.TracePath);
 
             Stopwatch stopWatch = new Stopwatch();

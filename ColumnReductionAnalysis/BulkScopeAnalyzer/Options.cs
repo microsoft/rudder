@@ -27,9 +27,10 @@ namespace BulkScopeAnalyzer
         public string LibPath { get; }
         public bool Verbose { get; }
 
+        public bool AskingForHelp { get; }
 
 
-        private Options(string scDirPath, string sAnalyzer, string outPath, string trcPath, string lPath, bool verbose)
+        private Options(string scDirPath, string sAnalyzer, string outPath, string trcPath, string lPath, bool verbose, bool askhelp)
         {
             ScopeDirPath = scDirPath;
             ScopeAnalyzerPath = sAnalyzer;
@@ -66,13 +67,14 @@ namespace BulkScopeAnalyzer
             }
 
             Verbose = verbose;
+            AskingForHelp = askhelp;
         }
 
         public static Options ParseCommandLineArguments(string[] args)
         {
             string scDirPath = null, sAnalyzer = null, outPath = null, trcPath = null, libPath = null;
             bool verbose = false;
-
+            bool askhelp = false;
             foreach(var arg in args)
             {
                 if (arg.StartsWith("/projects:")) scDirPath = arg.Split(new string[] { "/projects:" }, StringSplitOptions.None)[1];
@@ -81,6 +83,7 @@ namespace BulkScopeAnalyzer
                 else if (arg.StartsWith("/trace:")) trcPath = arg.Split(new string[] { "/trace:" }, StringSplitOptions.None)[1];
                 else if (arg.StartsWith("/scopeAnalyzer:")) sAnalyzer = arg.Split(new string[] { "/scopeAnalyzer:" }, StringSplitOptions.None)[1];
                 else if (arg.Trim() == "/verbose") verbose = true;
+                else if (arg.Trim() == "/help") askhelp = true;
             }
 
             if (scDirPath == null)
@@ -102,7 +105,7 @@ namespace BulkScopeAnalyzer
             if (libPath != null)
                 libPath = Path.GetFullPath(libPath);
 
-            return new Options(scDirPath, sAnalyzer, outPath, trcPath, libPath, verbose);
+            return new Options(scDirPath, sAnalyzer, outPath, trcPath, libPath, verbose, askhelp);
         }  
     }
 }
