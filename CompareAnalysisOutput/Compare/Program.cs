@@ -62,11 +62,10 @@ namespace Compare
                         .FirstOrDefault()
                         ;
 
-                    Console.WriteLine("Processor: {0}", processor.Name.ToString());
+                    Console.Write("Processor: {0}. ", processor.Attribute("className").Value);
 
                     var inputSchema = processor.Descendants("input").FirstOrDefault().Attribute("schema");
                     var outputSchema = processor.Descendants("output").FirstOrDefault().Attribute("schema");
-
 
                     foreach (var result in run.Results)
                     {
@@ -91,9 +90,10 @@ namespace Compare
                             if (inputs.Any(i => i.Equals("Col(Input,_All_)")))
                             {
                                 // then there was a CopyTo call in the processor that copied the input to the output
+                                Console.WriteLine("All input columns were read.");
                             } else
                             {
-
+                                Console.WriteLine("Only some input columns were read.");
                             }
                         }
                     }
