@@ -162,7 +162,7 @@ namespace ScopeProgramAnalysis
             }
             if (kind == ScopeMethodKind.Producer || kind == ScopeMethodKind.All)
             {
-                program.ClassFilters.Add("Process");
+                program.ClassFilters.Add("Processor");
                 program.ClousureFilters.Add("<Process>d__");
                 program.EntryMethods.Add("Process");
                 //program.ClassFilter = "Producer";
@@ -179,7 +179,7 @@ namespace ScopeProgramAnalysis
             }
             else
             {
-                scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblyes();
+                scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
             }
 
 
@@ -417,9 +417,9 @@ namespace ScopeProgramAnalysis
 
             // var referencesLoaded = false;
 
-            foreach (var factoryMethdod in factoryMethods)
+            foreach (var factoryMethod in factoryMethods)
             {
-                var ins = factoryMethdod.Body.Instructions.OfType<Model.Bytecode.CreateObjectInstruction>().Single();
+                var ins = factoryMethod.Body.Instructions.OfType<Model.Bytecode.CreateObjectInstruction>().Single();
 
                 var reducerClass = ins.Constructor.ContainingType;
 
@@ -457,9 +457,9 @@ namespace ScopeProgramAnalysis
                                 scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
 
                                 // TODO: Hack for reuse. Needs refactor
-                                if (factoryMethdod != null)
+                                if (factoryMethod != null)
                                 {
-                                    var processID = factoryMethdod.Name.Substring(factoryMethdod.Name.IndexOf("Process_"));
+                                    var processID = factoryMethod.Name.Substring(factoryMethod.Name.IndexOf("Process_"));
                                     this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
                                 }
                             }
@@ -476,7 +476,7 @@ namespace ScopeProgramAnalysis
             return scopeMethodPairsToAnalyze;
         }
 
-        public IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblyes()
+        public IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblies()
         {
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
