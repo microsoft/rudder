@@ -44,8 +44,9 @@ namespace ScopeProgramAnalysis
 
         public DependencyPTGDomain Clone()
         {
-            var ptgClone = new PointsToGraph();
-            ptgClone.Union(this.PTG);
+            //var ptgClone = new PointsToGraph();
+            //ptgClone.Union(this.PTG);
+            var ptgClone = this.PTG.Clone();
 
             var result = new DependencyPTGDomain(this.Dependencies.Clone(), ptgClone);
             return result;
@@ -55,8 +56,7 @@ namespace ScopeProgramAnalysis
         {
             var joinedDep = this.Dependencies.Join(right.Dependencies);
 
-            var joinedPTG = this.PTG;
-            joinedPTG.Union(right.PTG);
+            var joinedPTG = this.PTG.Join(right.PTG);
 
             return new DependencyPTGDomain(joinedDep, joinedPTG);
         }
@@ -94,7 +94,23 @@ namespace ScopeProgramAnalysis
             this.Dependencies.A2_Variables.AddRange(destination, traceables);
         }
 
-        public  HashSet<Traceable> GetTraceables(IVariable arg)
+        public bool HasTraceables(IVariable arg)
+        {
+            return Dependencies.A2_Variables.ContainsKey(arg)
+                && Dependencies.A2_Variables[arg].Count > 0;
+        }
+        public bool HasOutputTraceables(IVariable arg)
+        {
+            return Dependencies.A4_Ouput.ContainsKey(arg)
+                && Dependencies.A4_Ouput[arg].Count > 0;
+        }
+        public bool HasOutputControlTraceables(IVariable arg)
+        {
+            return Dependencies.A4_Ouput_Control.ContainsKey(arg)
+                && Dependencies.A4_Ouput_Control[arg].Count > 0;
+        }
+
+        public HashSet<Traceable> GetTraceables(IVariable arg)
         {
             var union = new HashSet<Traceable>();
             foreach (var argAlias in this.PTG.GetAliases(arg))
@@ -225,10 +241,24 @@ namespace ScopeProgramAnalysis
         private bool MapLessEqual<K, V>(MapSet<K, V> left, MapSet<K, V> right)
         {
             var result = false;
-            if (!left.Keys.Except(right.Keys).Any())
+            var cleanLeft= left;
+            var cleanRight = right;
+            //var cleanLeft = new MapSet<K, V>();
+            //foreach (var entry in left)
+            //{
+            //    if(entry.Value.Count>0)
+            //       cleanLeft.Add(entry.Key,entry.Value);
+            //}
+            //var cleanRight = new MapSet<K, V>();
+            //foreach (var entry in right)
+            //{
+            //    if (entry.Value.Count > 0)
+            //        cleanRight.Add(entry.Key, entry.Value);
+            //}
+            var keySetDiff = cleanLeft.Keys.Except(cleanRight.Keys);
+            if (!keySetDiff.Any())
             {
-                return left.All(kv => kv.Value.IsSubsetOf(right[kv.Key]));
-                // && left.Any(kv => kv.Value.IsProperSubsetOf(right[kv.Key]));
+                return cleanLeft.All(kv => kv.Value.IsSubsetOf(cleanRight[kv.Key]));
             }
             return result;
         }
@@ -306,11 +336,11 @@ namespace ScopeProgramAnalysis
             }
             else if (right.LessEqual(this))
             {
-                result = this;
+                result = this.Clone();
             }
             else if (this.LessEqual(right))
             {
-                result = right;
+                result = right.Clone();
             }
             else
             {
@@ -319,6 +349,7 @@ namespace ScopeProgramAnalysis
                 result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
                 result.A3_Fields = new MapSet<Location, Traceable>(this.A3_Fields);
                 result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
+                result.A4_Ouput_Control = new MapSet<IVariable, Traceable>(this.A4_Ouput_Control);
 
                 result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
 

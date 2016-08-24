@@ -52,6 +52,14 @@ namespace ScopeProgramAnalysis
         public RangeDomain Join(RangeDomain oth)
         {
             var prevInterval = this;
+            if (prevInterval.IsBottom)
+                return oth;
+            if (oth.IsBottom)
+                return prevInterval;
+            if (prevInterval.IsTop)
+                return prevInterval;
+            if (oth.IsTop)
+                return oth;
             var newInterval = new RangeDomain(Math.Min(LowerBound, oth.LowerBound), Math.Max(UpperBound, oth.UpperBound));
             return newInterval.Widening(prevInterval);
         }
@@ -82,7 +90,7 @@ namespace ScopeProgramAnalysis
 
         public bool LessEqual(RangeDomain oth)
         {
-            return this.LowerBound>=oth.LowerBound && oth.UpperBound<=this.UpperBound;
+            return this.LowerBound>=oth.LowerBound && this.UpperBound<=oth.UpperBound;
         }
 
         public bool Equals(RangeDomain oth)
@@ -139,12 +147,17 @@ namespace ScopeProgramAnalysis
 
         public VariableRangeDomain Join(VariableRangeDomain right)
         {
-            var result = this.Clone();
-            foreach(var key in result.variableRange.Keys.ToList())
+            var result = new VariableRangeDomain();
+            
+            foreach(var entry in this.variableRange)
             {
-                if (right.variableRange.ContainsKey(key))
+                if (right.variableRange.ContainsKey(entry.Key))
                 {
-                    result.variableRange[key] = result.variableRange[key].Join(right.variableRange[key]);
+                    result.variableRange[entry.Key] = entry.Value.Join(right.variableRange[entry.Key]);
+                }
+                else
+                {
+                    result.variableRange[entry.Key] = entry.Value;
                 }
             }
             foreach (var k in right.variableRange.Keys.Except(result.variableRange.Keys))

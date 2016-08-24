@@ -19,13 +19,13 @@ namespace Backend.Analyses
     {
         public class PTAVisitor : InstructionVisitor
         {
-            private PointsToGraph ptg;
+            public  PointsToGraph State { get; set;  }
             private IteratorPointsToAnalysis ptAnalysis;
             private bool analyzeNextDelegateCtor;
 
-            internal PTAVisitor(PointsToGraph ptgNode, IteratorPointsToAnalysis ptAnalysis)
+            internal PTAVisitor(PointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
             {
-                this.ptg = ptgNode;
+                this.State = ptg;
                 this.ptAnalysis = ptAnalysis;
                 this.analyzeNextDelegateCtor = false;
             }
@@ -58,44 +58,44 @@ namespace Backend.Analyses
 
                     if (constant.Value == null)
                     {
-                        ptAnalysis.ProcessNull(ptg, load.Result);
+                        ptAnalysis.ProcessNull(State, load.Result);
                     }
                 }
                 if (operand is IVariable)
                 {
                     var variable = operand as IVariable;
-                    ptAnalysis.ProcessCopy(ptg, load.Result, variable);
+                    ptAnalysis.ProcessCopy(State, load.Result, variable);
                 }
                 else if (operand is InstanceFieldAccess)
                 {
                     var access = operand as InstanceFieldAccess;
-                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result, access.Instance, access.Field);
+                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result, access.Instance, access.Field);
                 }
                 else if(operand is StaticFieldAccess)
                 {
                     var access = operand as StaticFieldAccess;
-                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result,  IteratorPointsToAnalysis.GlobalVariable, access.Field);
+                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result,  IteratorPointsToAnalysis.GlobalVariable, access.Field);
 
                 }
                 else if(operand is ArrayElementAccess)
                 {
                     var arrayAccess = operand as ArrayElementAccess;
                     var baseArray = arrayAccess.Array;
-                    ptAnalysis.ProcessLoad(ptg, load.Offset, load.Result, baseArray, new FieldReference("[]", operand.Type, this.ptAnalysis.method.ContainingType));
+                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result, baseArray, new FieldReference("[]", operand.Type, this.ptAnalysis.method.ContainingType));
                 }
                 else if (operand is VirtualMethodReference)
                 {
                     var loadDelegateStmt = operand as VirtualMethodReference;
                     var methodRef = loadDelegateStmt.Method;
                     var instance = loadDelegateStmt.Instance;
-                    ptAnalysis.ProcessDelegateAddr(ptg, load.Offset, load.Result, methodRef, instance);
+                    ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, instance);
 
                 }
                 else if (operand is StaticMethodReference)
                 {
                     var loadDelegateStmt = operand as StaticMethodReference;
                     var methodRef = loadDelegateStmt.Method;
-                    ptAnalysis.ProcessDelegateAddr(ptg, load.Offset, load.Result, methodRef, null);
+                    ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, null);
                 }
                 else
                 {
@@ -111,18 +111,18 @@ namespace Backend.Analyses
                 if (lhs is InstanceFieldAccess)
                 {
                     var access = lhs as InstanceFieldAccess;
-                    ptAnalysis.ProcessStore(ptg, access.Instance, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(State, access.Instance, access.Field, store.Operand);
                 }
                 else if(lhs is StaticFieldAccess)
                 {
                     var access = lhs as StaticFieldAccess;
-                    ptAnalysis.ProcessStore(ptg, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(State, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
                 }
                 else if (lhs is ArrayElementAccess)
                 {
                     var arrayAccess = lhs as ArrayElementAccess;
                     var baseArray = arrayAccess.Array;
-                    ptAnalysis.ProcessStore(ptg, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
+                    ptAnalysis.ProcessStore(State, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
                 }
 
             }
@@ -137,18 +137,18 @@ namespace Backend.Analyses
                         this.analyzeNextDelegateCtor = true;
                     }
                     // TODO: Check if we can avoid adding the node in case of delegate (it was already added in load address for method)
-                    ptAnalysis.ProcessObjectAllocation(ptg, allocation.Offset, allocation.Result);
+                    ptAnalysis.ProcessObjectAllocation(State, allocation.Offset, allocation.Result);
                 }
             }
             public override void Visit(CreateArrayInstruction instruction)
             {
                 var allocation = instruction;
-                ptAnalysis.ProcessArrayAllocation(ptg, allocation.Offset, allocation.Result);
+                ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
             }
             public override void Visit(ConvertInstruction instruction)
             {
                 var convertion = instruction as ConvertInstruction;
-                ptAnalysis.ProcessCopy(ptg, convertion.Result, convertion.Operand);
+                ptAnalysis.ProcessCopy(State, convertion.Result, convertion.Operand);
             }
             public override void Visit(MethodCallInstruction instruction)
             {
@@ -168,21 +168,21 @@ namespace Backend.Analyses
                     var arg0Type = methodCall.Arguments[0].Type;
                     if (arg0Type.IsDelegateType())
                     {
-                        ptg.RemoveRootEdges(methodCall.Arguments[0]);
+                        State.RemoveRootEdges(methodCall.Arguments[0]);
                         if (methodCall.Arguments.Count == 3)
                         {
                             // instance delegate
-                            foreach (var dn in ptg.GetTargets(methodCall.Arguments[2]).OfType<DelegateNode>())
+                            foreach (var dn in State.GetTargets(methodCall.Arguments[2]).OfType<DelegateNode>())
                             {
                                 dn.Instance = methodCall.Arguments[1];
-                                ptg.PointsTo(methodCall.Arguments[0], dn);
+                                State.PointsTo(methodCall.Arguments[0], dn);
                             }
                         }
                         else
                         {
-                            foreach (var dn in ptg.GetTargets(methodCall.Arguments[1]).OfType<DelegateNode>())
+                            foreach (var dn in State.GetTargets(methodCall.Arguments[1]).OfType<DelegateNode>())
                             {
-                                ptg.PointsTo(methodCall.Arguments[0], dn);
+                                State.PointsTo(methodCall.Arguments[0], dn);
                             }
                         }
                     }
@@ -191,14 +191,14 @@ namespace Backend.Analyses
 
             public override void Visit(PhiInstruction instruction)
             {
-                ptAnalysis.ProcessCopy(ptg, instruction.Result, instruction.Arguments);
+                ptAnalysis.ProcessCopy(State, instruction.Result, instruction.Arguments);
             }
             public override void Visit(ReturnInstruction instruction)
             {
                 if (instruction.HasOperand)
                 {
                     var rv = ptAnalysis.ReturnVariable;
-                    ptAnalysis.ProcessCopy(ptg, rv, instruction.Operand);
+                    ptAnalysis.ProcessCopy(State, rv, instruction.Operand);
                 }
             }
 
@@ -228,8 +228,6 @@ namespace Backend.Analyses
             this.method = method;
             this.CreateInitialGraph(false);
             this.initialGraph.Union(initPTG);
-            if (!this.initialGraph.Roots.Any(k => k.Name == "$Global"))
-            { }
             this.initPTG = this.initialGraph; // initPTG;
 
         }
@@ -240,7 +238,7 @@ namespace Backend.Analyses
             {
                 return this.initPTG;
             }
-            return this.initialGraph.Clone();
+            return this.initialGraph; // .Clone();
         }
 
         protected override PointsToGraph InitialValue(CFGNode node)
@@ -249,7 +247,7 @@ namespace Backend.Analyses
             {
                 return this.initPTG;
             }
-            return this.initialGraph.Clone();
+            return this.initialGraph; // .Clone();
         }
 
         public override DataFlowAnalysisResult<PointsToGraph>[] Analyze()
@@ -260,21 +258,24 @@ namespace Backend.Analyses
         
         protected override bool Compare(PointsToGraph left, PointsToGraph right)
         {
-            return left.GraphEquals(right);
+            return left.GraphLessEquals(right);
         }
 
         protected override PointsToGraph Join(PointsToGraph left, PointsToGraph right)
         {
             //var result = new PointsToGraph();
             //result.Union(left);
-            var result = left;
-            result.Union(right);
-			return result;
+
+            //var result = left.ShalowClone();
+            //result.Union(right);
+            
+            var result = left.Join(right);
+            return result;
         }
 
         protected override PointsToGraph Flow(CFGNode node, PointsToGraph input)
         {
-            var ptg = input; // .Clone();
+            var ptg = input.Clone();
 
             var ptaVisitor = new PTAVisitor(ptg, this);
             ptaVisitor.Visit(node);
@@ -284,7 +285,7 @@ namespace Backend.Analyses
             //    this.Flow(ptg, instruction as Instruction);
             //}
 
-            return ptg;
+            return ptaVisitor.State;
         }
 
         //private void Flow(PointsToGraph ptg, Instruction instruction)
@@ -425,7 +426,7 @@ namespace Backend.Analyses
             if (instance.Type.TypeKind == TypeKind.ValueType) return;
 
             ptg.RemoveRootEdges(dst);
-			var nodes = ptg.GetTargets(instance);
+			var nodes = ptg.GetTargets(instance, false);
             foreach (var node in nodes)
             {
                 var hasField = node.Targets.ContainsKey(field);
@@ -467,14 +468,16 @@ namespace Backend.Analyses
         {
 			if (field.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
 
-			var nodes = ptg.GetTargets(instance);
-			var targets = ptg.GetTargets(src);
+			var nodes = ptg.GetTargets(instance, false);
+			var targets = ptg.GetTargets(src, false);
 
-			foreach (var node in nodes)
-				foreach (var target in targets)
-				{
-					ptg.PointsTo(node, field, target);
-				}
+            foreach (var node in nodes)
+            {
+                foreach (var target in targets)
+                {
+                    ptg.PointsTo(node, field, target);
+                }
+            }
         }
 
         protected void ProcessDelegateAddr(PointsToGraph ptg, uint offset, IVariable dst, IMethodReference methodRef, IVariable instance)

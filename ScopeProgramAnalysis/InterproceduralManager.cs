@@ -79,12 +79,15 @@ namespace ScopeProgramAnalysis
         private Stack<MethodDefinition> callStack;
 
         public MethodCFGCache CFGCache { get; set; }
+
+        private IDictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
         public InterproceduralManager(Host host)
         {
             this.host = host;
             this.CFGCache = new MethodCFGCache(host);
             this.stackDepth = 0;
             this.callStack = new Stack<MethodDefinition>();
+            this.dataflowCache = new Dictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
         }
 
         public ControlFlowGraph GetCFG(MethodDefinition method)
@@ -106,8 +109,8 @@ namespace ScopeProgramAnalysis
 
                 var interProcresult = InterproceduralAnalysis(callInfo, calleeCFG);
                 // For Debugging
-                if(interProcresult.State.LessEqual(previousState) && !interProcresult.State.Equals(previousState))
-                { }
+//                if(interProcresult.State.LessEqual(previousState) && !interProcresult.State.Equals////(previousState))
+  //              { }
                 return interProcresult;
             }
             else
@@ -152,9 +155,18 @@ namespace ScopeProgramAnalysis
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDomain = BindCallerCallee(callInfo);
             calleeDomain.PTG = calleePTG;
-            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, 
-                                                                    equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
+
+            // If we already did the dataflow analysis for this method we recover the dataflow state
+            // This should be adapted (or removed) if we want the analysis to be context sensitive
+
+            //if (dataflowCache.ContainsKey(callInfo.Callee))
+            //    dependencyAnalysis.SetPreviousResult(dataflowCache[callInfo.Callee]);
+
             dependencyAnalysis.Analyze();
+
+            //this.dataflowCache[callInfo.Callee] = dependencyAnalysis.Result;
+
             stackDepth--;
             this.callStack.Pop();
 
@@ -186,17 +198,17 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                if (callInfo.CallerState.Dependencies.A2_Variables.ContainsKey(arg))
+                if (callInfo.CallerState.HasTraceables(arg))
                 {
                     calleeDepDomain.AssignTraceables(param, callInfo.CallerState.GetTraceables(arg));
                 }
-                //if (callInfo.CallerState.Dependencies.A4_Ouput.ContainsKey(arg))
+                if (callInfo.CallerState.HasOutputTraceables(arg))
                 {
-                    calleeDepDomain.AssignOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
+                    calleeDepDomain.AddOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
                 }
-                //if (callInfo.CallerState.Dependencies.A4_Ouput_Control.ContainsKey(arg))
+                if (callInfo.CallerState.HasOutputControlTraceables(arg))
                 {
-                    calleeDepDomain.AssignOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
+                    calleeDepDomain.AddOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
                 }
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
@@ -232,27 +244,35 @@ namespace ScopeProgramAnalysis
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
 
-                //callInfo.CallerState.AddTraceables(arg, exitResult.GetTraceables(param));
+                if(exitResult.HasTraceables(param))
+                    callInfo.CallerState.AddTraceables(arg, exitResult.GetTraceables(param));
 
-                //callInfo.CallerState.AddOutputTraceables(arg, exitResult.GetOutputTraceables(param));
-                //callInfo.CallerState.AddOutputControlTraceables(arg, exitResult.GetOutputControlTraceables(param));
-
+                if(exitResult.HasOutputTraceables(param))
+                  callInfo.CallerState.AddOutputTraceables(arg, exitResult.GetOutputTraceables(param));
+                if(exitResult.HasOutputControlTraceables(param))
+                    callInfo.CallerState.AddOutputControlTraceables(arg, exitResult.GetOutputControlTraceables(param));
             }
 
             foreach (var outputVar in exitResult.Dependencies.A4_Ouput.Keys)
             {
-                var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
-                newVar.Type = outputVar.Type;
-                callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
-                callInfo.CallerState.AddOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
-                callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
+                //if (exitResult.HasOutputTraceables(outputVar))
+                {
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
+                    newVar.Type = outputVar.Type;
+                    callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
+                    callInfo.CallerState.AddOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
+                    callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
+                }
             }
             foreach (var outputVar in exitResult.Dependencies.A4_Ouput_Control.Keys.Except(exitResult.Dependencies.A4_Ouput.Keys))
             {
-                var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
-                newVar.Type = outputVar.Type;
-                callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
-                callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
+                //if (exitResult.HasOutputControlTraceables(outputVar))
+                {
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
+                    newVar.Type = outputVar.Type;
+                    callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
+                    callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
+                }
             }
 
             callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);
@@ -263,15 +283,18 @@ namespace ScopeProgramAnalysis
             if (callInfo.CallLHS != null)
             {
                 // Need to bind the return value
-                if (exitResult.Dependencies.A2_Variables.ContainsKey(depAnalysis.ReturnVariable))
+                if (exitResult.Dependencies.A2_Variables.ContainsKey(depAnalysis.ReturnVariable)
+                    && exitResult.HasTraceables(depAnalysis.ReturnVariable))
                 {
                     callInfo.CallerState.AssignTraceables(callInfo.CallLHS, exitResult.GetTraceables(depAnalysis.ReturnVariable));
                 }
-                if (exitResult.Dependencies.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable))
+                if (exitResult.Dependencies.A4_Ouput.ContainsKey(depAnalysis.ReturnVariable)
+                    && exitResult.HasOutputTraceables(depAnalysis.ReturnVariable))
                 {
                     callInfo.CallerState.AddOutputTraceables(callInfo.CallLHS, exitResult.GetOutputTraceables(depAnalysis.ReturnVariable));
                 }
-                if (exitResult.Dependencies.A4_Ouput_Control.ContainsKey(depAnalysis.ReturnVariable))
+                if (exitResult.Dependencies.A4_Ouput_Control.ContainsKey(depAnalysis.ReturnVariable)
+                    && exitResult.HasOutputControlTraceables(depAnalysis.ReturnVariable))
                 {
                     callInfo.CallerState.AddOutputControlTraceables(callInfo.CallLHS, exitResult.GetOutputControlTraceables(depAnalysis.ReturnVariable));
                 }
