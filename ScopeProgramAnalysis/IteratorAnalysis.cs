@@ -436,6 +436,10 @@ namespace Backend.Analyses
             {
                 return this.schemaTableMap[arg];
             }
+            internal bool HasTableForSchemaVar(IVariable arg)
+            {
+                return this.schemaTableMap.ContainsKey(arg);
+            }
             internal void UpdateColumnMap(MethodCallInstruction methodCallStmt, ColumnDomain columnLiteral)
             {
                 columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
@@ -482,7 +486,7 @@ namespace Backend.Analyses
         {
             private IDictionary<IVariable, IExpression> equalities;
             private IteratorDependencyAnalysis iteratorDependencyAnalysis;
-            private DependencyPTGDomain oldInput;
+
             private ScopeInfo scopeData;
             internal DependencyPTGDomain State { get; private set; }
             private PointsToGraph currentPTG;
@@ -498,7 +502,6 @@ namespace Backend.Analyses
                 this.iteratorDependencyAnalysis = iteratorDependencyAnalysis;
                 this.equalities = equalities;
                 this.scopeData = scopeData;
-                this.oldInput = oldInput;
                 this.State = oldInput;
                 this.currentPTG = ptg;
                 this.cfgNode = cfgNode;
@@ -525,28 +528,25 @@ namespace Backend.Analyses
                 }
 
                 if ( instanceType.Equals(this.iteratorDependencyAnalysis.iteratorClass)) 
-                    // && !fieldAccess.FieldName.StartsWith.Contains("<>1__state"))
                 {
                     return true;
                 }
                 var isClousureField = this.iteratorDependencyAnalysis.iteratorClass.Equals(field.ContainingType);
 
-                // TODO: need to read an attribute of something
-
-                bool isCompilerGenerated = false;
+                bool instanceIsCompilerGeneratedSibblingClass = false;
                 var typeAsClass = (instance.Type as IBasicType);
                 if (typeAsClass != null && typeAsClass.ResolvedType != null)
                 {
                     var typeAsClassResolved = (typeAsClass.ResolvedType as ClassDefinition);
-                    isCompilerGenerated = typeAsClassResolved.ContainingType!=null &&
-                                          this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
-                                        && typeAsClassResolved.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
+                    instanceIsCompilerGeneratedSibblingClass = MyTypesHelper.IsCompiledGeneratedClass(typeAsClassResolved)
+                                            && typeAsClassResolved.ContainingType != null 
+                                            && this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
+                                            && typeAsClassResolved.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
                 }
                 var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
                     && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Equals(field.ContainingType);
 
-
-                if(isClousureField || isReducerField || isCompilerGenerated)
+                if(isClousureField || isReducerField || instanceIsCompilerGeneratedSibblingClass)
                 {
                     return true;
                 }
@@ -554,33 +554,34 @@ namespace Backend.Analyses
                 return false;
             }
 
-            private ISet<ISymbolicValue> GetSymbolicValues(IVariable v)
-            {
-                if(v.Type.TypeKind == TypeKind.ValueType)
-                {
-                    return new HashSet<ISymbolicValue>() { new EscalarVariable(v) } ;
-                }
-                var res = new HashSet<ISymbolicValue>();
-                if(currentPTG.Contains(v))
-                {
-                    res.UnionWith(currentPTG.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
-                }
-                return res;
-            }
-            private ISet<PTGNode> GetPtgNodes(IVariable v)
-            {
-                var res = new HashSet<PTGNode>();
-                if (currentPTG.Contains(v))
-                {
-                    res.UnionWith(currentPTG.GetTargets(v));
-                }
-                return res;
-            }
+            //private ISet<ISymbolicValue> GetSymbolicValues(IVariable v)
+            //{
+            //    if(v.Type.TypeKind == TypeKind.ValueType)
+            //    {
+            //        return new HashSet<ISymbolicValue>() { new EscalarVariable(v) } ;
+            //    }
+            //    var res = new HashSet<ISymbolicValue>();
+            //    if(currentPTG.Contains(v))
+            //    {
+            //        res.UnionWith(currentPTG.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
+            //    }
+            //    return res;
+            //}
+            //private ISet<PTGNode> GetPtgNodes(IVariable v)
+            //{
+            //    var res = new HashSet<PTGNode>();
+            //    if (currentPTG.Contains(v))
+            //    {
+            //        res.UnionWith(currentPTG.GetTargets(v));
+            //    }
+            //    return res;
+            //}
 
-            private ISet<IVariable> GetAliases(IVariable v)
-            {
-                return currentPTG.GetAliases(v);
-            }
+            //private ISet<IVariable> GetAliases(IVariable v)
+            //{
+            //    return currentPTG.GetAliases(v);
+            //}
+
             public override void Visit(LoadInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
@@ -669,7 +670,6 @@ namespace Backend.Analyses
                         // TODO: I need to provide a BasicType. I need the base of the array 
                         // Currenly I use the method containing type
                         var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
-                        //fakeField.ContainingType = PlatformTypes.Object;
                         var loc = new Location(ptgNode, fakeField);
                         if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                         {
@@ -713,7 +713,9 @@ namespace Backend.Analyses
                 var traceables = new HashSet<Traceable>();
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
-                if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
+                //if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
+                if (fieldAccess.Instance.Type.IsRowType() 
+                    || fieldAccess.Instance.Type.IsScopeMapUsage())
                 {
                     traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
                 }
@@ -722,18 +724,26 @@ namespace Backend.Analyses
                 if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                 {
                     // this is a[loc(o.f)]
-                    foreach (var ptgNode in currentPTG.GetTargets(fieldAccess.Instance))
+                    var nodes = currentPTG.GetTargets(fieldAccess.Instance);
+                    if (nodes.Any())
                     {
-                        var loc = new Location(ptgNode, fieldAccess.Field);
-                        //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
-                        //{ }
-                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
+                        foreach (var ptgNode in nodes)
                         {
-                            //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
+                            var loc = new Location(ptgNode, fieldAccess.Field);
+                            //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
                             //{ }
-
-                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
+                            if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
+                            {
+                                //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
+                                //{ }
+                                traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
+                            }
                         }
+                    }
+                    else
+                    {
+                        this.State.SetTOP();
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to load a field with no objects associated"));
                     }
                 }
                 this.State.AssignTraceables(loadStmt.Result, traceables);
@@ -833,10 +843,19 @@ namespace Backend.Analyses
                         // a3 := a3[loc(o.f) <- a2[v]] 
                         // union = a2[v]
                         var traceables = this.State.GetTraceables(instruction.Operand);
-                        foreach (var ptgNode in currentPTG.GetTargets(o))
+                        var nodes = currentPTG.GetTargets(o);
+                        if (nodes.Any())
                         {
-                            this.State.Dependencies.A3_Fields[new Location(ptgNode, field)] = traceables;
+                            foreach (var ptgNode in nodes)
+                            {
+                                this.State.Dependencies.A3_Fields[new Location(ptgNode, field)] = traceables;
+                            }
                         }
+                        else {
+                            this.State.SetTOP();
+                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "Trying to Store a field with no objects associated"));
+                        }
+
                     }
 
                     scopeData.PropagateStore(instruction, fieldAccess);
@@ -898,10 +917,7 @@ namespace Backend.Analyses
             public override void Visit(CreateObjectInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
-                //if(!instruction.AllocationType.IsDelegateType())
-                //{
-                //    Default(instruction);
-                //}
+                
             }
             public override void Visit(MethodCallInstruction instruction)
             {
@@ -934,12 +950,17 @@ namespace Backend.Analyses
                                 var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
                                                     .Where(n => n!=PointsToGraph.NullNode);
 
-                                // If it is a method within the same class it will be able to acesss all the fiealds 
-                                var isInternalClassInvocation = methodInvoked.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass);
+                                // If it is a method within the same class it will be able to acesss all the fields 
+                                // I also see that compiler generated methods (like lambbas should also access)
+                                var isInternalClassInvocation = methodInvoked.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass);
+                                var isCompiledGeneratedLambda = this.method.ContainingType.IsCompilerGenerated() 
+                                                                  && this.method.ContainingType.ContainingType!=null &&
+                                                                  methodInvoked.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
 
-                                Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nf => isInternalClassInvocation ||
-                                                   nf.Item2.ContainingType != this.iteratorDependencyAnalysis.iteratorClass);
+                                Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
+                                                    || !nodeField.Item2.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass));
                                 argRootNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
+
                                 var escaping = argRootNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                                 if (escaping)
                                 {
@@ -951,7 +972,7 @@ namespace Backend.Analyses
                                         AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
 
                                         // If there are unresolved calles
-                                        if (computedCalles.Item2.Any())
+                                        if (computedCalles.Item2.Any() || !computedCalles.Item1.Any())
                                         {
                                             HandleNoAnalyzableMethod(methodCallStmt);
                                         }
@@ -1012,39 +1033,47 @@ namespace Backend.Analyses
 
             private void AnalyzeResolvedCallees(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt, IEnumerable<MethodDefinition> calles)
             {
-                foreach (var resolvedCallee in calles)
+                if (calles.Any())
                 {
-                    try
+                    var callStates = new HashSet<DependencyPTGDomain>();
+                    foreach (var resolvedCallee in calles)
                     {
-                        var input = this.State;
-
-                        var interProcInfo = new InterProceduralCallInfo()
+                        try
                         {
-                            Caller = this.method,
-                            Callee = resolvedCallee,
-                            CallArguments = methodCallStmt.Arguments,
-                            CallLHS = methodCallStmt.Result,
-                            CallerState = this.State,
-                            CallerPTG = currentPTG,
-                            ScopeData = this.scopeData,
-                            Instruction = instruction,
-                            ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
-                        };
+                            var input = this.State;
 
-                        var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
+                            var interProcInfo = new InterProceduralCallInfo()
+                            {
+                                Caller = this.method,
+                                Callee = resolvedCallee,
+                                CallArguments = methodCallStmt.Arguments,
+                                CallLHS = methodCallStmt.Result,
+                                CallerState = this.State,
+                                CallerPTG = currentPTG,
+                                ScopeData = this.scopeData,
+                                Instruction = instruction,
+                                ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+                            };
 
-                        this.State = interProcResult.State;
-                        currentPTG = interProcResult.State.PTG;
+                            var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
+                            callStates.Add(interProcResult.State);
+
+                            this.State = interProcResult.State;
+                            currentPTG = interProcResult.State.PTG;
+
+                        }
+                        catch (Exception e)
+                        {
+                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
+                            System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
+                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
+                                        String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
+                            AnalysisStats.TotalofFrameworkErrors++;
+                            HandleNoAnalyzableMethod(methodCallStmt);
+                        }
+
                     }
-                    catch (Exception e)
-                    {
-                        System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
-                        System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
-                                    String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
-                        AnalysisStats.TotalofFrameworkErrors++;
-                        HandleNoAnalyzableMethod(methodCallStmt);
-                    }
+                    this.State = callStates.Aggregate((s1, s2) => s1.Join(s2));
                 }
             }
 
@@ -1074,19 +1103,16 @@ namespace Backend.Analyses
                 }
 
                 var containingType = metodCallStmt.Method.ContainingType;
-                if(containingType.Name=="String")
+
+                if (containingType.IsString())
                 {
                     return true;
                 }
-                if (containingType.Name == "Tuple")
+                if (containingType.IsTuple())
                 {
                     return true;
                 }
-                //if (containingType is BasicType && metodCallStmt.Method.Name==".ctor")
-                //{
-                //    return true;
-                //}
-                if (containingType.TypeKind == TypeKind.ValueType)
+                if (containingType.IsValueType())
                 {
                     return true;
                 }
@@ -1122,24 +1148,20 @@ namespace Backend.Analyses
             private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count", "First" };
-                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min"};
+                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
                  
 
                 var result = true;
                 if (methodInvoked.Name == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
                 {
-                    //var arg = methodCallStmt.Arguments[0];
-                    //var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                    //                    .Select(table_i => new TraceableCounter(table_i));
-                    //var any = tablesCounters.Any();
                     UpdateUsingDefUsed(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods
-                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsCollectionMethod())
+                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.IsEnumerableMethod())
+                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsEnumerable())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
@@ -1147,35 +1169,33 @@ namespace Backend.Analyses
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.Name.Contains("Set"))
+                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsSet())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.Name.Contains("SortedDictionary"))
+                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsDictionary())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
                 }
-
-                else if (methodInvoked.Name == "Add" && methodInvoked.ContainingType.GenericName.Contains("Set"))
+                else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
                     this.State.AddTraceables(arg0, arg1);
                 }
-                else if (methodInvoked.Name == "get_Current" 
-                    && (methodInvoked.ContainingType.Name == "IEnumerator"))
+                else if (methodInvoked.Name == "get_Current" && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 else if (methodInvoked.Name == "MoveNext"
-                    && (methodInvoked.ContainingType.Name == "IEnumerator"))
+                    && methodInvoked.ContainingType.IsIEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 else if (methodInvoked.Name == "GetEnumerator"
-                    && (methodInvoked.ContainingType.Name == "IEnumerable"))
+                    && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
@@ -1208,9 +1228,9 @@ namespace Backend.Analyses
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
-                else if (methodInvoked.Name == "GetEnumerator" 
-                    && (methodInvoked.ContainingType.GenericName== "IEnumerable<Row>"
-                       || methodInvoked.ContainingType.GenericName == "IEnumerable<ScopeMapUsage>"))
+                else if (methodInvoked.Name == "GetEnumerator"  
+                    && ( methodInvoked.ContainingType.IsIEnumerableRow()
+                       || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1220,15 +1240,15 @@ namespace Backend.Analyses
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
                 else if (methodInvoked.Name == "get_Current" 
-                    && ( methodInvoked.ContainingType.GenericName == "IEnumerator<Row>")
-                         || methodInvoked.ContainingType.GenericName == "IEnumerator<ScopeMapUsage>")
+                    && ( methodInvoked.ContainingType.IsIEnumeratorRow()
+                         || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "MoveNext" && methodInvoked.ContainingType.Name == "IEnumerator")
+                else if (methodInvoked.Name == "MoveNext" && methodInvoked.ContainingType.IsIEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
@@ -1238,8 +1258,6 @@ namespace Backend.Analyses
                 // v = arg.getItem(col)
                 // a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
                 else if (methodInvoked.Name == "get_Item" && methodInvoked.ContainingType.IsRowType())
-//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
-
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var col = methodCallStmt.Arguments[1];
@@ -1267,7 +1285,6 @@ namespace Backend.Analyses
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
                 else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsRowType())
-//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     // TODO: This is a pass-through!
                     var arg0 = methodCallStmt.Arguments[0];
@@ -1279,8 +1296,8 @@ namespace Backend.Analyses
                     // Create a fake column for the output table
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
                     var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single();
-                    this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
-
+                    //this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
+                    this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
                     arg1 = allColumnsVar;
                     this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
                     //
@@ -1288,20 +1305,17 @@ namespace Backend.Analyses
                     this.State.AddOutputControlTraceables(arg1, traceables);
                 }
                 else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.IsColumnDataType())
-//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.IsRowListType()) 
-//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
-
                 {
                     var receiver = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
                     this.State.AddTraceables(receiver, arg1);
                 }
-                else if(methodInvoked.ContainingType.ContainingNamespace=="ScopeRuntime")
+                else if(methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
                 {
                     this.UpdateUsingDefUsed(methodCallStmt);
                 }
@@ -1377,6 +1391,17 @@ namespace Backend.Analyses
                 return methodInvoked.Name == "get_Schema"
                     && (methodInvoked.ContainingType.Name == "RowSet" || methodInvoked.ContainingType.Name == "Row");
             }
+
+            private bool IsSchemaItemMethod(IMethodReference methodInvoked)
+            {
+                if (methodInvoked.ContainingType.ContainingAssembly.Name != "ScopeRuntime")
+                {
+                    return false;
+                }
+                return methodInvoked.Name == "get_Item"
+                    && (methodInvoked.ContainingType.Name == "Schema");
+            }
+
             private bool IsIndexOfMethod(IMethodReference methodInvoked)
             {
                 if (methodInvoked.ContainingType.ContainingAssembly.Name != "ScopeRuntime")
@@ -1389,6 +1414,10 @@ namespace Backend.Analyses
 
             private bool IsMethodToInline(IMethodReference methodInvoked, IType clousureType)
             {
+                if(methodInvoked.Name==".ctor")
+                {
+                    return true;
+                }
                 var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
                 var specialMethods = new Tuple<string, string>[] { }; //  { Tuple.Create("IDisposable", "Dispose") };
                 var result = methodInvoked.ContainingType != null 
@@ -1414,13 +1443,26 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
+                if (IsSchemaItemMethod(methodInvoked))
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+                }
                 // callResult = arg.IndexOf(colunm)
                 // we recover the table from arg and associate the column number with the call result
                 else if (IsIndexOfMethod(methodInvoked))
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    var tables= scopeData.GetTableFromSchemaMap(arg);
-                    ColumnDomain column = UpdateColumnData(methodCallStmt);
+                    if (scopeData.HasTableForSchemaVar(arg))
+                    {
+                        var tables = scopeData.GetTableFromSchemaMap(arg);
+                        ColumnDomain column = UpdateColumnData(methodCallStmt);
+                    }
+                    else
+                    {
+                        this.State.SetTOP();
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
+                    }
                     //this.State.AssignTraceables(methodCallStmt.Result, tables.OfType<TraceableTable>().Select(t => new TraceableColumn(t, column)));
                 }
                 else
@@ -1533,7 +1575,7 @@ namespace Backend.Analyses
         private InterproceduralManager interproceduralManager;
         public bool InterProceduralAnalysisEnabled { get; private set; }
 
-        public DataFlowAnalysisResult<DependencyPTGDomain>[] Result { get; private set; }
+        public DataFlowAnalysisResult<DependencyPTGDomain>[] Result { get; set; }
 
         private DependencyPTGDomain initValue;
 
@@ -1572,6 +1614,7 @@ namespace Backend.Analyses
                                                                           equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
         {            
             this.initValue = initValue;
+            InitVariablesWithTaint(this.initValue);
             this.scopeData = new ScopeInfo();
             this.scopeData.columnFieldMap = scopeData.columnFieldMap;
         }
@@ -1589,13 +1632,13 @@ namespace Backend.Analyses
 
             if (this.cfg.Entry.Id == node.Id)
             {
-                if(this.initValue != null)
+                if (this.initValue != null)
                 {
                     return this.initValue;
                 }
 
                 //var currentPTG = pta.Result[cfg.Exit.Id].Output;
-            
+
                 IVariable thisVar = null;
                 if (!this.method.IsStatic && this.method.Body != null)
                 {
@@ -1610,21 +1653,26 @@ namespace Backend.Analyses
                             //if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
                             if (protectedNodes.Contains(potentialRowNode))
                             {
-                                depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key),  
+                                depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key),
                                                                         new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type))));
                             }
                         }
                     }
                 }
-                foreach(var v in cfg.GetVariables())
-                {
-                    if(!SongTaoDependencyAnalysis.IsScopeType(v.Type))
-                    {
-                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
-                    }
-                }
+                InitVariablesWithTaint(depValues);
             }
             return depValues;
+        }
+
+        private void InitVariablesWithTaint(DependencyPTGDomain depValues)
+        {
+            //foreach (var v in cfg.GetVariables())
+            //{
+            //    if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter)
+            //    {
+            //        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
+            //    }
+            //}
         }
 
         protected override bool Compare(DependencyPTGDomain newState, DependencyPTGDomain oldSTate)
@@ -1634,7 +1682,14 @@ namespace Backend.Analyses
 
         protected override DependencyPTGDomain Join(DependencyPTGDomain left, DependencyPTGDomain right)
         {
-            return left.Join(right);
+            //var a = left.Dependencies.A3_Fields.Where(kv => kv.Key.Field.Name == "<guid>5__9").SelectMany(kv => kv.Value);
+            //var b = right.Dependencies.A3_Fields.Where(kv => kv.Key.Field.Name == "<guid>5__9").SelectMany(kv => kv.Value);
+
+            //if(a.Any(v => v.TableName.Equals("Object")) || b.Any(v => v.TableName.Equals("Object")))
+            //{ }
+
+            var result = left.Join(right);
+            return result;
         }
 
         protected override DependencyPTGDomain Flow(CFGNode node, DependencyPTGDomain input)
@@ -1642,7 +1697,7 @@ namespace Backend.Analyses
             if (input.IsTop)
                 return input;
 
-            var oldInput = input;
+            var oldInput = input.Clone();
             // var currentPTG = pta.Result[node.Id].Output;
 
             // A visitor for the points-to graph

@@ -125,6 +125,7 @@ namespace ScopeProgramAnalysis
             
             // Well... Inlining is broken we we added the Exceptional control graph. Let's avoid it
             //var cfg = this.moveNextMethod.DoAnalysisPhases(host, this.GetMethodsToInline());
+
             var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
             PropagateExpressions(cfg, this.equalities);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
