@@ -959,9 +959,9 @@ namespace Backend.Analyses
 
                                 Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
                                                     || !nodeField.Item2.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass));
-                                argRootNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
+                                var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
 
-                                var escaping = argRootNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+                                var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                                 if (escaping)
                                 {
                                     if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled 
@@ -1025,7 +1025,12 @@ namespace Backend.Analyses
                         var returnField = new FieldReference("$return", PlatformTypes.Object, this.method.ContainingType);
                         foreach (var ptgNode in allNodes)
                         {
-                            currentPTG.PointsTo(returnNode, returnField , ptgNode);
+                            if (TypeHelper.TypesAreAssignmentCompatible(ptgNode.Type, instruction.Result.Type))
+                            {
+                                currentPTG.PointsTo(returnNode, returnField, ptgNode);
+                            }
+                            else
+                            { }
                         }
                     }
                 }
@@ -1443,7 +1448,7 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
-                if (IsSchemaItemMethod(methodInvoked))
+                else if (IsSchemaItemMethod(methodInvoked))
                 {
                     var arg = methodCallStmt.Arguments[0];
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
