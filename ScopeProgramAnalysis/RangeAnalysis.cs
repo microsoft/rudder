@@ -16,6 +16,9 @@ namespace ScopeProgramAnalysis
 {
     public struct RangeDomain : IAnalysisDomain<RangeDomain>
     {
+        public static readonly RangeDomain TOP = new RangeDomain(int.MinValue, int.MinValue);
+        public static readonly RangeDomain BOTTOM = new RangeDomain(0, -1);
+
         public int LowerBound { get; set; }
         public int UpperBound { get; set; }
 
@@ -35,6 +38,11 @@ namespace ScopeProgramAnalysis
             }
         }
 
+        public RangeDomain(int singleton)
+        {
+            this.LowerBound = singleton;
+            this.UpperBound = singleton;
+        }
 
         public RangeDomain(int start, int end)
         {
@@ -179,16 +187,13 @@ namespace ScopeProgramAnalysis
         {
             if(this.variableRange.ContainsKey(var))
                 return this.variableRange[var];
-            return RangeAnalysis.BOTTOM;
+            return RangeDomain.BOTTOM;
         }
     }
 
 
     public class RangeAnalysis: ForwardDataFlowAnalysis<VariableRangeDomain> 
     {
-        public static readonly RangeDomain TOP = new RangeDomain(int.MinValue, int.MinValue);
-        public static readonly RangeDomain BOTTOM = new RangeDomain(0, -1);
-
         public DataFlowAnalysisResult<VariableRangeDomain>[] Result { get; private set; }
 
         public RangeAnalysis(ControlFlowGraph cfg): base(cfg)
@@ -257,7 +262,7 @@ namespace ScopeProgramAnalysis
                     value = (int)K.Value;
                     return new RangeDomain(value, value);
                 }
-                return RangeAnalysis.BOTTOM;
+                return RangeDomain.BOTTOM;
             }
 
             public override void Visit(BinaryInstruction instruction)
@@ -273,7 +278,7 @@ namespace ScopeProgramAnalysis
                         this.State.AssignValue(instruction.Result, op1.Sub(op2));
                         break;
                     default:
-                        this.State.AssignValue(instruction.Result, RangeAnalysis.TOP);
+                        this.State.AssignValue(instruction.Result, RangeDomain.TOP);
                         break;
                 }
                      
@@ -288,7 +293,7 @@ namespace ScopeProgramAnalysis
             {
                 foreach (var result in instruction.ModifiedVariables)
                 {
-                    var range = RangeAnalysis.BOTTOM;
+                    var range = RangeDomain.BOTTOM;
                     foreach (var arg in instruction.UsedVariables)
                     {
                         range = range.Join(this.State.GetValue(arg));

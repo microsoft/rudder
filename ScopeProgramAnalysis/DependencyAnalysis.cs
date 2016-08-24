@@ -82,7 +82,6 @@ namespace ScopeProgramAnalysis
         // private IDictionary<string,IVariable> specialFields;
         private MethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
-    
 
         public SongTaoDependencyAnalysis(Host host,
                                         InterproceduralManager interprocManager,
