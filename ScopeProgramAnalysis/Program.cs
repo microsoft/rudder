@@ -203,7 +203,7 @@ namespace ScopeProgramAnalysis
 
                         program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
 
-                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult);
+                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, program.factoryReducerMap);
 
                     }
                     catch (Exception e)
@@ -286,7 +286,7 @@ namespace ScopeProgramAnalysis
             //}
         }
 
-        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult)
+        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, IDictionary<string, ClassDefinition> processorMap)
         {
             var results = new List<Result>();
 
@@ -365,8 +365,31 @@ namespace ScopeProgramAnalysis
                 outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
             }
 
+            var id = String.Format("[{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
 
-            AddRunToSarifOutput(log, inputPath, moveNextMethod, results);
+            // Very clumsy way to find the process number and the processor name from the MoveNext method.
+            // But it is the process number and processor name that allow us to link these results to the information
+            // in the XML file that describes the job.
+            // Climb the containing type chain from the MoveNext method until we find the entry in the dictionary whose
+            // value matches one of the classes.
+            var done = false;
+            foreach (var kv in processorMap)
+            {
+                if (done) break;
+                var c = moveNextMethod.ContainingType as ClassDefinition;
+                while (c != null)
+                {
+                    if (kv.Value == c)
+                    {
+                        id = kv.Value.Name + "|" + kv.Key;
+                        done = true;
+                        break;
+                    }
+                    c = c.ContainingType as ClassDefinition;
+                }
+            }
+
+            AddRunToSarifOutput(log, inputPath, id, results);
         }
 
         private static void LoadExternalReferences(IEnumerable<string> referenceFiles, Loader loader)
@@ -572,11 +595,12 @@ namespace ScopeProgramAnalysis
             return log;
         }
 
-        private static void AddRunToSarifOutput(SarifLog log, string inputPath, MethodDefinition method, IList<Result> results)
+        private static void AddRunToSarifOutput(SarifLog log, string inputPath, string id, IList<Result> results)
         {
             var run = new Run();
             // run.StableId = method.ContainingType.FullPathName();
-            run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+            //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+            run.Id = id;
             run.Tool = Tool.CreateFromAssemblyData();
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
