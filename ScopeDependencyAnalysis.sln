@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Model", "analysis-net\Model
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalysisBulkScripts", "ScopeProgramAnalysis\ScopeAnalysisBulkScripts\ScopeAnalysisBulkScripts.csproj", "{BF337A56-0CE5-43EA-92E3-270994332312}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compare", "CompareAnalysisOutput\Compare\Compare.csproj", "{C84D7438-A53F-4A90-874D-DCF60B441BBC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C84D7438-A53F-4A90-874D-DCF60B441BBC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C84D7438-A53F-4A90-874D-DCF60B441BBC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C84D7438-A53F-4A90-874D-DCF60B441BBC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C84D7438-A53F-4A90-874D-DCF60B441BBC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

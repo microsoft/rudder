@@ -86,7 +86,7 @@ namespace ScopeProgramAnalysis
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ab0de7e-6110-4cd4-8c30-6e72c013c2f0\__ScopeCodeGen__.dll";
 
             // Mike's example: 
-            //const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
+            const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02e7c1bd-42ab-4f5b-8506-d6c49e562790\__ScopeCodeGen__.dll";
 
@@ -95,7 +95,7 @@ namespace ScopeProgramAnalysis
 
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\__ScopeCodeGen__.dll";
 
-            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -292,8 +292,6 @@ namespace ScopeProgramAnalysis
 
             var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
 
-            var result = new Result();
-
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
 
@@ -303,11 +301,12 @@ namespace ScopeProgramAnalysis
                 {
                     foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
                     {
-                        result = new Result();
                         var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
                                                                     .Where(t => t.TableKind == ProtectedRowKind.Output);
                         foreach (var column in outColumns)
                         {
+                            var result = new Result();
+                            result.Id = "SingleColumn";
                             var columnString = column.ToString();
                             var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
                             
@@ -333,7 +332,8 @@ namespace ScopeProgramAnalysis
                 }
                 else
                 {
-                    result = new Result();
+                    var result = new Result();
+                    result.Id = "SingleColumn";
                     result.SetProperty("column", "_EMPTY_");
                     result.SetProperty("escapes", escapes);
                     results.Add(result);
@@ -341,7 +341,8 @@ namespace ScopeProgramAnalysis
             }
             else
             {
-                result = new Result();
+                var result = new Result();
+                result.Id = "SingleColumn";
                 result.SetProperty("column", "_TOP_");
                 result.SetProperty("depends", "_TOP_");
                 results.Add(result);
@@ -349,10 +350,11 @@ namespace ScopeProgramAnalysis
             var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
             var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
 
-            result = new Result();
-            result.SetProperty("Inputs", inputsString);
-            result.SetProperty("Ouputs", outputsString);
-            results.Add(result);
+            var result2 = new Result();
+            result2.Id = "Summary";
+            result2.SetProperty("Inputs", inputsString);
+            result2.SetProperty("Outputs", outputsString);
+            results.Add(result2);
 
             if (outputStream != null)
             {
