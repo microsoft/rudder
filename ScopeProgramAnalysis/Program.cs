@@ -84,12 +84,17 @@ namespace ScopeProgramAnalysis
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
-            
-            
-            // Zvo Example 1 
-            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
-            // Zvo Example 2
-            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll";
+            // From Zvonimir's PDF summary:
+            // Example 1 
+            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
+            // Example 2
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll";
+            // Example 3
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
+            // Example 4
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll";
+            // Example 5
+            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll";
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
@@ -222,7 +227,7 @@ namespace ScopeProgramAnalysis
 
                         program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
 
-                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult);
+                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, program.factoryReducerMap);
 
                     }
                     catch (Exception e)
@@ -304,13 +309,11 @@ namespace ScopeProgramAnalysis
             //}
         }
 
-        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult)
+        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, IDictionary<string, ClassDefinition> processorMap)
         {
             var results = new List<Result>();
 
             var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
-
-            var result = new Result();
 
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
@@ -321,11 +324,12 @@ namespace ScopeProgramAnalysis
                 {
                     foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
                     {
-                        result = new Result();
                         var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
                                                                     .Where(t => t.TableKind == ProtectedRowKind.Output);
                         foreach (var column in outColumns)
                         {
+                            var result = new Result();
+                            result.Id = "SingleColumn";
                             var columnString = column.ToString();
                             var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
                             
@@ -353,7 +357,8 @@ namespace ScopeProgramAnalysis
                 }
                 else
                 {
-                    result = new Result();
+                    var result = new Result();
+                    result.Id = "SingleColumn";
                     result.SetProperty("column", "_EMPTY_");
                     result.SetProperty("escapes", escapes);
                     results.Add(result);
@@ -361,7 +366,8 @@ namespace ScopeProgramAnalysis
             }
             else
             {
-                result = new Result();
+                var result = new Result();
+                result.Id = "SingleColumn";
                 result.SetProperty("column", "_TOP_");
                 result.SetProperty("depends", "_TOP_");
                 results.Add(result);
@@ -369,10 +375,11 @@ namespace ScopeProgramAnalysis
             var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
             var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
 
-            result = new Result();
-            result.SetProperty("Inputs", inputsString);
-            result.SetProperty("Ouputs", outputsString);
-            results.Add(result);
+            var result2 = new Result();
+            result2.Id = "Summary";
+            result2.SetProperty("Inputs", inputsString);
+            result2.SetProperty("Outputs", outputsString);
+            results.Add(result2);
 
             if (outputStream != null)
             {
@@ -385,8 +392,31 @@ namespace ScopeProgramAnalysis
                 outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
             }
 
+            var id = String.Format("[{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
 
-            AddRunToSarifOutput(log, inputPath, moveNextMethod, results);
+            // Very clumsy way to find the process number and the processor name from the MoveNext method.
+            // But it is the process number and processor name that allow us to link these results to the information
+            // in the XML file that describes the job.
+            // Climb the containing type chain from the MoveNext method until we find the entry in the dictionary whose
+            // value matches one of the classes.
+            var done = false;
+            foreach (var kv in processorMap)
+            {
+                if (done) break;
+                var c = moveNextMethod.ContainingType as ClassDefinition;
+                while (c != null)
+                {
+                    if (kv.Value == c)
+                    {
+                        id = kv.Value.Name + "|" + kv.Key;
+                        done = true;
+                        break;
+                    }
+                    c = c.ContainingType as ClassDefinition;
+                }
+            }
+
+            AddRunToSarifOutput(log, inputPath, id, results);
         }
 
         private static void LoadExternalReferences(IEnumerable<string> referenceFiles, Loader loader)
@@ -595,11 +625,12 @@ namespace ScopeProgramAnalysis
             return log;
         }
 
-        private static void AddRunToSarifOutput(SarifLog log, string inputPath, MethodDefinition method, IList<Result> results)
+        private static void AddRunToSarifOutput(SarifLog log, string inputPath, string id, IList<Result> results)
         {
             var run = new Run();
             // run.StableId = method.ContainingType.FullPathName();
-            run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+            //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+            run.Id = id;
             run.Tool = Tool.CreateFromAssemblyData();
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
