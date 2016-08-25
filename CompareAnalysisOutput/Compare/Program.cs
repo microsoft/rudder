@@ -94,6 +94,7 @@ namespace Compare
                             } else
                             {
                                 Console.WriteLine("Only some input columns were read.");
+                                var inputColumnsRead = inputs.Select(i => i.Split(',')[1].Trim('"', ')'));
                             }
                         }
                     }
