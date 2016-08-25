@@ -456,6 +456,74 @@ namespace Backend.Analyses
                 }
             }
         }
+
+        public PTGNode CreateSummaryForCollection(PointsToGraph ptg, uint offset, IVariable collectionVariable)
+        {
+            var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
+            var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
+            var itemNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
+            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            ptg.PointsTo(collectionNode, itemsField, itemNode);
+
+            return collectionNode;
+        }
+
+        public IFieldReference AddItemforCollection(PointsToGraph ptg, IVariable collectionVariable, IVariable item)
+        {
+            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            this.ProcessStore(ptg, collectionVariable, itemsField, item);
+            return itemsField;
+        }
+
+        public IFieldReference GetItemforCollection(PointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result)
+        {
+            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            this.ProcessLoad(ptg, offset, result, collectionVariable, itemsField);
+            return itemsField;
+        }
+
+        public PTGNode ProcessGetEnum(PointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable result)
+        {
+            var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
+
+            var enumNode = this.NewNode(ptg, ptgId, PlatformTypes.IEnumerator);
+            ptg.RemoveRootEdges(result);
+            ptg.PointsTo(result, enumNode);
+
+            var nodes = ptg.GetTargets(collectionVariable);
+            if(nodes.Count==1 && nodes.Single()==PointsToGraph.NullNode)
+            {
+                var collectionNode = new PTGNode(ptgId, collectionVariable.Type);
+                ptg.PointsTo(collectionVariable, collectionNode);
+            }
+
+            var collecitonField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
+            this.ProcessStore(ptg, result,  collecitonField, collectionVariable);
+            //foreach (var colNode in ptg.GetTargets(collectionVariable))
+            //{
+            //    ptg.PointsTo(enumNode, collecitonField, colNode);
+            //}
+            return enumNode;
+        }
+
+        public IEnumerable<PTGNode> ProcessGetCurrent(PointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result)
+        {
+            var targets = new HashSet<PTGNode>();
+            // get Collection
+            var collectionField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
+            var collectionNodes = ptg.GetTargets(enumVariable, collectionField);
+
+            if (collectionNodes.Any())
+            {
+                var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+                targets.AddRange(collectionNodes.SelectMany(n => ptg.GetTargets(n, itemsField)));
+            }
+            ptg.RemoveRootEdges(result);
+            ptg.PointsTo(result, targets);
+            return targets;
+        }
+
+
         private bool MayReacheableFromParameter(PointsToGraph ptg, PTGNode n)
         {
             var result = method.Body.Parameters.Where(p => ptg.Reachable(p,n)).Any();

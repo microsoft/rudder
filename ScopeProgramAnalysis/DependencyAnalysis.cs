@@ -167,11 +167,20 @@ namespace ScopeProgramAnalysis
             ////var result = iteratorAnalysis.Analyze();
             //// var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, ptgs, this.specialFields , this.equalities);
 
+            //var nodeEntry = cfg.Entry.Successors.First();
+            //var nodeExit = cfg.NormalExit;
+            //nodeExit.NormalSuccessors.Add(nodeEntry);
+            //nodeEntry.Predecessors.Add(nodeExit);
+
             var rangeAnalysis = new RangeAnalysis(cfg);
             var ranges = rangeAnalysis.Analyze();
             var exitRange = ranges[cfg.Exit.Id];
             var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
+
+            //dependencyAnalysis.SetPreviousResult(resultDepAnalysis);
+
+            //resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;
             System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);

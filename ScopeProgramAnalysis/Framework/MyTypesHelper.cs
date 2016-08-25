@@ -48,6 +48,13 @@ namespace ScopeProgramAnalysis.Framework
             var result = /*type.ResolvedType != null &&*/ type.Name.Contains("IEnumerator");
             return result;
         }
+        public static bool IsEnumerator(this IBasicType type)
+        {
+            var result = /*type.ResolvedType != null &&*/ type.Name.Contains("Enumerator");
+            return result;
+        }
+
+
         public static bool IsContainerMethod(this IMethodReference method)
         {
             var result = method.ContainingType!= null && TypeHelper.IsContainer(method.ContainingType);
