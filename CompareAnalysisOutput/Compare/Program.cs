@@ -15,19 +15,128 @@ namespace Compare
     {
         static int Main(string[] args)
         {
-            if (args.Length < 2)
+            if (args.Length < 1 || args[0].Contains("?"))
             {
                 Console.WriteLine("Usage: Compare.exe <sarif file> <xml file>");
                 return -1;
             }
-            var sarifFile = args[0];
+            if (args.Length == 2)
+            {
+                CompareSarifAndXML(args[0], args[1]);
+            }
+            if (args.Length == 1)
+            {
+                ComputePassThroughColumns(args[0]);
+            }
+
+            return 0; // success
+        }
+
+        static int ComputePassThroughColumns(string sarifFile)
+        {
             if (!File.Exists(sarifFile))
             {
                 Console.WriteLine("Error: Sarif file not found: {0}", sarifFile);
                 return -1;
             }
 
-            var xmlFile = args[1];
+
+            try
+            {
+                string logContents = File.ReadAllText(sarifFile);
+
+                var settings = new JsonSerializerSettings()
+                {
+                    ContractResolver = SarifContractResolver.Instance
+                };
+
+                SarifLog log = JsonConvert.DeserializeObject<SarifLog>(logContents, settings);
+
+
+                foreach (var run in log.Runs)
+                {
+                    var tool = run.Tool.Name;
+                    if (tool != "ScopeProgramAnalysis") continue;
+                    var splitId = run.Id.Split('|');
+                    if (splitId.Length != 2) continue;
+                    var processorName = splitId[0];
+                    var processNumber = splitId[1];
+
+                    Console.WriteLine("Processor '{0}', Number '{1}'", processorName, processNumber);
+
+                    var passThroughColumns = new List<Tuple<string, string>>();
+                    var topHappened = false;
+                    foreach (var result in run.Results)
+                    {
+                        if (result.Id == "SingleColumn")
+                        {
+                            var columnProperty = result.GetProperty("column");
+                            if (!columnProperty.StartsWith("Col(")) continue;
+                            var columnName = columnProperty.Split(',')[1].Trim('"', ')');
+                            if (columnName == "_All_")
+                            {
+                                // ignore this for now because it is more complicated
+                                continue;
+                            }
+                            if (columnName == "_TOP_")
+                            {
+                                topHappened = true;
+                            }
+                            var dataDependencies = result.GetProperty<List<string>>("data depends");
+                            if (dataDependencies.Count == 1)
+                            {
+                                var inputColumn = dataDependencies[0];
+                                if (!inputColumn.StartsWith("Col("))
+                                {
+                                    // then it is dependent on only one thing, but that thing is not a column.
+                                    continue;
+                                }
+                                // then it is a pass-through column
+                                var inputColumnName = inputColumn.Split(',')[1].Trim('"', ')');
+                                passThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
+                            }
+                        }
+                        else if (result.Id == "Summary")
+                        {
+                            // Do nothing
+                        }
+                    }
+                    if (passThroughColumns.Count == 0)
+                    {
+                        Console.WriteLine("No pass through columns");
+                    }
+                    else
+                    {
+                        if (topHappened)
+                        {
+                            Console.WriteLine("Had to give up: there was an unknown column that was written to.");
+                        }
+                        else
+                        {
+                            foreach (var t in passThroughColumns)
+                            {
+                                Console.WriteLine("Passthrough: {0} depends on {1}", t.Item1, t.Item2);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error: exception occurred ({0}, {1}: {2}", sarifFile, e.Message);
+                return -1;
+            }
+
+            return 0; // success
+        }
+        static int CompareSarifAndXML(string sarifFile, string xmlFile)
+        {
+            if (!File.Exists(sarifFile))
+            {
+                Console.WriteLine("Error: Sarif file not found: {0}", sarifFile);
+                return -1;
+            }
+
             if (!File.Exists(xmlFile))
             {
                 Console.WriteLine("Error: XML file not found: {0}", xmlFile);
@@ -82,7 +191,8 @@ namespace Compare
                                     var property = result.GetProperty<List<string>>(propertyName);
                                 }
                             }
-                        } else if (result.Id == "Summary")
+                        }
+                        else if (result.Id == "Summary")
                         {
                             // then this is the summary of the inputs and outputs for this processor
                             var inputs = result.GetProperty<List<string>>("Inputs");
@@ -91,7 +201,8 @@ namespace Compare
                             {
                                 // then there was a CopyTo call in the processor that copied the input to the output
                                 Console.WriteLine("All input columns were read.");
-                            } else
+                            }
+                            else
                             {
                                 var inputColumnsRead = inputs.Select(i => i.Split(',')[1].Trim('"', ')'));
                                 if (inputColumnsRead.Count() != inputSchema.Count())
@@ -104,7 +215,8 @@ namespace Compare
                         }
                     }
                 }
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
                 Console.WriteLine("Error: exception occurred ({0}, {1}: {2}", sarifFile, xmlFile, e.Message);
                 return -1;

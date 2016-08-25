@@ -186,6 +186,11 @@ namespace ScopeProgramAnalysis
             if (useScopeFactory)
             {
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
+                if (!scopeMethodPairs.Any())
+                {
+                    System.Console.WriteLine("Failed to obtain methods from the ScopeFactory. Now trying to find methods in the the assembly");
+                    scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
+                }
             }
             else
             {
