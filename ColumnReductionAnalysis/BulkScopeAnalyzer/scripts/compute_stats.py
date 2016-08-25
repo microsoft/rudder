@@ -26,6 +26,7 @@ def do_work(path):
 	no_column_percentages = 0
 	no_column_byte_savings = 0
 	no_column_byte_percentages = 0
+	cumulative_time = 0
 	for txt in txts:
 		f = open(path + "\\" + txt, "r")
 		trace = f.read()
@@ -46,13 +47,19 @@ def do_work(path):
 
 		lines = stats[1].split("\n")
 
+		interesting_assembly = False
+		time = 0
 		for line in lines:
 			line = line.strip()
+			
 			if line.startswith("Methods:"): no_methods += extract_stat(line)
 			elif line.startswith("Methods failed"): no_failed_methods += extract_stat(line)
-			elif line.startswith("Interesting"): 
+			elif line.startswith("Interesting methods"): 
 				cnt = extract_stat(line)
-				if cnt == 0: no_not_interesting_assemblies += 1
+				if cnt == 0:
+					no_not_interesting_assemblies += 1
+				else:
+					interesting_assembly = True
 				no_interesting_methods += cnt
 			elif line.startswith("Unsupported"): no_unsupported_methods += extract_stat(line)
 			elif line.startswith("Concrete-columns"): no_concrete_methods += extract_stat(line)
@@ -62,25 +69,28 @@ def do_work(path):
 			elif line.startswith("Concrete methods"): no_concrete_methods_mapped += extract_stat(line)
 			elif line.startswith("Used columns string accesses"): no_column_string_accesses += extract_stat(line)
 			elif line.startswith("Used columns index accesses"): no_column_index_accesses += extract_stat(line)
-
+			elif line.startswith("Total analysis time"): time += extract_time(line)
+				
 
 			elif line.startswith("!Columns count cumulative"): no_column_savings += extract_stat(line)			
 			elif line.startswith("!Columns percentage count cumulative"): no_column_percentages += extract_stat_float(line)
 			elif line.startswith("!Columns byte cumulative"): no_column_byte_savings += extract_stat(line)			
 			elif line.startswith("!Columns percentage byte cumulative"): no_column_byte_percentages += extract_stat_float(line)
 			
+			if (interesting_assembly): cumulative_time += time
 
 
 	print("")
 	print(str(no_failed_assemblies) + " dlls failed to be analyzed. (" + str(no_cpp_assemblies) + " of them are cpp asemblies.)")
 	print(str(no_assemblies - no_failed_assemblies) + " dlls successfully analyzed.")
-	print(str(no_assemblies - no_failed_assemblies - no_not_interesting_assemblies) + " dlls with some methods of interest.")
+	no_interesting_assemblies = no_assemblies - no_failed_assemblies - no_not_interesting_assemblies
+	print(str(no_interesting_assemblies) + " dlls with some methods of interest.")
 	print("")
 
 	print("")
 	print(str(no_methods) + " methods in total.")
 	print(str(no_interesting_methods) + " methods of interest.")
-	print(str(no_failed_methods) + " of them failed to be analyzed.")
+	print(str(no_failed_methods) + " failed to be analyzed.")
 	print(str(no_unsupported_methods) + " of them with unsupported features.")
 	print("")
 	
@@ -97,6 +107,10 @@ def do_work(path):
 	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_percentages/no_proper_subset_methods) + " average unused columns byte size percentage.")
 	print(str(no_equal_set_methods) + " mapped methods used exactly the columns declared.")
 	print(str(no_imprecision_methods) + " mapped methods with imprecise column analysis.")
+	print("")
+
+	print(str(0 if no_interesting_assemblies == 0 else cumulative_time/float(no_interesting_assemblies)) + " average time (s) per assembly")
+	print(str(0 if no_interesting_methods == 0 else cumulative_time/float(no_interesting_methods)) + " average time (s) per method")
 	print("")
 
 
@@ -120,6 +134,17 @@ def get_traces_paths(main_path):
 def extract_stat(line):
 	stat = line.split(":")[1].strip()
 	return int(stat)
+
+def extract_time(line):
+	parts = line.split(":")
+	hours = int(parts[1].strip())
+	mins = int(parts[2].strip())
+	secsnm = parts[3].strip()
+	sec_parts = secsnm.split(".")
+	secs = int(sec_parts[0].strip())
+	msecs = int(sec_parts[1].strip())
+	return hours*60*60 + mins*60 + secs + msecs/float(100)
+
 
 def extract_stat_float(line):
 	stat = line.split(":")[1].strip()

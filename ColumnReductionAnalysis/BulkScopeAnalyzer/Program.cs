@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using Microsoft.Cci;
 using Frontend;
 using ScopeAnalyzer;

@@ -163,7 +163,10 @@ namespace ScopeAnalyzer.Analyses
             // If we don't trust the method, then only safe thing to do is to
             // set all columns have been used.
             if (!trustedRowMethods.Contains(instruction.Method.Name.Value))
+            {
+                Utils.WriteLine("USED COLUMNS untrusted method: " + instruction.ToString());
                 return ColumnsDomain.Top;
+            }
 
             // get_Schema function is safe.
             if (instruction.Arguments.Count == 1)
@@ -178,6 +181,7 @@ namespace ScopeAnalyzer.Analyses
             // then we cannot say what column was used here, and in general.
             if (cons == null || cons.Count() == 0)
             {
+                Utils.WriteLine("USED COLUMNS top|bottom: " + instruction.ToString());
                 return ColumnsDomain.Top;
             }
             else

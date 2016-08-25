@@ -275,7 +275,7 @@ namespace ScopeAnalyzer
                     stats.ColumnsByteSavings += redundantInputByteSize;
                     stats.ColumnsByteSavingsPercentages += redundantInputByteSize / (double)inputByteSize;
 
-                    Utils.WriteLine("SAVINGS: used columns subset of defined columns: " + savings);
+                    Utils.WriteLine(String.Format("SAVINGS ({0}): used columns subset of defined columns: {1}", result.Method.FullName(), savings));
                 }
                 else if (allSchemaColumns.SetEquals(usedColumns))
                 {

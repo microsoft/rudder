@@ -208,7 +208,8 @@ namespace ScopeAnalyzer
                     // there is no need to analyze the method any further.
                     if (escAnalysis.InterestingRowEscaped || escAnalysis.Unsupported)
                     {
-                        Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
+                        if (escAnalysis.InterestingRowEscaped && !escAnalysis.Unsupported) 
+                            Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
                         methodResult.UsedColumnsSummary = ColumnsDomain.Top;                     
                     }
                     else

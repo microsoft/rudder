@@ -12,6 +12,7 @@
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -24,7 +25,6 @@
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -49,31 +49,31 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Cci.ILGenerator">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.ILGenerator.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.ILGenerator.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.MetadataHelper">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.MetadataHelper.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.MetadataHelper.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.MetadataModel">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.MetadataModel.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.MetadataModel.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.MutableMetadataModel">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.MutableMetadataModel.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.MutableMetadataModel.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.PdbReader">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.PdbReader.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.PdbReader.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.PdbWriter">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.PdbWriter.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.PdbWriter.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.PeReader">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.PeReader.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.PeReader.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.PeWriter">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.PeWriter.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.PeWriter.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Cci.SourceModel">
-      <HintPath>..\..\..\analysis-net\Dependencies\Microsoft.Cci.SourceModel.dll</HintPath>
+      <HintPath>..\Dependencies\Microsoft.Cci.SourceModel.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
