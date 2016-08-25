@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Model", "analysis-net\Model
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalysisBulkScripts", "ScopeProgramAnalysis\ScopeAnalysisBulkScripts\ScopeAnalysisBulkScripts.csproj", "{BF337A56-0CE5-43EA-92E3-270994332312}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisClient", "AnalysisClient\AnalysisClient.csproj", "{EDB1C398-A573-4CE1-A636-B8A823C218F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF337A56-0CE5-43EA-92E3-270994332312}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDB1C398-A573-4CE1-A636-B8A823C218F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDB1C398-A573-4CE1-A636-B8A823C218F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDB1C398-A573-4CE1-A636-B8A823C218F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDB1C398-A573-4CE1-A636-B8A823C218F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
