@@ -1404,7 +1404,7 @@ namespace Backend.Analyses
 
                     // Create a fake column for the output table
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
-                    var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single();
+                    var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
                     //this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
                     this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
                     arg1 = allColumnsVar;
@@ -1689,7 +1689,8 @@ namespace Backend.Analyses
 
                         this.State = interProcResult.State;
                         currentPTG = interProcResult.State.PTG;
-                        traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
+                        if(methodCall.HasResult)
+                            traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
                     }
                     catch (Exception e)
                     {
