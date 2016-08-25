@@ -14,7 +14,7 @@ namespace ScopeAnalysisBulkScripts
         static void Main(string[] args)
         {
             var analysisFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            // analysisFolder = @"D:\MadanExamples\";
+            analysisFolder = @"D:\MadanExamples\";
             AnalyzeScopeScripts(new string[] { analysisFolder, @"C:\Temp\", "Reducer" });
             AnalysisStats.PrintStats(System.Console.Out);
             System.Console.ReadKey();
@@ -23,7 +23,7 @@ namespace ScopeAnalysisBulkScripts
         {
             var logPath = Path.Combine(@"C:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
-
+            var interProc = false;
 
 
             var inputFolder = args[0];
@@ -49,7 +49,8 @@ namespace ScopeAnalysisBulkScripts
 
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
-                Program.AnalyzeDll(dllToAnalyze, outputPath, Program.ScopeMethodKind.All, true, outputStream);
+                ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
+                                                                    true, interProc , outputStream);
 
                 if (AnalysisStats.AnalysisReasons.Any())
                 {
