@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace ScopeProgramAnalysis
 {
-    public class Program
+    public class ScopeProgramAnalysis
     {
         private Host host;
         private IDictionary<string, ClassDefinition> factoryReducerMap;
@@ -33,7 +33,7 @@ namespace ScopeProgramAnalysis
         public HashSet<string> ClousureFilters { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
 
-        public Program(Host host, Loader loader)
+        public ScopeProgramAnalysis(Host host, Loader loader)
         {
             this.host = host;
             this.loader = loader;
@@ -126,19 +126,19 @@ namespace ScopeProgramAnalysis
 
         public enum ScopeMethodKind { Producer, Reducer, All };
 
-        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true)
+        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
         {
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, outputPath, kind, useScopeFactory);
+            AnalyzeDll(input, outputPath, kind, useScopeFactory, interProcAnalysis);
         }
 
         public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind,
-                                      bool useScopeFactory = true, StreamWriter outputStream = null)
+                                      bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
-            AnalysisOptions.DoInterProcAnalysis = false;
+            AnalysisOptions.DoInterProcAnalysis = interProc;
 
             AnalysisStats.TotalNumberFolders++;
 
@@ -153,7 +153,7 @@ namespace ScopeProgramAnalysis
 
             loader.LoadCoreAssembly();
 
-            var program = new Program(host, loader);
+            var program = new ScopeProgramAnalysis(host, loader);
 
             // program.interprocAnalysisManager = new InterproceduralManager(host);
             program.ScopeGenAssembly = scopeGenAssembly;

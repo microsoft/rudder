@@ -510,6 +510,11 @@ namespace Backend.Analyses
                 this.variableRanges = this.iteratorDependencyAnalysis.rangeAnalysis.Result[cfgNode.Id].Output;
             }
 
+            private bool IsClousureType(IVariable instance)
+            {
+                return instance.Type.Equals(this.iteratorDependencyAnalysis.iteratorClass);
+            }
+
             private bool ISClousureField(IVariable instance, IFieldReference field)
             {
                 if(SongTaoDependencyAnalysis.IsScopeType(field.Type))
@@ -665,18 +670,21 @@ namespace Backend.Analyses
                     // this is a2[o]
                     var traceables = this.State.GetTraceables(baseArray);
 
-                    foreach (var ptgNode in currentPTG.GetTargets(baseArray))
-                    {
-                        // TODO: I need to provide a BasicType. I need the base of the array 
-                        // Currenly I use the method containing type
-                        var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
-                        var loc = new Location(ptgNode, fakeField);
-                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
-                        {
-                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
-                        }
-                    }
-                    this.State.AssignTraceables(loadStmt.Result, traceables);
+                    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
+                    traceables.UnionWith(this.State.GetHeapTraceables(baseArray, fakeField));
+                    //foreach (var ptgNode in currentPTG.GetTargets(baseArray))
+                    //{
+                    //    // TODO: I need to provide a BasicType. I need the base of the array 
+                    //    // Currenly I use the method containing type
+                    //    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
+                    //    var loc = new Location(ptgNode, fakeField);
+                    //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
+                    //    {
+                    //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
+                    //    }
+                    //}
+                    
+                    //this.State.AssignTraceables(loadStmt.Result, traceables);
                 }
                 else if (operand is ArrayLengthAccess)
                 {
@@ -701,8 +709,7 @@ namespace Backend.Analyses
                 }
                 return result;
             }
-
-            
+                        
 
             private void ProcessLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
             {
@@ -714,31 +721,34 @@ namespace Backend.Analyses
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
                 //if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
-                if (fieldAccess.Instance.Type.IsRowType() 
-                    || fieldAccess.Instance.Type.IsScopeMapUsage())
-                {
-                    traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
-                }
-
+         
                     //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
-                if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+                //if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                 {
+                    
                     // this is a[loc(o.f)]
                     var nodes = currentPTG.GetTargets(fieldAccess.Instance);
                     if (nodes.Any())
                     {
-                        foreach (var ptgNode in nodes)
+                        traceables.UnionWith(this.State.GetHeapTraceables(fieldAccess.Instance, fieldAccess.Field));
+                        //foreach (var ptgNode in nodes)
+                        //{
+                        //    var loc = new Location(ptgNode, fieldAccess.Field);
+                        //    //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
+                        //    //{ }
+                        //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
+                        //    {
+                        //        //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
+                        //        //{ }
+                        //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
+                        //    }
+                        //}
+                        //if (fieldAccess.Instance.Type.IsRowType()  || fieldAccess.Instance.Type.IsScopeMapUsage())
+                        //if(IsClousureType(fieldAccess.Instance))
                         {
-                            var loc = new Location(ptgNode, fieldAccess.Field);
-                            //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
-                            //{ }
-                            if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
-                            {
-                                //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
-                                //{ }
-                                traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
-                            }
+                            traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
                         }
+
                     }
                     else
                     {
@@ -770,17 +780,19 @@ namespace Backend.Analyses
                 //    if (isClousureField || isReducerField)
                 {
                     var traceables = new HashSet<Traceable>();
+                    traceables.UnionWith(this.State.GetHeapTraceables(PointsToGraph.GlobalNode, fieldAccess.Field));
+
                     // a2:= [v <- a3[loc(o.f)] if loc(o.f) is CF
                     // if (ISClousureField(PointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
-                    {
-                        // this is a[loc(C.f)]
-                        var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
-                        if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
-                        {
-                            traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
-                        }
+                    //{
+                    //    // this is a[loc(C.f)]
+                    //    var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
+                    //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
+                    //    {
+                    //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
+                    //    }
 
-                    }
+                    //}
                     this.State.AssignTraceables(loadStmt.Result, traceables);
                 }
                 else
@@ -835,23 +847,29 @@ namespace Backend.Analyses
 
                     var o = fieldAccess.Instance;
                     var field = fieldAccess.Field;
-                    if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+                    //if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
                     {
                         var arg = instruction.Operand;
                         var inputTable = equalities.GetValue(arg);
 
                         // a3 := a3[loc(o.f) <- a2[v]] 
                         // union = a2[v]
-                        var traceables = this.State.GetTraceables(instruction.Operand);
-                        var nodes = currentPTG.GetTargets(o);
-                        if (nodes.Any())
+                        var OK = this.State.AddHeapTraceables(o, field, instruction.Operand);
+
+                        //var traceables = this.State.GetTraceables(instruction.Operand);
+                        //var nodes = currentPTG.GetTargets(o);
+                        //if (nodes.Any())
+                        //{
+                        //    foreach (var ptgNode in nodes)
+                        //    {
+                        //        var location = new Location(ptgNode, field);
+                        //        //this.State.Dependencies.A3_Fields[location] = traceables;
+                        //        // Now I do a weak update
+                        //        this.State.Dependencies.A3_Fields.AddRange(location, traceables);
+                        //    }
+                        //}
+                        if(!OK)
                         {
-                            foreach (var ptgNode in nodes)
-                            {
-                                this.State.Dependencies.A3_Fields[new Location(ptgNode, field)] = traceables;
-                            }
-                        }
-                        else {
                             this.State.SetTOP();
                             AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "Trying to Store a field with no objects associated"));
                         }
@@ -872,21 +890,27 @@ namespace Backend.Analyses
                     // a3 := a3[loc(o[f]) <- a2[v]] 
                     // union = a2[v]
                     var traceables = this.State.GetTraceables(instruction.Operand);
-                    foreach (var ptgNode in currentPTG.GetTargets(baseArray))
-                    {
-                        // TODO: I need to provide a BasicType. I need the base of the array 
-                        // Currenly I use the method containing type
-                        var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
-                        //fakeField.ContainingType = PlatformTypes.Object;
-                        var loc = new Location(ptgNode, fakeField);
-                        this.State.Dependencies.A3_Fields[new Location(ptgNode, fakeField)] = traceables;
-                    }
+                    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
+                    var OK = this.State.AddHeapTraceables(baseArray, fakeField, instruction.Operand);
+
+                    //foreach (var ptgNode in currentPTG.GetTargets(baseArray))
+                    //{
+                    //    // TODO: I need to provide a BasicType. I need the base of the array 
+                    //    // Currenly I use the method containing type
+                    //    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
+                    //    //fakeField.ContainingType = PlatformTypes.Object;
+                    //    var loc = new Location(ptgNode, fakeField);
+                    //    this.State.Dependencies.A3_Fields[new Location(ptgNode, fakeField)] = traceables;
+                    //}
                 }
                 else if (instructionResult is StaticFieldAccess)
                 {
                     var field = (instructionResult as StaticFieldAccess).Field;
                     var traceables = this.State.GetTraceables(instruction.Operand);
-                    this.State.Dependencies.A3_Fields[new Location(PointsToGraph.GlobalNode, field)] = traceables;
+
+                    this.State.AddHeapTraceables(PointsToGraph.GlobalNode, field, traceables);
+
+                    //this.State.Dependencies.A3_Fields[new Location(PointsToGraph.GlobalNode, field)] = traceables;
 
                     this.State.Dependencies.A1_Escaping.UnionWith(traceables);
                 }
@@ -962,6 +986,12 @@ namespace Backend.Analyses
                                 var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
 
                                 var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+
+                                var dataDependent = methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)).Any();
+
+                                if(methodCallStmt.IsConstructorCall() && methodInvoked.ContainingType.Name== "AggregateCacheRecord")
+                                { }
+
                                 if (escaping)
                                 {
                                     if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled 
@@ -984,7 +1014,11 @@ namespace Backend.Analyses
                                 }
                                 else
                                 {
+
                                     UpdateUsingDefUsed(methodCallStmt);
+
+                                    if(dataDependent)
+                                    { }
 
                                     // I should at least update the Poinst-to graph
                                     // or make the parameters escape
@@ -1007,7 +1041,7 @@ namespace Backend.Analyses
             /// <param name="instruction"></param>
             private void UpdatePTAForPure(MethodCallInstruction instruction)
             {
-                if (instruction.Result != null && !instruction.Result.Type.IsValueType())
+                if (instruction.HasResult && instruction.Result.Type.IsClassOrStruct())
                 {
                     var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type, PTGNodeKind.Object);
 
@@ -1032,7 +1066,9 @@ namespace Backend.Analyses
                             else
                             { }
                         }
+                        this.State.PTG.PointsTo(result, returnNode);
                     }
+
                 }
             }
 
@@ -1128,7 +1164,29 @@ namespace Backend.Analyses
             {
                 instruction.Accept(visitorPTA);
 
-                UpdateUsingDefUsed(instruction);
+                var traceables = new HashSet<Traceable>();
+                foreach (var arg in instruction.UsedVariables)
+                {
+                    var tables = this.State.GetTraceables(arg);
+                    //if(!this.State.HasTraceables(arg))
+                    //{
+                    //    if(arg is DerivedVariable)
+                    //    {
+                    //        var temp= arg as DerivedVariable;
+                    //        tables = this.State.GetTraceables(temp.Original);
+                    //    }
+                    //}
+                    //traceables.UnionWith(tables);
+                }
+                this.State.AssignTraceables(instruction.Result, traceables);
+            }
+
+            public override void Visit(ConvertInstruction instruction)
+            {
+                this.State.CopyTraceables(instruction.Result, instruction.Operand);
+
+                instruction.Accept(visitorPTA);
+
             }
 
             /// <summary>
@@ -1152,7 +1210,7 @@ namespace Backend.Analyses
             /// <returns></returns>
             private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
-                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count", "First" };
+                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "Count", "get_Count", "First"};
                 var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
                  
 
@@ -1160,61 +1218,107 @@ namespace Backend.Analyses
                 if (methodInvoked.Name == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods
                 if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsEnumerable())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsContainerMethod())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsSet())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsDictionary())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
-                    var arg0 = methodCallStmt.Arguments[0];
-                    var arg1 = methodCallStmt.Arguments[1];
-                    this.State.AddTraceables(arg0, arg1);
+                    PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
+                    // TODO: Hack for connecting a dictionary with its items
+                    // We need summaries for 
+                    foreach (var ptgNode in this.State.PTG.GetTargets(methodCallStmt.Arguments[0]))
+                    {
+                        var sources = ptgNode.Sources.Where(nf => nf.Key.Name == "$item");
+                        if (ptgNode.Sources.Any(nf => nf.Key.Name=="$item"))
+                        {
+                            foreach(var source in sources)
+                            {
+                                foreach (var node in source.Value)
+                                {
+                                    var traceables = this.State.GetHeapTraceables(node, source.Key);
+                                    this.State.Dependencies.A2_References.AddRange(node, traceables);
+                                }
+
+                            }
+                        }
+                    }
+                }
+                else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                {
+                    // TODO: Hack for connecting a dictionary with its items
+                    PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
+                    var newField = new FieldReference("$item", methodCallStmt.Arguments[2].Type, method.ContainingType);
+                    this.iteratorDependencyAnalysis.pta.ProcessStore(this.State.PTG, methodCallStmt.Arguments[0], newField, methodCallStmt.Arguments[2]);
+                    this.State.AddHeapTraceables(methodCallStmt.Arguments[0], newField, methodCallStmt.Arguments[2]);
+                }
+                else if (methodInvoked.Name == "get_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                {
+                    // TODO: Hack for connecting a dictionary with its items
+                    if (methodInvoked.ContainingType.IsDictionary())
+                    {
+                        var newField = new FieldReference("$item", methodCallStmt.Arguments[1].Type, method.ContainingType);
+                        //var nodes = this.State.PTG.GetTargets(methodCallStmt.Arguments[0], newField);
+                        this.iteratorDependencyAnalysis.pta.ProcessLoad(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Result, methodCallStmt.Arguments[0], newField);
+
+                        this.State.AssignTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], newField));
+                    }
+                    else
+                    {
+                        UpdateUsingDefUsed(methodCallStmt);
+                        UpdatePTAForPure(methodCallStmt);
+                    }
+
                 }
                 else if (methodInvoked.Name == "get_Current" && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "MoveNext"
                     && methodInvoked.ContainingType.IsIEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "GetEnumerator"
                     && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else
                 {
                     result = false;
                 }
-                if (result && methodCallStmt.HasResult)
-                {
-                    UpdatePTAForPure(methodCallStmt);
-                    //var node = new PTGNode(new PTGID(new MethodContex(this.method), (int)methodCallStmt.Offset), methodCallStmt.Result.Type);
-                    //this.State.PTG.PointsTo(methodCallStmt.Result, node);
-                }
+                    
                 return result;
             }
 
@@ -1300,7 +1404,7 @@ namespace Backend.Analyses
 
                     // Create a fake column for the output table
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
-                    var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single();
+                    var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
                     //this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
                     this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
                     arg1 = allColumnsVar;
@@ -1309,7 +1413,7 @@ namespace Backend.Analyses
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg1, traceables);
                 }
-                else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.IsColumnDataType())
+                else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
@@ -1450,8 +1554,9 @@ namespace Backend.Analyses
                 }
                 else if (IsSchemaItemMethod(methodInvoked))
                 {
-                    var arg = methodCallStmt.Arguments[0];
-                    scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+                    var columnn = ObtainColumn(methodCallStmt.Arguments[1]);
+                    scopeData.UpdateColumnMap(methodCallStmt, columnn);
+                    //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // callResult = arg.IndexOf(colunm)
                 // we recover the table from arg and associate the column number with the call result
@@ -1496,15 +1601,48 @@ namespace Backend.Analyses
             /// <param name="instruction"></param>
             private void UpdateUsingDefUsed(Instruction instruction)
             {
-                foreach (var result in instruction.ModifiedVariables)
+                if (instruction.IsConstructorCall())
                 {
-                    var traceables = new HashSet<Traceable>();
-                    foreach (var arg in instruction.UsedVariables)
+                    UpdateCtor((MethodCallInstruction)instruction);
+                }
+                else
+                {
+                    foreach (var result in instruction.ModifiedVariables)
+                    {
+                        var traceables = new HashSet<Traceable>();
+                        foreach (var arg in instruction.UsedVariables)
+                        {
+                            // If a paramete is a delegate we try to evaluate it with the parameters available
+                            if (instruction is MethodCallInstruction && arg.Type.IsDelegateType())
+                            {
+                                var methodCall = instruction as MethodCallInstruction;
+                                traceables.UnionWith(EvaluateDelegate(arg, methodCall));
+                            }
+                            else
+                            {
+                                var tables = this.State.GetTraceables(arg);
+                                traceables.UnionWith(tables);
+                            }
+                        }
+                        this.State.AssignTraceables(result, traceables);
+                    }
+                }
+            }
+            private void UpdateCtor(MethodCallInstruction constructor)
+            {
+                PropagateArguments(constructor, constructor.Arguments[0]);
+            }
+            private void PropagateArguments(MethodCallInstruction methodCall, IVariable result)
+            {
+                var traceables = new HashSet<Traceable>();
+                for(int i=0; i< methodCall.Arguments.Count; i++)
+                {
+                    var arg = methodCall.Arguments[i];
+                    if (arg != result)
                     {
                         // If a paramete is a delegate we try to evaluate it with the parameters available
-                        if(instruction is MethodCallInstruction && arg.Type.IsDelegateType())
+                        if (arg.Type.IsDelegateType())
                         {
-                            var methodCall = instruction as MethodCallInstruction;
                             traceables.UnionWith(EvaluateDelegate(arg, methodCall));
                         }
                         else
@@ -1513,9 +1651,9 @@ namespace Backend.Analyses
                             traceables.UnionWith(tables);
                         }
                     }
-                    this.State.AssignTraceables(result, traceables);
                 }
-            }
+                this.State.AssignTraceables(result, traceables);
+           }
 
             // Evaluate a delegate within a non analyzed method invocation
             // Example result = v.Select(lambda). We don;t analyze Select but we need to do somthing with lambda 
@@ -1551,7 +1689,8 @@ namespace Backend.Analyses
 
                         this.State = interProcResult.State;
                         currentPTG = interProcResult.State.PTG;
-                        traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
+                        if(methodCall.HasResult)
+                            traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
                     }
                     catch (Exception e)
                     {
@@ -1615,8 +1754,7 @@ namespace Backend.Analyses
                                     InterproceduralManager interprocManager,
                                     RangeAnalysis rangeAnalysis,
                                     DependencyPTGDomain initValue,
-                                    ScopeInfo scopeData) : this(method, cfg, pta, protectedNodes, 
-                                                                          equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
+                                    ScopeInfo scopeData) : this(method, cfg, pta, protectedNodes, equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
         {            
             this.initValue = initValue;
             InitVariablesWithTaint(this.initValue);
@@ -1658,8 +1796,10 @@ namespace Backend.Analyses
                             //if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
                             if (protectedNodes.Contains(potentialRowNode))
                             {
-                                depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key),
-                                                                        new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type))));
+                                var traceable = new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type)));
+                                depValues.AddHeapTraceables(ptgNode, target.Key, new HashSet<Traceable>() { traceable } );
+                                
+                                // depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key), traceable));
                             }
                         }
                     }
@@ -1671,13 +1811,13 @@ namespace Backend.Analyses
 
         private void InitVariablesWithTaint(DependencyPTGDomain depValues)
         {
-            //foreach (var v in cfg.GetVariables())
-            //{
-            //    if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter)
-            //    {
-            //        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
-            //    }
-            //}
+            foreach (var v in cfg.GetVariables())
+            {
+                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter)
+                {
+                    depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
+                }
+            }
         }
 
         protected override bool Compare(DependencyPTGDomain newState, DependencyPTGDomain oldSTate)
@@ -1687,14 +1827,13 @@ namespace Backend.Analyses
 
         protected override DependencyPTGDomain Join(DependencyPTGDomain left, DependencyPTGDomain right)
         {
-            //var a = left.Dependencies.A3_Fields.Where(kv => kv.Key.Field.Name == "<guid>5__9").SelectMany(kv => kv.Value);
-            //var b = right.Dependencies.A3_Fields.Where(kv => kv.Key.Field.Name == "<guid>5__9").SelectMany(kv => kv.Value);
-
-            //if(a.Any(v => v.TableName.Equals("Object")) || b.Any(v => v.TableName.Equals("Object")))
-            //{ }
-
             var result = left.Join(right);
             return result;
+        }
+
+        protected override DependencyPTGDomain Copy(DependencyPTGDomain elem)
+        {
+            return elem.Clone();
         }
 
         protected override DependencyPTGDomain Flow(CFGNode node, DependencyPTGDomain input)

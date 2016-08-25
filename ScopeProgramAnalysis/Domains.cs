@@ -2,6 +2,7 @@
 using Backend.Model;
 using Backend.Utils;
 using Model.ThreeAddressCode.Values;
+using Model.Types;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -46,7 +47,8 @@ namespace ScopeProgramAnalysis
         {
             //var ptgClone = new PointsToGraph();
             //ptgClone.Union(this.PTG);
-            var ptgClone = this.PTG.Clone();
+            //var ptgClone = this.PTG.Clone();
+            var ptgClone = this.PTG;
 
             var result = new DependencyPTGDomain(this.Dependencies.Clone(), ptgClone);
             return result;
@@ -56,7 +58,7 @@ namespace ScopeProgramAnalysis
         {
             var joinedDep = this.Dependencies.Join(right.Dependencies);
 
-            var joinedPTG = this.PTG.Join(right.PTG);
+            var joinedPTG = this.PTG.FakeJoin(right.PTG);
 
             return new DependencyPTGDomain(joinedDep, joinedPTG);
         }
@@ -74,31 +76,181 @@ namespace ScopeProgramAnalysis
 
         public void CopyTraceables(IVariable destination, IVariable source)
         {
-            var traceables = GetTraceables(source);
-            this.Dependencies.A2_Variables[destination] = traceables;
+            AssignTraceables(destination, GetTraceables(source));
         }
 
         public void AssignTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
             this.Dependencies.A2_Variables[destination] = new HashSet<Traceable>(traceables);
+
+            if (destination.Type!=null && destination.Type.IsClassOrStruct())
+            {
+                foreach (var targetNode in PTG.GetTargets(destination))
+                {
+                    if (targetNode != PointsToGraph.NullNode)
+                        this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                }
+            }
+
         }
 
         public void AddTraceables(IVariable destination, IVariable source)
         {
             HashSet<Traceable> traceables = GetTraceables(source);
-            this.Dependencies.A2_Variables.AddRange(destination, traceables);
+            AddTraceables(destination, traceables);
         }
 
         public void AddTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
             this.Dependencies.A2_Variables.AddRange(destination, traceables);
+
+            if (destination.Type.IsClassOrStruct())
+            {
+                foreach (var targetNode in PTG.GetTargets(destination))
+                {
+                    if(targetNode!=PointsToGraph.NullNode)
+                        this.Dependencies.A2_References.AddRange(targetNode, traceables);
+                }
+            }
         }
+
+        public bool AddHeapTraceables(IVariable destination, IFieldReference field, IVariable source)
+        {
+            return AddHeapTraceables(destination, field, GetTraceables(source));
+        }
+
+        public bool AddHeapTraceables(IVariable destination, IFieldReference field,  IEnumerable<Traceable> traceables)
+        {
+            var nodes = PTG.GetTargets(destination);
+            if (nodes.Any())
+            {
+                // This should be only for scalars
+                foreach (var ptgNode in nodes)
+                {
+                    if (ptgNode != PointsToGraph.NullNode)
+                        AddHeapTraceables(ptgNode, field, traceables);
+                }
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public void AddHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
+        {
+            if (!field.Type.IsClassOrStruct())
+            {
+                var location = new Location(ptgNode, field);
+                this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
+            }
+            // TODO:  a weak update
+            //this.Dependencies.A3_Fields.AddRange(location, traceables);
+
+            // This should be only for references
+            if (field.Type.IsClassOrStruct())
+            {
+                var targets = PTG.GetTargets(ptgNode, field);
+                if (targets.Any())
+                {
+                    foreach (var targetNode in targets)
+                    {
+                        if (targetNode != PointsToGraph.NullNode)
+                        {
+                            // TODO: Change for Add
+                            //this.Dependencies.A2_References.AddRange(targetNode, traceables);
+                            this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                        }
+                    }
+                }
+                else
+                { }
+            }
+
+
+        }
+
+
+        public IEnumerable<Traceable> GetHeapTraceables(IVariable arg, IFieldReference field)
+        {
+            var result = new HashSet<Traceable>();
+            var nodes = PTG.GetTargets(arg); // , field);
+            foreach (var node in nodes)
+            {
+                result.UnionWith(GetHeapTraceables(node,field));
+            }
+            return result;
+        }
+
+        public IEnumerable<Traceable> GetHeapTraceables(PTGNode node, IFieldReference field)
+        {
+            var location = new Location(node, field);
+            var originalTraceables = GetTraceablesForLocation(location);
+
+            var traceables = new HashSet<Traceable>();
+
+
+            if (field.Type.IsClassOrStruct())
+            {
+                foreach (var target in PTG.GetTargets(node, field))
+                {
+                    if (Dependencies.A2_References.ContainsKey(target) && target!=PointsToGraph.NullNode)
+                    {
+                        traceables.UnionWith(Dependencies.A2_References[target]);
+                    }
+                }
+            }
+
+            if (traceables.Count > originalTraceables.Count)
+            {
+            }
+
+            originalTraceables.UnionWith(traceables);
+
+            return originalTraceables;
+        }
+
+        private HashSet<Traceable> GetTraceablesForLocation(Location location)
+        {
+            var result = new HashSet<Traceable>();
+            if (!location.Field.Type.IsClassOrStruct())
+            {
+                if (Dependencies.A3_Fields.ContainsKey(location))
+                    result.UnionWith(Dependencies.A3_Fields[location]);
+            }
+            else
+            { }
+            return result;
+        }
+
+
+        /// <summary>
+        ///  This one is just for debugging
+        /// </summary>
+        /// <param name="arg"></param>
+        /// <returns></returns>
+        public IEnumerable<Tuple<IFieldReference, IEnumerable<Traceable>>> GetHeapTraceables(IVariable arg)
+        {
+            var result = new HashSet<Tuple<IFieldReference, IEnumerable<Traceable>>>();
+            var nodes = PTG.GetTargets(arg);
+            foreach (var node in nodes)
+            {
+                var locations = node.Targets.Select(nf => new Location(node, nf.Key));
+                result.UnionWith(locations.Select(location => new Tuple<IFieldReference, IEnumerable<Traceable>>(location.Field, GetTraceablesForLocation(location))));
+            }
+            return result;
+        }
+
+
 
         public bool HasTraceables(IVariable arg)
         {
             return Dependencies.A2_Variables.ContainsKey(arg)
                 && Dependencies.A2_Variables[arg].Count > 0;
         }
+
+
         public bool HasOutputTraceables(IVariable arg)
         {
             return Dependencies.A4_Ouput.ContainsKey(arg)
@@ -120,7 +272,32 @@ namespace ScopeProgramAnalysis
                     union.UnionWith(this.Dependencies.A2_Variables[argAlias]);
                 }
             }
+
+            HashSet<Traceable> traceables = GetTraceablesForReferences(arg);
+
+            if (traceables.Count > union.Count)
+            { }
+            union.UnionWith(traceables);
+
             return union;
+        }
+
+        private HashSet<Traceable> GetTraceablesForReferences(IVariable arg)
+        {
+            var traceables = new HashSet<Traceable>();
+
+            if (arg.Type.IsClassOrStruct())
+            {
+                foreach (var ptgNode in PTG.GetTargets(arg))
+                {
+                    if (ptgNode!=PointsToGraph.NullNode && Dependencies.A2_References.ContainsKey(ptgNode))
+                    {
+                        traceables.UnionWith(Dependencies.A2_References[ptgNode]);
+                    }
+                }
+            }
+
+            return traceables;
         }
 
         public HashSet<Traceable> GetOutputTraceables(IVariable arg)
@@ -212,6 +389,9 @@ namespace ScopeProgramAnalysis
             internal set { isTop = value; }
         }
 
+
+        public MapSet<PTGNode, Traceable> A2_References { get; set; }
+
         public MapSet<IVariable, Traceable> A2_Variables { get; private set; }
         public MapSet<Location, Traceable> A3_Fields { get; set; }
 
@@ -226,6 +406,8 @@ namespace ScopeProgramAnalysis
 
         public DependencyDomain()
         {
+            A2_References = new MapSet<PTGNode, Traceable>();
+
             A2_Variables = new MapSet<IVariable, Traceable>();
             A3_Fields = new MapSet<Location, Traceable>();
             A4_Ouput = new MapSet<IVariable, Traceable>();
@@ -283,6 +465,7 @@ namespace ScopeProgramAnalysis
 
             return oth != null
                 && this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
+                && MapLessEqual(A2_References, oth.A2_References)
                 && MapLessEqual(A2_Variables, oth.A2_Variables)
                 && MapLessEqual(A3_Fields, oth.A3_Fields)
                 && MapLessEqual(A4_Ouput, oth.A4_Ouput)
@@ -318,6 +501,8 @@ namespace ScopeProgramAnalysis
         {
             var result = new DependencyDomain();
             result.IsTop = this.IsTop;
+            result.A2_References = new MapSet<PTGNode, Traceable>(this.A2_References);
+
             result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
             result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
             result.A3_Fields = new MapSet<Location, Traceable>(this.A3_Fields);
@@ -345,6 +530,8 @@ namespace ScopeProgramAnalysis
             else
             {
                 result.IsTop = this.IsTop;
+                result.A2_References = new MapSet<PTGNode, Traceable>(this.A2_References);
+
                 result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
                 result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
                 result.A3_Fields = new MapSet<Location, Traceable>(this.A3_Fields);
@@ -354,6 +541,8 @@ namespace ScopeProgramAnalysis
                 result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
 
                 result.isTop = result.isTop || right.isTop;
+                result.A2_References.UnionWith(right.A2_References);
+
                 result.A1_Escaping.UnionWith(right.A1_Escaping);
                 result.A2_Variables.UnionWith(right.A2_Variables);
                 result.A3_Fields.UnionWith(right.A3_Fields);
@@ -384,12 +573,22 @@ namespace ScopeProgramAnalysis
             result += "A4\n";
             foreach (var var in this.A4_Ouput.Keys)
             {
-                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput[var]));
+                var a2_value = "";
+                if(A2_Variables.ContainsKey(var))
+                {
+                    a2_value = ToString(A2_Variables[var]);
+                }
+                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, a2_value , ToString(A4_Ouput[var]));
             }
             result += "A4_Control\n";
             foreach (var var in this.A4_Ouput_Control.Keys)
             {
-                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, ToString(A2_Variables[var]), ToString(A4_Ouput_Control[var]));
+                var a2_value = "";
+                if (A2_Variables.ContainsKey(var))
+                {
+                    a2_value = ToString(A2_Variables[var]);
+                }
+                result += String.Format(CultureInfo.InvariantCulture, "({0}){1}= dep({2})\n", var, a2_value, ToString(A4_Ouput_Control[var]));
             }
             result += "Escape\n";
             result += ToString(A1_Escaping);

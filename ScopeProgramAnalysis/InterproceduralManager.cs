@@ -81,6 +81,8 @@ namespace ScopeProgramAnalysis
         public MethodCFGCache CFGCache { get; set; }
 
         private IDictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
+        private IDictionary<IInstruction, DependencyPTGDomain> previousResult;
+
         public InterproceduralManager(Host host)
         {
             this.host = host;
@@ -88,9 +90,11 @@ namespace ScopeProgramAnalysis
             this.stackDepth = 0;
             this.callStack = new Stack<MethodDefinition>();
             this.dataflowCache = new Dictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
+            this.previousResult = new Dictionary<IInstruction, DependencyPTGDomain>();
         }
+    
 
-        public ControlFlowGraph GetCFG(MethodDefinition method)
+    public ControlFlowGraph GetCFG(MethodDefinition method)
         {
             return CFGCache.GetCFG(method);
         }
@@ -104,8 +108,18 @@ namespace ScopeProgramAnalysis
         {
             if (callInfo.Callee.Body.Instructions.Any())
             {
-                var previousState = callInfo.CallerState;
+                //if(previousResult.ContainsKey(callInfo.Instruction))
+                //{
+                //    var previousState = previousResult[callInfo.Instruction];
+                //    if(callInfo.CallerState.LessEqual(previousState))
+                //    {
+                //        return new InterProceduralReturnInfo(callInfo.CallerState);
+                //    }
+                //}
+
+                this.previousResult[callInfo.Instruction] = callInfo.CallerState;
                 ControlFlowGraph calleeCFG = this.GetCFG(callInfo.Callee);
+
 
                 var interProcresult = InterproceduralAnalysis(callInfo, calleeCFG);
                 // For Debugging
@@ -161,11 +175,24 @@ namespace ScopeProgramAnalysis
             // This should be adapted (or removed) if we want the analysis to be context sensitive
 
             //if (dataflowCache.ContainsKey(callInfo.Callee))
-            //    dependencyAnalysis.SetPreviousResult(dataflowCache[callInfo.Callee]);
+            //{
+            //    var previosResult = dataflowCache[callInfo.Callee];
+            //    //DataFlowAnalysisResult<DependencyPTGDomain>[] resultsCopy = new DataFlowAnalysisResult<DependencyPTGDomain>[previosResult.Length];
+            //    //for(int i=0; i< previosResult.Length; i++)
+            //    //{
+            //    //    resultsCopy[i] = new DataFlowAnalysisResult<DependencyPTGDomain>();
+            //    //    resultsCopy[i].Input = previosResult[i].Input!=null? previosResult[i].Input.Clone(): null;
+            //    //    resultsCopy[i].Output = previosResult[i].Output!=null? previosResult[i].Output.Clone(): null;
+            //    //}
+            //    //dependencyAnalysis.SetPreviousResult(resultsCopy);
+                
+            //    dependencyAnalysis.SetPreviousResult(previosResult);
+            //}
 
             dependencyAnalysis.Analyze();
 
-            //this.dataflowCache[callInfo.Callee] = dependencyAnalysis.Result;
+            
+            this.dataflowCache[callInfo.Callee] = dependencyAnalysis.Result;
 
             stackDepth--;
             this.callStack.Pop();
@@ -212,6 +239,9 @@ namespace ScopeProgramAnalysis
                 }
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
+
+            calleeDepDomain.Dependencies.A2_References = callInfo.CallerState.Dependencies.A2_References;
+
             calleeDepDomain.Dependencies.A3_Fields = callInfo.CallerState.Dependencies.A3_Fields;
             calleeDepDomain.Dependencies.ControlVariables = callInfo.CallerState.Dependencies.ControlVariables;
             //calleeDepDomain.Dependencies.A1_Escaping.UnionWith(callInfo.CallerState.Dependencies.A1_Escaping);
@@ -275,9 +305,13 @@ namespace ScopeProgramAnalysis
                 }
             }
 
+
             callInfo.CallerState.Dependencies.A1_Escaping.UnionWith(exitResult.Dependencies.A1_Escaping);
+
+            callInfo.CallerState.Dependencies.A2_References.UnionWith(exitResult.Dependencies.A2_References);
             callInfo.CallerState.Dependencies.A3_Fields.UnionWith(exitResult.Dependencies.A3_Fields);
 
+            
             callInfo.CallerState.Dependencies.IsTop = exitResult.Dependencies.IsTop;
 
             if (callInfo.CallLHS != null)
