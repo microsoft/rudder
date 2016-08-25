@@ -636,7 +636,7 @@ namespace ScopeAnalyzer.Analyses
                     if (PossiblyRow(v.Type))
                     {
                         escaped = true;
-                        if (!SomeRowEscaped) Utils.WriteLine("ESCAPE by method call: " + instruction.ToString());
+                        if (!parent.InterestingRowEscaped) Utils.WriteLine("ESCAPE by method call: " + instruction.ToString());
                         SetEscaped(nstate, v, instruction);
                     }
                 }

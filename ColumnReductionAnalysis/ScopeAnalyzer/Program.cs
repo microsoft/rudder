@@ -107,15 +107,12 @@ namespace ScopeAnalyzer
             if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
             Utils.WriteLine("Parsed input arguments, starting the analysis...");
 
-            Stopwatch stopWatch = new Stopwatch();
-            stopWatch.Start();
+           
             var stats = AnalyzeAssemblies(options);
-            stopWatch.Stop();
-            var ts = stopWatch.Elapsed;
+          
 
             Utils.IsVerbose = true;
             Utils.WriteLine(stats.ToString());
-            Utils.WriteLine(String.Format("Total analysis time: {0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds/10));
             Utils.WriteLine("SUCCESS");
             Utils.OutputClose();
         }
@@ -135,6 +132,8 @@ namespace ScopeAnalyzer
 
             var mainAssemblies = assemblies.Item1;
             stats.AssembliesLoaded = mainAssemblies.Count;
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
             foreach (var mAssembly in mainAssemblies)
             {
                 try
@@ -161,6 +160,11 @@ namespace ScopeAnalyzer
                     Utils.WriteLine("ASSEMBLY FAILURE: " + e.Message);
                 }
             }
+            
+            stopWatch.Stop();
+            var ts = stopWatch.Elapsed;
+            Utils.WriteLine(String.Format("Total analysis time: {0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10));
+
             return stats;
         }
 
