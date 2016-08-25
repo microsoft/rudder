@@ -213,7 +213,7 @@ namespace ScopeProgramAnalysis
 
                         program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
 
-                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, program.factoryReducerMap);
+                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, dependencyAnalysis,  program.factoryReducerMap);
 
                     }
                     catch (Exception e)
@@ -296,7 +296,8 @@ namespace ScopeProgramAnalysis
             //}
         }
 
-        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, IDictionary<string, ClassDefinition> processorMap)
+        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, 
+            SongTaoDependencyAnalysis dependencyAnalysis, IDictionary<string, ClassDefinition> processorMap)
         {
             var results = new List<Result>();
 
