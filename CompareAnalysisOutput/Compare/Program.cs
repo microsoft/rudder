@@ -64,8 +64,8 @@ namespace Compare
 
                     Console.Write("Processor: {0}. ", processor.Attribute("className").Value);
 
-                    var inputSchema = processor.Descendants("input").FirstOrDefault().Attribute("schema");
-                    var outputSchema = processor.Descendants("output").FirstOrDefault().Attribute("schema");
+                    var inputSchema = ParseColumns(processor.Descendants("input").FirstOrDefault().Attribute("schema").Value);
+                    var outputSchema = ParseColumns(processor.Descendants("output").FirstOrDefault().Attribute("schema").Value);
 
                     foreach (var result in run.Results)
                     {
@@ -93,7 +93,13 @@ namespace Compare
                                 Console.WriteLine("All input columns were read.");
                             } else
                             {
-                                Console.WriteLine("Only some input columns were read.");
+                                var inputColumnsRead = inputs.Select(i => i.Split(',')[1].Trim('"', ')'));
+                                if (inputColumnsRead.Count() != inputSchema.Count())
+                                {
+                                    Console.WriteLine("Only some input columns were read.");
+                                    var unusedColumns = inputSchema.Where(c => !inputColumnsRead.Contains(c.Name));
+                                    Console.WriteLine("Unused columns: {0}", String.Join(",", unusedColumns.Select(c => c.Name)));
+                                }
                             }
                         }
                     }
@@ -106,5 +112,20 @@ namespace Compare
 
             return 0; // success
         }
+
+        public struct Column
+        {
+            public string Name;
+            public int Index;
+            public string Type;
+        }
+        private static IEnumerable<Column> ParseColumns(string schema)
+        {
+            // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
+            return schema
+                .Split(',')
+                .Select((c, i) => { var a = c.Split(':'); return new Column() { Name = a[0], Index = i, Type = a[1] }; });
+        }
+
     }
 }

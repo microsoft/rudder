@@ -33,15 +33,6 @@ namespace ScopeProgramAnalysis
         public HashSet<string> ClousureFilters { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
 
-        private Regex[] compilerGeneretedMethodMatchers = new Regex[]
-            {
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeFilterTransformer_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeTransformer_\d+$", RegexOptions.Compiled)
-            };
-
         public ScopeProgramAnalysis(Host host, Loader loader)
         {
             this.host = host;
@@ -66,7 +57,7 @@ namespace ScopeProgramAnalysis
 
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\\ExampleWithXML\ILAnalyzer.exe";
             //useScopeFactory = false;
-            
+
             // const string input = @"D:\MadanExamples\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll";
             //const string input = @"D:\MadanExamples\15444206-b209-437e-b23b-2d916f18cd35\__ScopeCodeGen__.dll";
             // const string input = @"D:\MadanExamples\208afef3-4cae-428c-a7a2-75ea7350b1ea\__ScopeCodeGen__.dll";
@@ -84,17 +75,20 @@ namespace ScopeProgramAnalysis
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\49208328-24d1-42fb-8fa4-f74ba84760d3\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8aecff28-5719-4b34-9f9f-cb3135df67d4\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
+
             // From Zvonimir's PDF summary:
+            const string zvonimirDirectory = @"\\research\root\public\mbarnett\Parasail\InterestingScopeProjects";
+            //const string zvonimirDirectory = @"const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             // Example 1 
-            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
+            string input = Path.Combine(zvonimirDirectory, @"0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll");
             // Example 2
-            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll";
+            //string input = Path.Combine(zvonimirDirectory, @"0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll");
             // Example 3
-            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
+            //string input = Path.Combine(zvonimirDirectory, @"10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll");
             // Example 4
-            //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll";
+            //string input = Path.Combine(zvonimirDirectory, @"2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll");
             // Example 5
-            const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll";
+            //string input = Path.Combine(zvonimirDirectory, @"3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll");
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
@@ -113,16 +107,13 @@ namespace ScopeProgramAnalysis
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
 
-
-            //const string input = @"D:\MadanExamples\1fcb1061-e4f2-4ce6-a6d8-381d2ca7be50\__ScopeCodeGen__.dll";
-
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, scopeKind, useScopeFactory, true);
+            AnalyzeOneDll(input, outputPath, scopeKind, useScopeFactory);
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -144,7 +135,7 @@ namespace ScopeProgramAnalysis
         }
 
         public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind,
-                                      bool useScopeFactory = true, bool interProc = false,  StreamWriter outputStream = null)
+                                      bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = interProc;
@@ -195,11 +186,6 @@ namespace ScopeProgramAnalysis
             if (useScopeFactory)
             {
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
-                if(!scopeMethodPairs.Any())
-                {
-                    System.Console.WriteLine("Failed to obtain methods from the ScopeFactory. Now trying to find methods in the the assembly");
-                    scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
-                }
             }
             else
             {
@@ -245,6 +231,7 @@ namespace ScopeProgramAnalysis
             {
                 System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
             }
+
 
 
             //var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
@@ -340,7 +327,6 @@ namespace ScopeProgramAnalysis
                             {
                                 var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
                                 result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
-
                                 inputUses.AddRange(controlDependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
                             }
                             else
@@ -443,7 +429,13 @@ namespace ScopeProgramAnalysis
         /// <returns></returns>
         private IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
-            
+            Regex[] compilerGeneretedMethodMatchers = new Regex[]
+            {
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeFilterTransformer_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled)
+            };
 
 
             var processorsToAnalyze = new HashSet<ClassDefinition>();
@@ -531,20 +523,11 @@ namespace ScopeProgramAnalysis
                 var results = new List<Result>();
                 foreach (var candidateClass in candidateClasses)
                 {
-                    var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(candidateClass.GetFullName()));
-
-                    if (isCompilerGenerated)
-                        continue;
-
                     var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
                     var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
                                     .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
-
-
                     foreach (var candidateClousure in candidateClousures)
                     {
-                        
-
                         var methods = candidateClousure.Members.OfType<MethodDefinition>()
                                                 .Where(md => md.Body != null
                                                 && md.Name.Equals(this.MethodUnderAnalysisName));
