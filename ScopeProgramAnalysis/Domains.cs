@@ -83,7 +83,7 @@ namespace ScopeProgramAnalysis
         {
             this.Dependencies.A2_Variables[destination] = new HashSet<Traceable>(traceables);
 
-            if (destination.Type!=null && destination.Type.IsReferenceType())
+            if (destination.Type!=null && destination.Type.IsClassOrStruct())
             {
                 foreach (var targetNode in PTG.GetTargets(destination))
                 {
@@ -104,7 +104,7 @@ namespace ScopeProgramAnalysis
         {
             this.Dependencies.A2_Variables.AddRange(destination, traceables);
 
-            if (destination.Type.IsReferenceType())
+            if (destination.Type.IsClassOrStruct())
             {
                 foreach (var targetNode in PTG.GetTargets(destination))
                 {
@@ -140,7 +140,7 @@ namespace ScopeProgramAnalysis
 
         public void AddHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
         {
-            if (!field.Type.IsReferenceType())
+            if (!field.Type.IsClassOrStruct())
             {
                 var location = new Location(ptgNode, field);
                 this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
@@ -149,7 +149,7 @@ namespace ScopeProgramAnalysis
             //this.Dependencies.A3_Fields.AddRange(location, traceables);
 
             // This should be only for references
-            if (field.Type.IsReferenceType())
+            if (field.Type.IsClassOrStruct())
             {
                 var targets = PTG.GetTargets(ptgNode, field);
                 if (targets.Any())
@@ -191,7 +191,7 @@ namespace ScopeProgramAnalysis
             var traceables = new HashSet<Traceable>();
 
 
-            if (field.Type.IsReferenceType())
+            if (field.Type.IsClassOrStruct())
             {
                 foreach (var target in PTG.GetTargets(node, field))
                 {
@@ -214,7 +214,7 @@ namespace ScopeProgramAnalysis
         private HashSet<Traceable> GetTraceablesForLocation(Location location)
         {
             var result = new HashSet<Traceable>();
-            if (!location.Field.Type.IsReferenceType())
+            if (!location.Field.Type.IsClassOrStruct())
             {
                 if (Dependencies.A3_Fields.ContainsKey(location))
                     result.UnionWith(Dependencies.A3_Fields[location]);
@@ -286,7 +286,7 @@ namespace ScopeProgramAnalysis
         {
             var traceables = new HashSet<Traceable>();
 
-            if (arg.Type.IsReferenceType())
+            if (arg.Type.IsClassOrStruct())
             {
                 foreach (var ptgNode in PTG.GetTargets(arg))
                 {

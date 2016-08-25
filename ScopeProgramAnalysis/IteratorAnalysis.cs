@@ -1041,7 +1041,7 @@ namespace Backend.Analyses
             /// <param name="instruction"></param>
             private void UpdatePTAForPure(MethodCallInstruction instruction)
             {
-                if (instruction.Result != null && !instruction.Result.Type.IsValueType())
+                if (instruction.HasResult && instruction.Result.Type.IsClassOrStruct())
                 {
                     var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type, PTGNodeKind.Object);
 
@@ -1066,7 +1066,9 @@ namespace Backend.Analyses
                             else
                             { }
                         }
+                        this.State.PTG.PointsTo(result, returnNode);
                     }
+
                 }
             }
 
@@ -1179,6 +1181,14 @@ namespace Backend.Analyses
                 this.State.AssignTraceables(instruction.Result, traceables);
             }
 
+            public override void Visit(ConvertInstruction instruction)
+            {
+                this.State.CopyTraceables(instruction.Result, instruction.Operand);
+
+                instruction.Accept(visitorPTA);
+
+            }
+
             /// <summary>
             /// Default treatment of statement using Def/Use information
             /// TODO: Check for soundness
@@ -1200,7 +1210,7 @@ namespace Backend.Analyses
             /// <returns></returns>
             private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
-                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "get_Item", "Count", "get_Count", "First" };
+                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "Count", "get_Count", "First"};
                 var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
                  
 
@@ -1208,59 +1218,107 @@ namespace Backend.Analyses
                 if (methodInvoked.Name == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods
                 if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsEnumerable())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsContainerMethod())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsSet())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsDictionary())
                 {
                     UpdateUsingDefUsed(methodCallStmt);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
+                    // TODO: Hack for connecting a dictionary with its items
+                    // We need summaries for 
+                    foreach (var ptgNode in this.State.PTG.GetTargets(methodCallStmt.Arguments[0]))
+                    {
+                        var sources = ptgNode.Sources.Where(nf => nf.Key.Name == "$item");
+                        if (ptgNode.Sources.Any(nf => nf.Key.Name=="$item"))
+                        {
+                            foreach(var source in sources)
+                            {
+                                foreach (var node in source.Value)
+                                {
+                                    var traceables = this.State.GetHeapTraceables(node, source.Key);
+                                    this.State.Dependencies.A2_References.AddRange(node, traceables);
+                                }
+
+                            }
+                        }
+                    }
+                }
+                else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                {
+                    // TODO: Hack for connecting a dictionary with its items
+                    PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
+                    var newField = new FieldReference("$item", methodCallStmt.Arguments[2].Type, method.ContainingType);
+                    this.iteratorDependencyAnalysis.pta.ProcessStore(this.State.PTG, methodCallStmt.Arguments[0], newField, methodCallStmt.Arguments[2]);
+                    this.State.AddHeapTraceables(methodCallStmt.Arguments[0], newField, methodCallStmt.Arguments[2]);
+                }
+                else if (methodInvoked.Name == "get_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                {
+                    // TODO: Hack for connecting a dictionary with its items
+                    if (methodInvoked.ContainingType.IsDictionary())
+                    {
+                        var newField = new FieldReference("$item", methodCallStmt.Arguments[1].Type, method.ContainingType);
+                        //var nodes = this.State.PTG.GetTargets(methodCallStmt.Arguments[0], newField);
+                        this.iteratorDependencyAnalysis.pta.ProcessLoad(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Result, methodCallStmt.Arguments[0], newField);
+
+                        this.State.AssignTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], newField));
+                    }
+                    else
+                    {
+                        UpdateUsingDefUsed(methodCallStmt);
+                        UpdatePTAForPure(methodCallStmt);
+                    }
+
                 }
                 else if (methodInvoked.Name == "get_Current" && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "MoveNext"
                     && methodInvoked.ContainingType.IsIEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else if (methodInvoked.Name == "GetEnumerator"
                     && methodInvoked.ContainingType.IsIEnumerable())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    UpdatePTAForPure(methodCallStmt);
                 }
                 else
                 {
                     result = false;
                 }
-                if (result && methodCallStmt.HasResult)
-                {
-                    UpdatePTAForPure(methodCallStmt);
-                    //var node = new PTGNode(new PTGID(new MethodContex(this.method), (int)methodCallStmt.Offset), methodCallStmt.Result.Type);
-                    //this.State.PTG.PointsTo(methodCallStmt.Result, node);
-                }
+                    
                 return result;
             }
 
@@ -1355,7 +1413,7 @@ namespace Backend.Analyses
                     var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg1, traceables);
                 }
-                else if ((methodInvoked.Name == "get_String" || methodInvoked.Name == "Get") && methodInvoked.ContainingType.IsColumnDataType())
+                else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.State.CopyTraceables(methodCallStmt.Result, arg);

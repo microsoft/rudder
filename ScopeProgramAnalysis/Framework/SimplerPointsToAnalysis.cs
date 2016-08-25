@@ -313,7 +313,7 @@ namespace Backend.Analyses
 			foreach (var variable in variables)
 			{
                 // TODO: replace when Egdardo fixes type inferece
-                if (variable.Type==null || variable.Type.TypeKind == TypeKind.ValueType) continue;
+                if (variable.Type==null || !variable.Type.IsClassOrStruct()) continue;
                 // if (variable.Type.TypeKind == TypeKind.ValueType) continue;
 
 				if (variable.IsParameter)
@@ -365,14 +365,14 @@ namespace Backend.Analyses
 		{
             ptg.RemoveRootEdges(dst);
 
-            if (dst.Type.TypeKind == TypeKind.ValueType) return;
+            if (!dst.Type.IsClassOrStruct()) return;
             ptg.PointsTo(dst, PointsToGraph.NullNode);
 		}
 
         private void ProcessObjectAllocation(PointsToGraph ptg, uint offset, IVariable dst)
 		{
             ptg.RemoveRootEdges(dst);
-            if (dst.Type.TypeKind == TypeKind.ValueType) return;
+            if (!dst.Type.IsClassOrStruct()) return;
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
 
             var node = this.NewNode(ptg, ptgId, dst.Type);
@@ -384,7 +384,7 @@ namespace Backend.Analyses
         {
             ptg.RemoveRootEdges(dst);
 
-            if (dst.Type.TypeKind == TypeKind.ValueType) return;
+            if (!dst.Type.IsClassOrStruct()) return;
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
 
             var node = this.NewNode(ptg, ptgId, dst.Type);
@@ -396,9 +396,9 @@ namespace Backend.Analyses
         {
             ptg.RemoveRootEdges(dst);
 
-            if (dst.Type.TypeKind == TypeKind.ValueType) return;
+            if (!dst.Type.IsClassOrStruct()) return;
 
-            var targets = srcs.Where(src => src.Type.TypeKind != TypeKind.ValueType).SelectMany(src =>  ptg.GetTargets(src, false));
+            var targets = srcs.Where(src => src.Type.IsClassOrStruct()).SelectMany(src =>  ptg.GetTargets(src, false));
 
             foreach (var target in targets)
             {
@@ -419,11 +419,11 @@ namespace Backend.Analyses
    //         }
         }
 
-		private void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
+		public void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
         {
-			if (dst.Type.TypeKind == TypeKind.ValueType || field.Type.TypeKind == TypeKind.ValueType) return;
+			if (!dst.Type.IsClassOrStruct()|| !field.Type.IsClassOrStruct()) return;
             // TODO: I need to support value types when they are Structs..
-            if (instance.Type.TypeKind == TypeKind.ValueType) return;
+            if (!instance.Type.IsClassOrStruct()) return;
 
             ptg.RemoveRootEdges(dst);
 			var nodes = ptg.GetTargets(instance, false);
@@ -464,9 +464,9 @@ namespace Backend.Analyses
             return result;
         }
 
-        private void ProcessStore(PointsToGraph ptg, IVariable instance, IFieldReference field, IVariable src)
+        public void ProcessStore(PointsToGraph ptg, IVariable instance, IFieldReference field, IVariable src)
         {
-			if (field.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
+			if (!field.Type.IsClassOrStruct() || !src.Type.IsClassOrStruct()) return;
 
 			var nodes = ptg.GetTargets(instance, false);
 			var targets = ptg.GetTargets(src, false);
