@@ -327,6 +327,7 @@ namespace ScopeProgramAnalysis
                             {
                                 var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
                                 result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
+                                inputUses.AddRange(controlDependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
                             }
                             else
                             {
