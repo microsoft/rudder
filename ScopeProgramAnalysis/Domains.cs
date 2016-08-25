@@ -151,7 +151,7 @@ namespace ScopeProgramAnalysis
             // This should be only for references
             if (field.Type.IsClassOrStruct())
             {
-                var targets = PTG.GetTargets(ptgNode, field);
+                var targets = PTG.GetTargets(ptgNode, field).Except(new HashSet<PTGNode>() { PointsToGraph.NullNode } );
                 if (targets.Any())
                 {
                     foreach (var targetNode in targets)

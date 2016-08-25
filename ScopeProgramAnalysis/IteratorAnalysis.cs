@@ -1237,28 +1237,38 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
 
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
-                    this.State.AddTraceables(methodCallStmt.Result, arg);
+                    //this.State.AddTraceables(methodCallStmt.Result, arg);
 
-                    //this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
 
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
                     // TODO: Hack for connecting a dictionary with its items
-                    var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
+                    var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
                     this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
                     this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
                 }
                 else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
+                    if (methodInvoked.ContainingType.IsDictionary())
+                    {
+                        var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
+                        this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
+                        this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
 
-                    var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Arguments[0], methodCallStmt.Arguments[1]);
-                    this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[1]);
-                    //this.State.AssignTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
+                        // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
+                    }
+                    else
+                    {
+                        var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[1]);
+                        this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[1]);
+                        //this.State.AssignTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
 
-                    this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
+                        this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
+                    }
 
                     // TODO: Hack for connecting a dictionary with its items
                     // We need summaries for 
@@ -1764,6 +1774,10 @@ namespace Backend.Analyses
         private IteratorPointsToAnalysis pta;
         private RangeAnalysis rangeAnalysis;
 
+        public ISet<TraceableColumn> InputColumns { get; private set; }
+        public ISet<TraceableColumn> OutputColumns { get; private set; }
+
+
         public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
@@ -1783,6 +1797,9 @@ namespace Backend.Analyses
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
             this.rangeAnalysis = rangeAnalysis;
+
+            this.InputColumns = new HashSet<TraceableColumn>();
+            this.OutputColumns = new HashSet<TraceableColumn>();
         }
         public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 

@@ -23,6 +23,11 @@ namespace Backend.Analyses
             private IteratorPointsToAnalysis ptAnalysis;
             private bool analyzeNextDelegateCtor;
 
+            /// <summary>
+            /// Hack until I add support from addresses
+            /// </summary>
+            private Dictionary<IVariable, IVariable> addressMap = new Dictionary<IVariable, IVariable>();
+
             internal PTAVisitor(PointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
             {
                 this.State = ptg;
@@ -40,6 +45,7 @@ namespace Backend.Analyses
                 {
                     var referencedValue = (operand as Reference).Value;
                     var isHandled = HandleLoadWithOperand(load, referencedValue);
+                    addressMap[instruction.Result] = referencedValue as IVariable;
                 }
                 else if (operand is Dereference)
                 {
@@ -111,18 +117,18 @@ namespace Backend.Analyses
                 if (lhs is InstanceFieldAccess)
                 {
                     var access = lhs as InstanceFieldAccess;
-                    ptAnalysis.ProcessStore(State, access.Instance, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(State, instruction.Offset, access.Instance, access.Field, store.Operand);
                 }
                 else if(lhs is StaticFieldAccess)
                 {
                     var access = lhs as StaticFieldAccess;
-                    ptAnalysis.ProcessStore(State, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(State, instruction.Offset, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
                 }
                 else if (lhs is ArrayElementAccess)
                 {
                     var arrayAccess = lhs as ArrayElementAccess;
                     var baseArray = arrayAccess.Array;
-                    ptAnalysis.ProcessStore(State, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
+                    ptAnalysis.ProcessStore(State, instruction.Offset, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
                 }
 
             }
@@ -144,6 +150,20 @@ namespace Backend.Analyses
             {
                 var allocation = instruction;
                 ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
+            }
+            public override void Visit(InitializeMemoryInstruction instruction)
+            {
+                var addr = instruction.TargetAddress;
+                //ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
+            }
+            public override void Visit(InitializeObjectInstruction instruction)
+            {
+                var addr = instruction.TargetAddress;
+                ptAnalysis.ProcessObjectAllocation(State, instruction.Offset, addr);
+                if(addressMap.ContainsKey(addr))
+                {
+                    ptAnalysis.ProcessCopy(State, addressMap[addr], addr);
+                }
             }
             public override void Visit(ConvertInstruction instruction)
             {
@@ -468,10 +488,10 @@ namespace Backend.Analyses
             return collectionNode;
         }
 
-        public IFieldReference AddItemforCollection(PointsToGraph ptg, IVariable collectionVariable, IVariable item)
+        public IFieldReference AddItemforCollection(PointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item)
         {
             var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
-            this.ProcessStore(ptg, collectionVariable, itemsField, item);
+            this.ProcessStore(ptg, offset, collectionVariable, itemsField, item);
             return itemsField;
         }
 
@@ -498,7 +518,7 @@ namespace Backend.Analyses
             }
 
             var collecitonField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
-            this.ProcessStore(ptg, result,  collecitonField, collectionVariable);
+            this.ProcessStore(ptg, offset, result,  collecitonField, collectionVariable);
             //foreach (var colNode in ptg.GetTargets(collectionVariable))
             //{
             //    ptg.PointsTo(enumNode, collecitonField, colNode);
@@ -532,18 +552,31 @@ namespace Backend.Analyses
             return result;
         }
 
-        public void ProcessStore(PointsToGraph ptg, IVariable instance, IFieldReference field, IVariable src)
+        public void ProcessStore(PointsToGraph ptg, uint offset, IVariable instance, IFieldReference field, IVariable src)
         {
 			if (!field.Type.IsClassOrStruct() || !src.Type.IsClassOrStruct()) return;
 
 			var nodes = ptg.GetTargets(instance, false);
-			var targets = ptg.GetTargets(src, false);
+            var targets = ptg.GetTargets(src).Except(new HashSet<PTGNode>() { PointsToGraph.NullNode });
 
-            foreach (var node in nodes)
+            if (targets.Any())
             {
-                foreach (var target in targets)
+                foreach (var node in nodes)
                 {
-                    ptg.PointsTo(node, field, target);
+                    foreach (var target in targets)
+                    {
+                        ptg.PointsTo(node, field, target);
+                    }
+                }
+            }
+            else
+            {
+                // Create a fake node for the target 
+                var ptgID = new PTGID(new MethodContex(this.method), (int)offset);
+                var fakeNode = new PTGNode(ptgID, src.Type);
+                foreach (var node in nodes)
+                {
+                    ptg.PointsTo(node, field, fakeNode);
                 }
             }
         }
