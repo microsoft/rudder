@@ -1409,6 +1409,9 @@ namespace Backend.Analyses
                                         .Select(table_i => new TraceableColumn(table_i, columnLiteral));
                     this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
 
+                    this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind==ProtectedRowKind.Input));
+                    this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
+
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // arg.Set(arg1)

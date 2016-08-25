@@ -82,7 +82,10 @@ namespace ScopeProgramAnalysis
         // private IDictionary<string,IVariable> specialFields;
         private MethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
-    
+
+        public ISet<TraceableColumn> InputColumns { get; private set; }
+        public ISet<TraceableColumn> OutputColumns { get; private set; }
+
 
         public SongTaoDependencyAnalysis(Host host,
                                         InterproceduralManager interprocManager,
@@ -142,6 +145,7 @@ namespace ScopeProgramAnalysis
             // Now I analyze the Movenext method with the proper initialization 
             var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 
+            
             return result;
         }
 
@@ -184,6 +188,9 @@ namespace ScopeProgramAnalysis
 
             var node = cfg.Exit;
             System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);
+
+            this.InputColumns = dependencyAnalysis.InputColumns;
+            this.OutputColumns = dependencyAnalysis.OutputColumns;
 
             return resultDepAnalysis[node.Id].Output;
         }
