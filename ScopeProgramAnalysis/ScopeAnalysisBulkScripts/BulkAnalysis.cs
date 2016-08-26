@@ -23,21 +23,25 @@ namespace ScopeAnalysisBulkScripts
 
             var inputFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             //var inputFolder = @"D:\Madam3";
+            inputFolder = @"C:\temp\MadamOK";
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
             var outputFolder = @"C:\Temp\Madam";
+            outputFolder = @"C:\temp\ZvoList";
+
             var logPath = outputFolder;
 
             var bulkAnalysis = new BulkAnalysis();
 
             // var dllList = bulkAnalysis.LoadListFromFile(inputList);
-            var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
+            //var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
+            var dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
 
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
+            //bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
 
             bulkAnalysis.AnalyzeOutput(dllList, outputAnalyzer, outputFolder);
             
@@ -82,6 +86,12 @@ namespace ScopeAnalysisBulkScripts
             return files;
         }
 
+        private IList<string> LoadSarifFromDirectory(string inputFolder)
+        {
+            const string inputDllName = "*.sarif";
+            string[] files = Directory.GetFiles(inputFolder, inputDllName, SearchOption.AllDirectories);
+            return files;
+        }
         private void ProcessDLLs(IList<string> inputs, string scopeAnalyzerPath, string outputFolder, string logFolder)
         {
             var tasks = new List<Task>();
@@ -128,7 +138,8 @@ namespace ScopeAnalysisBulkScripts
                 {
                     var folder = Path.GetDirectoryName(input);
                     string[] directories = folder.Split(Path.DirectorySeparatorChar);
-                    var sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+                    //var sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+                    var sarifFilePath = input;
 
                     var comparerProcess = new Process();
                     comparerProcess.StartInfo.FileName = outputAnalyzerPath;
