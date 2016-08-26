@@ -369,8 +369,10 @@ namespace ScopeProgramAnalysis
 
             var result2 = new Result();
             result2.Id = "Summary";
-            result2.SetProperty("Inputs", inputsString);
-            result2.SetProperty("Outputs", outputsString);
+            //result2.SetProperty("Inputs", inputsString);
+            //result2.SetProperty("Outputs", outputsString);
+            result2.SetProperty("Inputs", dependencyAnalysis.InputColumns.Select(t => t.ToString()));
+            result2.SetProperty("Outputs", dependencyAnalysis.OutputColumns.Select(t => t.ToString()));
             results.Add(result2);
 
             if (outputStream != null)
@@ -621,6 +623,7 @@ namespace ScopeProgramAnalysis
             //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
             run.Id = id;
             run.Tool = Tool.CreateFromAssemblyData();
+            run.Tool.Name = "ScopeProgramAnalysis";
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
             var fileData = FileData.Create(new Uri(fileDataKey), false);
