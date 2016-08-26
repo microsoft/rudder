@@ -32,14 +32,21 @@ namespace Compare
             return 0; // success
         }
 
+        struct Stats
+        {
+            public int TotalColumns;
+            public int PassThrough;
+        }
+
         static int ComputePassThroughColumns(string sarifFile)
         {
+            Dictionary<string, Stats> analysisStats = new Dictionary<string, Stats>();
+
             if (!File.Exists(sarifFile))
             {
                 Console.WriteLine("Error: Sarif file not found: {0}", sarifFile);
                 return -1;
             }
-
 
             try
             {
@@ -66,6 +73,7 @@ namespace Compare
 
                     var passThroughColumns = new List<Tuple<string, string>>();
                     var topHappened = false;
+                    var totalColumns = 0;
                     foreach (var result in run.Results)
                     {
                         if (result.Id == "SingleColumn")
@@ -99,6 +107,9 @@ namespace Compare
                         else if (result.Id == "Summary")
                         {
                             // Do nothing
+                            var columnProperty = result.GetProperty<List<string>>("Outputs");
+                            totalColumns = columnProperty.Count;
+                            analysisStats.Add(processorName, new Stats() { PassThrough = passThroughColumns.Count, TotalColumns = totalColumns });
                         }
                     }
                     if (passThroughColumns.Count == 0)
@@ -125,6 +136,13 @@ namespace Compare
             {
                 Console.WriteLine("Error: exception occurred ({0}, {1}: {2}", sarifFile, e.Message);
                 return -1;
+            }
+
+            Console.WriteLine("===============");
+            Console.WriteLine("=== Summary ===");
+            foreach(var entry in analysisStats)
+            {
+                Console.WriteLine("{0}, {1}, {2}", entry.Key, entry.Value.PassThrough, entry.Value.TotalColumns);
             }
 
             return 0; // success
