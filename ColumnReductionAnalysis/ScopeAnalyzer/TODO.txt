@@ -1,0 +1,8 @@
+﻿1. Refactor methods (mainly located in Misc/Extensions.cs) for checking (sub)typing information and resolving
+   type/field/method definitions. Ideally, the methods should directly call CCI functions. Currently, it is a
+   mix of everything.
+
+2. Refactor (abstract domain) set datastructures to use HashSets instead of Lists, for performance reasons.
+
+3. There are few TODOs in the code. Addressing them would make the code look cleaner.
+

@@ -1,0 +1,5 @@
+﻿1. At the end of the analysis, we call python scripts to analyze the analysis traces. 
+   Instead of python, we should use C#.
+
+2. There are few TODOs in the code. Addressing them would make the code look cleaner.
+
