@@ -79,7 +79,7 @@ namespace ScopeAnalyzer.Analyses
         public int ColumnIndexAccesses { get; set; }
 
 
-        private HashSet<string> trustedRowMethods = new HashSet<string>() { "get_Item", "get_Schema" };
+        private HashSet<string> trustedRowMethods = new HashSet<string>() { "get_Item", "get_Schema", "Reset" };
 
         public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
         {
