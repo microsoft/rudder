@@ -465,7 +465,7 @@ namespace Backend.Analyses
                 if (!hasField)
 				{
                     // ptg.PointsTo(node, access.Field, ptg.Null);
-                    if (!ptg.Equals(PointsToGraph.GlobalNode) && !MayReacheableFromParameter(ptg, node))
+                    if (!node.Equals(PointsToGraph.GlobalNode) && !MayReacheableFromParameter(ptg, node))
                     {
                         System.Console.WriteLine("In {0}:{1:X4} there is variable that is not a parameter and has no object to load.", this.method.ToSignatureString(), offset);
                     }
