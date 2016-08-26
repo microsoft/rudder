@@ -31,13 +31,23 @@ namespace ScopeAnalyzer
 
         public int Mapped;
 
-        public int ColumnsContained;
-        public int ColumnsEqual;
-        public int ColumnsWarnings;
-        public int ColumnsSavings;
-        public int ColumnsByteSavings;
-        public double ColumnsSavingsPercentages;
-        public double ColumnsByteSavingsPercentages;
+        public int UnionColumnsUnused;
+        public int UnionColumnsAllUsed;
+        public int Warnings;
+        public int UnionColumnsSavings;
+        public int InputColumnsByteSavings;
+        public double UnionColumnsSavingsPercentages;
+        public double InputColumnsByteSavingsPercentages;
+
+        public int InputColumnsUnused;
+        public int InputColumnsAllUsed;
+        public int InputColumnsSavings;
+        public double InputColumnsSavingsPercentages;
+
+        public int OutputColumnsUnused;
+        public int OutputColumnsAllUsed;
+        public int OutputColumnsSavings;
+        public double OutputColumnsSavingsPercentages;
 
         public int ColumnStringAccesses;
         public int ColumnIndexAccesses;
@@ -49,9 +59,17 @@ namespace ScopeAnalyzer
             Methods = FailedMethods = UnsupportedMethods = InterestingMethods = 0;
             NotEscapeDummies = NotCPropagationDummies = NotColumnDummies = 0;
             Mapped = 0;
-            ColumnsContained = ColumnsEqual = ColumnsWarnings = ColumnsSavings = ColumnsByteSavings = 0;
+
             ColumnIndexAccesses = ColumnStringAccesses = 0;
-            ColumnsSavingsPercentages = ColumnsByteSavingsPercentages = 0.0;
+
+            UnionColumnsUnused = UnionColumnsAllUsed = Warnings = UnionColumnsSavings = 0;
+            UnionColumnsSavingsPercentages = 0.0; 
+
+            InputColumnsAllUsed = InputColumnsUnused = InputColumnsSavings = InputColumnsByteSavings = 0; ;
+            InputColumnsSavingsPercentages = InputColumnsByteSavingsPercentages = 0.0;
+
+            OutputColumnsAllUsed = OutputColumnsUnused = OutputColumnsSavings = 0;
+            OutputColumnsSavingsPercentages = 0.0;
         }
 
         public override string ToString()
@@ -69,23 +87,50 @@ namespace ScopeAnalyzer
             summary += "Concrete-columns-found methods: " + NotColumnDummies + "\n";
             summary += "\n";
             summary += "Concrete methods successfully mapped: " + Mapped + "\n";
-            summary += "Proper subset: " + ColumnsContained + "\n";
-            summary += "Equal: " + ColumnsEqual + "\n";
-            summary += "Superset (warnings): " + ColumnsWarnings + "\n";
+
+            summary += "Union unused: " + UnionColumnsUnused + "\n";
+            summary += "Union all used: " + UnionColumnsAllUsed + "\n";
+            summary += "Union superset (warnings): " + Warnings + "\n";
             summary += "\n";           
-            summary += "Columns average count savings: " + (ColumnsContained == 0 ? 0 : ColumnsSavings / (double)ColumnsContained) + "\n";          
-            summary += "Columns average count percentage savings: " + (ColumnsContained == 0? 0: ColumnsSavingsPercentages/(double) ColumnsContained) + "\n";        
-            summary += "Columns average byte savings: " + (ColumnsContained == 0 ? 0 : ColumnsByteSavings / (double)ColumnsContained) + "\n";          
-            summary += "Columns average byte percentage savings: " + (ColumnsContained == 0 ? 0 : ColumnsByteSavingsPercentages / (double)ColumnsContained) + "\n";
+            summary += "Union columns average count savings: " + (UnionColumnsUnused == 0 ? 0 : UnionColumnsSavings / (double)UnionColumnsUnused) + "\n";          
+            summary += "Union columns average count percentage savings: " + (UnionColumnsUnused == 0? 0: UnionColumnsSavingsPercentages/(double) UnionColumnsUnused) + "\n";        
+            //summary += "Union columns average byte savings: " + (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavings / (double)UnionColumnsUnused) + "\n";          
+            //summary += "Union columns average byte percentage savings: " + (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavingsPercentages / (double)UnionColumnsUnused) + "\n";
             summary += "\n";
+
+            summary += "Input unused: " + InputColumnsUnused + "\n";
+            summary += "Input all used: " + InputColumnsAllUsed + "\n";
+            summary += "\n";
+            summary += "Input columns average count savings: " + (InputColumnsUnused == 0 ? 0 : InputColumnsSavings / (double)InputColumnsUnused) + "\n";
+            summary += "Input columns average count percentage savings: " + (InputColumnsUnused == 0 ? 0 : InputColumnsSavingsPercentages / (double)InputColumnsUnused) + "\n";
+            summary += "\n";
+
+            summary += "Output unused: " + OutputColumnsUnused + "\n";
+            summary += "Output all used: " + OutputColumnsAllUsed + "\n";
+            summary += "\n";
+            summary += "Output columns average count savings: " + (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavings / (double)OutputColumnsUnused) + "\n";
+            summary += "Output columns average count percentage savings: " + (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavingsPercentages / (double)OutputColumnsUnused) + "\n";
+            summary += "\n";
+
+
             summary += "Used columns string accesses: " + ColumnStringAccesses + "\n";
             summary += "Used columns index accesses: " + ColumnIndexAccesses + "\n";
             summary += "\n";
             summary += "\n";
-            summary += "!Columns count cumulative savings: " + ColumnsSavings + "\n";
-            summary += "!Columns percentage count cumulative savings: " + ColumnsSavingsPercentages + "\n";
-            summary += "!Columns byte cumulative savings: " + ColumnsByteSavings + "\n";
-            summary += "!Columns percentage byte cumulative savings: " + ColumnsByteSavingsPercentages + "\n";                     
+
+            summary += "!Union columns count cumulative savings: " + UnionColumnsSavings + "\n";
+            summary += "!Union columns percentage count cumulative savings: " + UnionColumnsSavingsPercentages + "\n";
+            //summary += "!Union columns byte cumulative savings: " + InputColumnsByteSavings + "\n";
+            //summary += "!Union columns percentage byte cumulative savings: " + InputColumnsByteSavingsPercentages + "\n";
+            summary += "\n";
+
+            summary += "!Input columns count cumulative savings: " + InputColumnsSavings + "\n";
+            summary += "!Input columns percentage count cumulative savings: " + InputColumnsSavingsPercentages + "\n";
+            summary += "\n";
+
+            summary += "!Output columns count cumulative savings: " + OutputColumnsSavings + "\n";
+            summary += "!Output columns percentage count cumulative savings: " + OutputColumnsSavingsPercentages + "\n";
+
             return summary;
         }
     }
@@ -172,11 +217,11 @@ namespace ScopeAnalyzer
      
 
 
-        static Dictionary<string, int> TYPE_SIZES = new Dictionary<string, int>() { {"int", 4}, {"int?", 8}, {"float", 4}, {"float?", 8}, {"double", 8}, {"double?", 12},
-            {"long", 8}, {"long?", 12}, {"DateTime", 8}, {"DateTime?", 12}, {"char", 2}, {"char?", 4}, {"string", 20}, {"string?", 20}, {"binary", 20 }, {"binary?", 20},
-            {"Guid", 16}, {"Guid?", 20} };
+        //static Dictionary<string, int> TYPE_SIZES = new Dictionary<string, int>() { {"int", 4}, {"int?", 8}, {"float", 4}, {"float?", 8}, {"double", 8}, {"double?", 12},
+        //    {"long", 8}, {"long?", 12}, {"DateTime", 8}, {"DateTime?", 12}, {"char", 2}, {"char?", 4}, {"string", 20}, {"string?", 20}, {"binary", 20 }, {"binary?", 20},
+        //    {"Guid", 16}, {"Guid?", 20} };
 
-        static int DEFAULT_TYPE_SIZE = 20;
+        //static int DEFAULT_TYPE_SIZE = 20;
 
         private static void ComputeImprovementStats(ScopeMethodAnalysisResult result, ref ScopeAnalysisStats stats, 
                                                     XElement vDef, Dictionary<string, string> pIdMapping)
@@ -263,34 +308,77 @@ namespace ScopeAnalyzer
                     }
                 }
 
+
+                // Compute stats for schema input-output union.
                 var allSchemaColumns = new HashSet<string>(inputColumns.Union(outputColumns));
-                if (usedColumns.IsProperSubsetOf(allSchemaColumns))
+                var redundants = allSchemaColumns.Except(usedColumns);
+                if (redundants.Any())
                 {
-                    stats.ColumnsContained += 1;
-                    var redundants = allSchemaColumns.Except(usedColumns);
+                    stats.UnionColumnsUnused += 1;
+                   
                     var savings = redundants.Count();
 
-                    stats.ColumnsSavings += savings;
-                    stats.ColumnsSavingsPercentages += savings / (double)allSchemaColumns.Count;
+                    stats.UnionColumnsSavings += savings;
+                    stats.UnionColumnsSavingsPercentages += savings / (double)allSchemaColumns.Count;
 
-                    var redundantInputByteSize = ComputeColumnsSize(redundants.Except(outputColumns), inputSchema);
-                    var inputByteSize = ComputeColumnsSize(inputColumns, inputSchema);
-
-                    stats.ColumnsByteSavings += redundantInputByteSize;
-                    stats.ColumnsByteSavingsPercentages += redundantInputByteSize / (double)inputByteSize;
-
-                    Utils.WriteLine(String.Format("SAVINGS ({0}): used columns subset of defined columns: {1}", result.Method.FullName(), savings));
-                }
-                else if (allSchemaColumns.SetEquals(usedColumns))
-                {
-                    stats.ColumnsEqual += 1;
-                    Utils.WriteLine("PRECISION: used columns equal to defined columns");
+                    Utils.WriteLine(String.Format("SAVINGS (union) ({0}): used union columns subset of defined columns: {1}", result.Method.FullName(), savings));
                 }
                 else
                 {
-                    Utils.WriteLine("OVERAPPROXIMATION: redundant used columns: " + String.Join(" ", allSchemaColumns));
-                    stats.ColumnsWarnings += 1;
+                    stats.UnionColumnsAllUsed += 1;
+                    Utils.WriteLine("ALL USED (union): all union columns used.");
                 }
+
+                if (allSchemaColumns.IsProperSubsetOf(usedColumns))
+                {
+                    Utils.WriteLine("OVERAPPROXIMATION: redundant used columns: " + String.Join(" ", usedColumns.Except(allSchemaColumns)));
+                    stats.Warnings += 1;
+                }
+
+                // Compute stats for input schema.
+                redundants = inputColumns.Except(usedColumns);
+                if (redundants.Any())
+                {
+                    stats.InputColumnsUnused += 1;
+
+                    var savings = redundants.Count();
+
+                    stats.InputColumnsSavings += savings;
+                    stats.InputColumnsSavingsPercentages += savings / (double)inputColumns.Count;
+
+                    //var redundantInputByteSize = ComputeColumnsSize(redundants.Except(outputColumns), inputSchema);
+                    //var inputByteSize = ComputeColumnsSize(inputColumns, inputSchema);
+
+                    //stats.InputColumnsByteSavings += redundantInputByteSize;
+                    //stats.InputColumnsByteSavingsPercentages += redundantInputByteSize / (double)inputByteSize;
+
+                    Utils.WriteLine(String.Format("SAVINGS (input) ({0}): used input columns subset of defined columns: {1}", result.Method.FullName(), savings));
+                }
+                else
+                {
+                    stats.InputColumnsAllUsed += 1;
+                    Utils.WriteLine("All USED (input): all input columns used.");
+                }
+
+                // Compute stats for input schema.
+                redundants = outputColumns.Except(usedColumns);
+                if (redundants.Any())
+                {
+                    stats.OutputColumnsUnused += 1;
+
+                    var savings = redundants.Count();
+
+                    stats.OutputColumnsSavings += savings;
+                    stats.OutputColumnsSavingsPercentages += savings / (double)outputColumns.Count;
+
+                    Utils.WriteLine(String.Format("SAVINGS (output) ({0}): used output columns subset of defined columns: {1}", result.Method.FullName(), savings));
+                }
+                else
+                {
+                    stats.OutputColumnsAllUsed += 1;
+                    Utils.WriteLine("All USED (output): all output columns used.");
+                }
+
             } 
             catch (Exception e)
             {
@@ -299,23 +387,23 @@ namespace ScopeAnalyzer
         }
 
 
-        private static int ComputeColumnsSize(IEnumerable<string> columns, Dictionary<string, string> schema)
-        {
-            int size = 0;
-            foreach(var column in columns)
-            {
-                var type = schema[column];
-                if (TYPE_SIZES.ContainsKey(type))
-                {
-                    size += TYPE_SIZES[type];
-                }
-                else
-                {
-                    size += DEFAULT_TYPE_SIZE;
-                }
-            }
-            return size;
-        }
+        //private static int ComputeColumnsSize(IEnumerable<string> columns, Dictionary<string, string> schema)
+        //{
+        //    int size = 0;
+        //    foreach(var column in columns)
+        //    {
+        //        var type = schema[column];
+        //        if (TYPE_SIZES.ContainsKey(type))
+        //        {
+        //            size += TYPE_SIZES[type];
+        //        }
+        //        else
+        //        {
+        //            size += DEFAULT_TYPE_SIZE;
+        //        }
+        //    }
+        //    return size;
+        //}
 
 
 

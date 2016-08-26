@@ -1,0 +1,105 @@
+Analyzing folder C:\Users\t-zpavli\Desktop\test output
+33032 dll traces found.
+(Microsoft.WDG.CoreDataScience.StreamBuilderLib.EventReducer.<Reduce>d__7.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5609c1b0-d7d9-4f33-9862-e8b4df077383\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\076f3de1-5bad-4c73-9228-d929658da3b1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5c182d8f-33a7-4899-814d-3fbd81351f02\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5fe95b7e-f137-4236-a9cd-a757e8686fba\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\087888fd-1736-4089-b59e-a44b9d74858f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\672eaf1f-8d67-449a-9c4d-3a8031acc17e\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\74c7e04d-8b3d-4e2b-8ccf-f7c4c5da0633\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\75fceb51-66cb-48c8-8e62-81c83f4481a6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ba011a3-fd85-4f85-92ce-e8a230d33dc3\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\851e08da-d9ce-43e9-b36c-89fb40cf2daa\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9caf5c99-e56b-4aac-b5d1-dc22ef263750\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0f38ad39-4fa2-48ff-bd32-77efbaee29be\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a3554d9d-54e7-494a-9d83-8ca49d167c9a\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a4c3774b-ebd4-423e-bde7-f016f3a08bc2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0195a6ee-d812-4b05-89b6-85c60b2d15f6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\bc7db7de-a7c6-47cf-870a-bda486fff7c7\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c26b993a-6f94-4cc3-b2b1-ff9b9d75544c\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ca55db9a-20ab-4709-a0e0-27bf54d015ac\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cb8a4dd3-9e1a-4d73-aea4-1fb7d6669ffb\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cd7dda5e-8184-4cab-88c3-edcbd7dd32e1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cfec2d49-c413-4923-8113-15bede967c91\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d400c0ae-35ff-480d-aeb9-40af9d9e97b2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc1399ec-57d1-4f46-9a77-d0d0c089f6de\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e59386b0-0a5e-4880-ab2d-51cf4adc698f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e5f92c79-a479-43ea-b82e-a39f55cab304\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e6f46fc5-3576-4989-b319-afae047f6830\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f07a3769-e0b6-40ac-8410-1475f8db4937\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f464cc95-b20c-4248-8b82-2e27ac06ff28\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f7c47d85-9cf6-4f34-b981-31368ebab6e4\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3c822ffe-00b2-4403-babe-dec3ad97796d\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3ddb9ed0-7b7e-438c-928b-d389e78077f9\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\46f0bd38-b816-4886-b520-6a3192614bf0\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+(MS.Msn.Messenger.Scope.Base64WpcLogProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9ef94520-8f93-487f-ad51-12f76529b304\WnsScope.dll
+(Microsoft.WDG.CoreDataScience.StreamBuilderLib.EventProcessor.<Process>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5609c1b0-d7d9-4f33-9862-e8b4df077383\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\076f3de1-5bad-4c73-9228-d929658da3b1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5c182d8f-33a7-4899-814d-3fbd81351f02\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5fe95b7e-f137-4236-a9cd-a757e8686fba\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\087888fd-1736-4089-b59e-a44b9d74858f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\672eaf1f-8d67-449a-9c4d-3a8031acc17e\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\74c7e04d-8b3d-4e2b-8ccf-f7c4c5da0633\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\75fceb51-66cb-48c8-8e62-81c83f4481a6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ba011a3-fd85-4f85-92ce-e8a230d33dc3\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\851e08da-d9ce-43e9-b36c-89fb40cf2daa\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0f38ad39-4fa2-48ff-bd32-77efbaee29be\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a3554d9d-54e7-494a-9d83-8ca49d167c9a\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a4c3774b-ebd4-423e-bde7-f016f3a08bc2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0195a6ee-d812-4b05-89b6-85c60b2d15f6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c26b993a-6f94-4cc3-b2b1-ff9b9d75544c\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ca55db9a-20ab-4709-a0e0-27bf54d015ac\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cb8a4dd3-9e1a-4d73-aea4-1fb7d6669ffb\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cd7dda5e-8184-4cab-88c3-edcbd7dd32e1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cfec2d49-c413-4923-8113-15bede967c91\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d400c0ae-35ff-480d-aeb9-40af9d9e97b2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e59386b0-0a5e-4880-ab2d-51cf4adc698f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e5f92c79-a479-43ea-b82e-a39f55cab304\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e6f46fc5-3576-4989-b319-afae047f6830\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f07a3769-e0b6-40ac-8410-1475f8db4937\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f464cc95-b20c-4248-8b82-2e27ac06ff28\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f7c47d85-9cf6-4f34-b981-31368ebab6e4\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3c822ffe-00b2-4403-babe-dec3ad97796d\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3ddb9ed0-7b7e-438c-928b-d389e78077f9\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\46f0bd38-b816-4886-b520-6a3192614bf0\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+(Virat.IndexBuild.ChunkFactory.ChunkFactoryReducer.<EmitRows>d__43.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\89896b25-1b83-4107-a8a5-26f7fb47b8df\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\955ceb89-be5e-45cc-b48b-e0ff004da3f9\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c0c1222c-4fcc-4f2c-bf7c-260747f311f4\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d001ddb7-2860-4aec-a4df-bf589fe04055\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc763c74-b3e6-4332-bf21-984f1822a721\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\243454aa-8b4e-41c3-8ab1-85517e4bc624\Virat.ChunkFactory.CosmosInterface.dll
+(NetProt.BingBot.Lib.ScopeCustomCode.FraudReasonExpanderReducerV1.<DuplicateRows>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6a986d09-ae35-42c9-be2c-78374127ce75\NetProt.BingBot.Lib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c6901a56-c67b-4663-943a-47f9777144b7\NetProt.BingBot.Lib.dll
+(Virat.CSLib.CSDataReducer.<StaticRankHandler>d__17.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.CSLib.dll
+(Virat.IndexBuild.ChunkFactory.ChunkFactoryReducer.<EmitMchunkStatistics>d__56.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\89896b25-1b83-4107-a8a5-26f7fb47b8df\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\955ceb89-be5e-45cc-b48b-e0ff004da3f9\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c0c1222c-4fcc-4f2c-bf7c-260747f311f4\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d001ddb7-2860-4aec-a4df-bf589fe04055\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc763c74-b3e6-4332-bf21-984f1822a721\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\243454aa-8b4e-41c3-8ab1-85517e4bc624\Virat.ChunkFactory.CosmosInterface.dll
+(___Scope_Generated_Classes___.NormalizeImagePath.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f8d2c0c7-8739-4aef-830c-7faf8e985a82\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll
+(Virat.CSLib.CSDataReducer.<MetaDataHandler>d__22.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.CSLib.dll
+(Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.VisitRecognizer.ComputeUCPHubSeedsReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b1d5170a-40a4-48aa-a425-2066692691b2\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+Total number of potential redundant processors is 81

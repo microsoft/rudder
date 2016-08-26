@@ -19,8 +19,8 @@ def do_work(path):
 		for line in lines:
 			if "Analyzing assembly:" in line:
 				assembly = line.split("Analyzing assembly:")[1].strip().split("=")[0].strip()
-			elif line.startswith("SAVINGS"):
-				processors.append(line.split("SAVINGS")[1].strip().split(":")[0].strip())
+			elif line.startswith("SAVINGS (input)"):
+				processors.append(line.split("SAVINGS (input)")[1].strip().split(":")[0].strip())
 
 		for proc in processors:
 			if not (proc in savings): savings[proc] = []

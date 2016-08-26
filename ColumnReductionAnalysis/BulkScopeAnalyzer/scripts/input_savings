@@ -1,0 +1,327 @@
+Analyzing folder C:\Users\t-zpavli\Desktop\test output
+33032 dll traces found.
+(___Scope_Generated_Classes___.VideoSelectionKthScoreReducer.<Reduce>d__21.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7301d9bf-9ff5-435b-9c0b-d8bc0152e188\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ParseSFSDocumentProcessor.<Process>d__38.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cd37a9a6-13cd-4227-a3c9-53c79a3728dc\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ExtractInterest.<Process>d__67.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\98a9c4a1-6996-4c34-8d33-f7dd140ffbf9\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.NoduleSelectionReducer.<Reduce>d__12.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\524bbddb-ac7c-4bbf-80f4-d683fc3f5542\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ParseSFSDocumentProcessor.<Process>d__51.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e37e9303-e7ec-4137-babe-dfbe8a2be464\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.PullAndScanRequestGenerator.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5dff57d2-4c92-462b-892e-b29c2df5bcd0\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6de7d4f7-c758-436b-95b1-61e0a2d795ea\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\91517dcb-6a54-4804-b538-1e2193078d2f\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b98dd01d-a3ea-4542-90ad-0a510b35fde5\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dab42b85-b33e-43a6-9bb3-24b6426aaea5\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1d19d9a0-ebe4-4f75-a077-c544181af0dc\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\385f05d6-cd66-41c0-aabe-3b579d218b4b\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\43cb1eae-4f4c-424b-bb94-ad1ea9414272\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ContentIdSelectionReducer.<Reduce>d__12.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6a02b587-21b6-4b4d-84c5-4caaebc9d5ad\__ScopeCodeGen__.dll
+(ScopeFeatureExtractionLibrary.ContentCaptureHeaderProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\42b115ea-abe2-494e-ada0-100d1c252980\ScopeFeatureExtractionLibrary.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Processors.OnlineGraphNodeDataSchemaCreatorProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e2ce4701-8a22-4e7f-9cd2-06349ebfb907\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.UnifiedVisitedVenues.UnifiedVisitedVenuesUnrollProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.DeviceDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(___Scope_Generated_Classes___.ProcessTimeProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7d60d784-156b-4041-b8d2-33c49b7fe0c4\__ScopeCodeGen__.dll
+(Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.VisitRecognizer.ComputePDPHubSeedsReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b1d5170a-40a4-48aa-a425-2066692691b2\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+(___Scope_Generated_Classes___.OperationPercentileReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\83ccc2a4-8aa2-4dd6-be38-27aae52adf18\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8c0bfae9-d9b0-4c47-8d99-4642d87941f7\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8c51a93d-4eb9-408e-9b72-58c1d469733f\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1e357df9-0c52-4667-b85d-703b61e831a4\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\43b80b79-cc88-4527-a808-13df9ab7006b\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.TierCacheProcessor.<Process>d__23.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5027a18c-e2d3-43cc-8e97-5e81a999ca08\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.GetDCDOMProcessor.<Process>d__1f.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ad44b1c8-ca54-468a-8987-e65eef034bc4\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.QuerySeqReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\4d4ea1c8-538d-4881-86a5-3e58c3897bc5\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d36bf395-1e1a-45e2-8711-ead105f22674\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.StatusFileProcessor.<Process>d__38.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e37e9303-e7ec-4137-babe-dfbe8a2be464\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.UDProcessor.<Process>d__7.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b61ddd64-e4dd-428a-b5a0-17bf3e5f220f\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.CacheHitProcessor.<Process>d__34.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5027a18c-e2d3-43cc-8e97-5e81a999ca08\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.PaymentMethodDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(___Scope_Generated_Classes___.ChildTreeScorer.<Reduce>d__14.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f8d2c0c7-8739-4aef-830c-7faf8e985a82\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\03374553-725d-4d47-9400-90a9d168a658\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.TransactionHistoryDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(___Scope_Generated_Classes___.OrderDominateTokenAndMatchTypeReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll
+(Virat.CSLib.CSDataReducer.<MetaDataHandler>d__22.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.CSLib.dll
+(___Scope_Generated_Classes___.ClickReduce.<Reduce>d__1d.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b61ddd64-e4dd-428a-b5a0-17bf3e5f220f\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.RequestPercentileReducer.<Reduce>d__81.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6c7b958a-2db2-45cb-b51d-c17b78eafb99\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d9b320ac-a1ff-415a-93e3-0d47d3d949ad\__ScopeCodeGen__.dll
+(Virat.CSLib.CSDataReducer.<StaticRankHandler>d__17.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.CSLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.CSLib.dll
+(___Scope_Generated_Classes___.UlsMessageReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2332810a-da2c-4009-80dc-9058499509ed\__ScopeCodeGen__.dll
+(Microsoft.OneIntelPipeline.ScopeLibrary.NormalizerReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8678eba3-9823-4acc-bc9d-398c9d693862\Microsoft.OneIntelPipeline.ScopeLibrary.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\df398cd9-ba6b-4e70-b243-43b2df35712b\Microsoft.OneIntelPipeline.ScopeLibrary.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3bbc18eb-cc3d-4eeb-adc5-209268c08431\Microsoft.OneIntelPipeline.ScopeLibrary.dll
+(___Scope_Generated_Classes___.FlattenNoduleProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\13c04344-e910-4828-8eae-bc49925b4c9b\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.BackFillProcessor.<Process>d__a.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\01c085ee-9e42-418d-b0e8-a94ee1a0d76b\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.EvaluationDecisionDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(Shopping.DeepLink.ContentLevelReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e7dc7801-5aad-4c73-ac01-4dd92166748d\ShoppingV2.DeepLink.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e880cb0d-bdfb-4a87-a38e-db2fb3738941\ShoppingV2.DeepLink.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Reducers.WindowsFamilyDataReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f61fa402-9fa0-462c-ae1a-70bb8a3553ff\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(Microsoft.CommercePlatform.QueryStore.Common.Reducers.LegacyLineItemEventsCreatorReducer.<Reduce>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cdceeb3a-0459-4dcf-942d-b8952a2836e3\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\00e0c351-4bae-4970-989b-92806b1e657c\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(___Scope_Generated_Classes___.RequestOperationPercentileReducer.<Reduce>d__5a.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6c7b958a-2db2-45cb-b51d-c17b78eafb99\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d9b320ac-a1ff-415a-93e3-0d47d3d949ad\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Reducers.V2.Risk.ModernRiskTransactionDataReducer.<Reduce>d__4.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(NDRLogProcessor.NDRLogByteArrayProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\50804716-7d0f-499c-9504-e2c88ecb1879\NDRLogByteArrayProcessor.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\436b68c2-0460-42ad-808d-e9be35d545ff\NDRLogByteArrayProcessor.dll
+(SessionTrust.Scopelib.ApsaEventProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\57dfe58b-28d1-4fa3-b392-b5f0e090d1ec\APSA.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6fedbb7b-70c1-45f3-bb36-1c5e85953303\APSA.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9fb4c7b8-2051-4111-a220-d4ad993ec59f\APSA.Scopelib.dll
+(___Scope_Generated_Classes___.UrsRegexProcessor.<Process>d__1a.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6ab4c227-4a5e-4839-97f6-28e2fa796653\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3a4817a9-b9ea-4dee-b05a-f38177572fee\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.SelectionDomainProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7301d9bf-9ff5-435b-9c0b-d8bc0152e188\__ScopeCodeGen__.dll
+(CdpLogCache.Scopelib.SigninRollupReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\65b00e51-0bd0-4acd-a5a8-e3feb4e753eb\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\668c5a76-5439-479b-b465-870b7494124c\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7da02413-40d0-4536-942d-f7981d691738\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\89739bb0-8b18-4c44-aaa9-fe119e0c4a7e\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1f496358-e24d-47aa-95ba-3db9d97649a0\CdpLogCache.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3f98bbfc-f019-484b-a943-4d3a476d9182\CdpLogCache.Scopelib.dll
+(Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.VisitRecognizer.VisitSignalUnrollProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b1d5170a-40a4-48aa-a425-2066692691b2\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+(bao.ClusterFanOutProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1fcb1061-e4f2-4ce6-a6d8-381d2ca7be50\UserRep.dll
+(___Scope_Generated_Classes___.UrlProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c16a7aab-77ab-4bc5-b453-ee0ed00686ec\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.SchemaProcessor.<Process>d__b.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2332810a-da2c-4009-80dc-9058499509ed\__ScopeCodeGen__.dll
+(APLCPipeline.EffectiveSampleRateCalculator.<Reduce>d__3.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\33488416-6c26-4603-9cc4-4b80e21385ef\APLCPipeline.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3c8d3987-9000-4b02-a214-738965886010\APLCPipeline.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\46b2e296-2d26-4081-8e43-e1343f6cf1e9\APLCPipeline.dll
+(bao.UserRepLookupReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1fcb1061-e4f2-4ce6-a6d8-381d2ca7be50\UserRep.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Reducers.UserEmailDataReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a8909e29-9368-4f1b-8643-59602430b7b8\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(___Scope_Generated_Classes___.EscalationMachinePickerReducer.<Reduce>d__3d.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6dd507b4-4500-454c-aa6c-883e0c79913e\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\82ad6f56-e86f-413c-9bd8-52562b7470fd\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\8c4241a9-f4cf-4bd8-a324-0e043e9481e6\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.PulseSessionInfoReducer.<Reduce>d__6.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2332810a-da2c-4009-80dc-9058499509ed\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.UserProfileDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(___Scope_Generated_Classes___.SelectTopUrl.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\bd2dea57-b683-4129-8cdf-696c1fb5ccc9\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Invoice.LegacyInvoiceCreatorProcessor.<Process>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\70f20313-5ec2-4e6d-8b04-311d355c2e89\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d45c180e-166b-49c9-8e94-016962a05c37\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d729d8f5-2bdf-4a41-a805-d46b06384e5e\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(Microsoft.CommercePlatform.Graph.Common.Reducers.LegacyLineItemEventsCreatorReducer.<Reduce>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b91c101a-654c-4b8d-ba81-83a3dafa682a\Microsoft.CommercePlatform.Graph.GraphProcessing.dll
+(CdpLogCacheVersioned.Scopelib.SigninRollupReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5f935767-e129-4747-b666-354cf5be6239\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6ed7b7e5-4c90-4abb-95ca-16527623d90e\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b67098cb-41c1-465d-b100-ed719c909aff\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\bf7c6a84-1733-458f-b4e9-0b7d3611f70d\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\14b5e4be-8aaa-47e3-89b4-17c35364e079\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\db5989d3-45fa-43e9-9045-a021e3b11b33\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f67dffda-41df-4e1c-a17e-355e1bac099d\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\fb9ce9b1-d405-431a-8bfd-70716325383e\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1c303073-9b18-4fd5-bd07-114b36284bbd\CdpLogCacheVersioned.Scopelib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3daec598-228d-46b6-9b88-0c987b2c0125\CdpLogCacheVersioned.Scopelib.dll
+(___Scope_Generated_Classes___.MasterRuleBasedProcessor.<Process>d__86.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ffe22d28-3326-45dc-9ed2-ea31afb9e7cd\__ScopeCodeGen__.dll
+(NetProt.BingBot.Lib.ScopeCustomCode.FraudReasonExpanderReducerV1.<DuplicateRows>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6a986d09-ae35-42c9-be2c-78374127ce75\NetProt.BingBot.Lib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c6901a56-c67b-4663-943a-47f9777144b7\NetProt.BingBot.Lib.dll
+(Microsoft.CommercePlatform.QueryStore.V2.Processors.ModernInvoiceCreatorProcessor.<Process>d__5.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\78ad71ff-b23e-4090-ab80-737b8bde1b83\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cbbc1729-82e0-4124-a147-747920d30093\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2b2abe49-cd1c-42fd-8d8d-6e60e3a4a96f\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(VideoRichnessFeatureExtraction.GenMiniIfmExtractionProcessor.<Process>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7c1c079e-ddac-4186-8149-4a39de8f5e5a\VideoRichnessFeatureExtraction.dll
+(___Scope_Generated_Classes___.ROCPreprocessor.<Reduce>d__15.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.RestaurantReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\98a9c4a1-6996-4c34-8d33-f7dd140ffbf9\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ClusterHashPairReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\669abc40-5813-463e-b2b6-4446aaed59a2\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\93815e9d-7ffb-4427-88b7-161638408d3c\__ScopeCodeGen__.dll
+(Virat.IndexBuild.ChunkFactory.ChunkFactoryReducer.<EmitMchunkStatistics>d__56.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\89896b25-1b83-4107-a8a5-26f7fb47b8df\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\955ceb89-be5e-45cc-b48b-e0ff004da3f9\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c0c1222c-4fcc-4f2c-bf7c-260747f311f4\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d001ddb7-2860-4aec-a4df-bf589fe04055\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc763c74-b3e6-4332-bf21-984f1822a721\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\243454aa-8b4e-41c3-8ab1-85517e4bc624\Virat.ChunkFactory.CosmosInterface.dll
+(___Scope_Generated_Classes___.StagingCatalogReducer.<Reduce>d__a.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\86b6f1f0-c306-4e07-a5f4-f60036d4a0f6\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9e4a7253-5975-452f-a801-59945668b584\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.SchemaProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\73d0d283-c7b8-47c4-8663-6631afacac07\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\140a9d28-61c0-4866-91c2-ad0dc745f8c8\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\31b12f00-6a0c-460c-86d3-44cd461828ef\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.RequestTypeReducer.<Reduce>d__34.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6c7b958a-2db2-45cb-b51d-c17b78eafb99\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d9b320ac-a1ff-415a-93e3-0d47d3d949ad\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.LPProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\42ae12e1-2986-4267-9523-11269434f650\__ScopeCodeGen__.dll
+(Microsoft.CommercePlatform.RiskReporting.DataWarehouse.DataModelling.ScopeSchemaToStringProcessor.<Process>d__3.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\67dff908-a28c-4594-a4ad-be13b119050e\Microsoft.CommercePlatform.RiskReporting.DataWarehouse.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c9423983-2e34-47c3-b6a6-690f4df60a55\Microsoft.CommercePlatform.RiskReporting.DataWarehouse.dll
+(___Scope_Generated_Classes___.VideoSelectionTopUrl.<Reduce>d__1a.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7301d9bf-9ff5-435b-9c0b-d8bc0152e188\__ScopeCodeGen__.dll
+(Virat.IndexBuild.ChunkFactory.ChunkFactoryReducer.<EmitRows>d__43.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7e4b73cd-74bf-466f-b542-60d2bf7aa343\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\88e4b6c3-be49-4b0c-829b-a644480fce3d\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\89896b25-1b83-4107-a8a5-26f7fb47b8df\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\955ceb89-be5e-45cc-b48b-e0ff004da3f9\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c0c1222c-4fcc-4f2c-bf7c-260747f311f4\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d001ddb7-2860-4aec-a4df-bf589fe04055\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc763c74-b3e6-4332-bf21-984f1822a721\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ddde680e-81dc-4520-b542-387b905a14b2\Virat.ChunkFactory.CosmosInterface.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\243454aa-8b4e-41c3-8ab1-85517e4bc624\Virat.ChunkFactory.CosmosInterface.dll
+(___Scope_Generated_Classes___.TraceIDIndexReducer.<Reduce>d__5.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5027a18c-e2d3-43cc-8e97-5e81a999ca08\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.DefTagSensorProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\44de1341-6157-4817-bf08-fb9935fdf00b\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.GenerateModelMatchContexts.<Process>d__2.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d2846463-c7a4-48b4-ac44-6b46445735cf\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1fcb89f4-482d-422e-9879-a3060c44424d\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\21a02d43-a272-46ba-91f1-ff0a40376608\__ScopeCodeGen__.dll
+(Microsoft.WDG.CoreDataScience.StreamBuilderLib.EventReducer.<Reduce>d__7.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5609c1b0-d7d9-4f33-9862-e8b4df077383\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\076f3de1-5bad-4c73-9228-d929658da3b1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5c182d8f-33a7-4899-814d-3fbd81351f02\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5fe95b7e-f137-4236-a9cd-a757e8686fba\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\087888fd-1736-4089-b59e-a44b9d74858f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\672eaf1f-8d67-449a-9c4d-3a8031acc17e\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\74c7e04d-8b3d-4e2b-8ccf-f7c4c5da0633\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\75fceb51-66cb-48c8-8e62-81c83f4481a6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ba011a3-fd85-4f85-92ce-e8a230d33dc3\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\851e08da-d9ce-43e9-b36c-89fb40cf2daa\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9caf5c99-e56b-4aac-b5d1-dc22ef263750\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0f38ad39-4fa2-48ff-bd32-77efbaee29be\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a3554d9d-54e7-494a-9d83-8ca49d167c9a\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a4c3774b-ebd4-423e-bde7-f016f3a08bc2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0195a6ee-d812-4b05-89b6-85c60b2d15f6\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\bc7db7de-a7c6-47cf-870a-bda486fff7c7\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c26b993a-6f94-4cc3-b2b1-ff9b9d75544c\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ca55db9a-20ab-4709-a0e0-27bf54d015ac\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cb8a4dd3-9e1a-4d73-aea4-1fb7d6669ffb\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cd7dda5e-8184-4cab-88c3-edcbd7dd32e1\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\cfec2d49-c413-4923-8113-15bede967c91\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d400c0ae-35ff-480d-aeb9-40af9d9e97b2\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\dc1399ec-57d1-4f46-9a77-d0d0c089f6de\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e59386b0-0a5e-4880-ab2d-51cf4adc698f\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e5f92c79-a479-43ea-b82e-a39f55cab304\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e6f46fc5-3576-4989-b319-afae047f6830\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f07a3769-e0b6-40ac-8410-1475f8db4937\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f464cc95-b20c-4248-8b82-2e27ac06ff28\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f7c47d85-9cf6-4f34-b981-31368ebab6e4\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3c822ffe-00b2-4403-babe-dec3ad97796d\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3ddb9ed0-7b7e-438c-928b-d389e78077f9\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\46f0bd38-b816-4886-b520-6a3192614bf0\Microsoft.WDG.CoreDataScience.StreamBuilderLib.dll
+(Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.FileStateReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\84228e1c-7b42-401a-b653-9f105d5c21d1\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c6bdf965-b255-4f4b-81f4-0229778acdf2\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\ea494fd9-859f-4155-9bca-ea4c02aebc96\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\eb5e5db7-d4d4-4797-8874-d1d2395958be\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\1bc7ffca-66d0-4f7d-aa05-997adcbb1c71\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\227c90a6-c4e7-4f92-b3fa-9b82b86b07fa\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\33045a14-ba94-4e0b-a187-d40cadf055d8\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0444f8f2-c3a5-4287-b507-66b3cbc7eb03\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\4291c9fd-4e54-4a3c-8d02-85483cb6c065\Microsoft.Live.Safety.Reputation.Cosmos.FileRep.FileRepIntel.dll
+(Microsoft.CommercePlatform.QueryStore.GraphProcessing.Processors.V2.Risk.BasketDataProcessor.<Process>d__1.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\c342e99e-a56e-4e5c-a119-61091acfefb8\Microsoft.CommercePlatform.QueryStore.GraphProcessing.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Reducers.UserNameInfoReducer.<Reduce>d__8.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a8909e29-9368-4f1b-8643-59602430b7b8\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(___Scope_Generated_Classes___.DeepLinkProcessor.<Process>d__36.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\59e52f32-dd48-447c-99d0-2374144b8e48\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.AppUsagePerUserReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\5e01c70d-d217-44e3-b8b3-74ce4ceaa8bc\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7860ed39-f42b-49f4-be20-fa3645a5af9c\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\92095d0b-b1d5-4b58-91c4-5d5e345ad7c3\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\9734eb6a-599d-459a-878b-67413ea16c68\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\a51c81d7-daae-42e2-8224-f5c62f641900\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b1c9d906-d58e-4ad3-b047-5578743529d1\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\bd8f1047-01e4-43ad-9e14-576e5b3e3281\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d0d4f54d-fde6-4390-9b12-f4068b94f830\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\e76c2aed-524a-4c2a-9203-81654e8472fa\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\fa6de0e8-cd3c-46c1-94ed-879e32763f03\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2b43d761-5387-415a-88c3-eda93dace00a\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2fa0cce2-14ab-4f4b-a83b-0860d75ed38f\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2fc32d33-3eac-408d-8085-fc0bc494e3ea\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\36bbb113-0017-49b7-8c25-faa00f9bfcde\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\3bed6d84-5ead-496b-ac9e-0bd860f49961\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\432a8ab4-126c-4005-98fa-13d1d4a298e2\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.NormalizeImagePath.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f8d2c0c7-8739-4aef-830c-7faf8e985a82\__ScopeCodeGen__.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Processors.UserRelationshipClassifierProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f61fa402-9fa0-462c-ae1a-70bb8a3553ff\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(___Scope_Generated_Classes___.HalseyAppProfileProcessor.<Process>d__b.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\98a9c4a1-6996-4c34-8d33-f7dd140ffbf9\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ParseSFSDocumentProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\37d4dd5c-1593-44e0-ac41-9aadc087be6d\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.NewsAnswerUrlProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\35f47beb-e0c8-4af4-ae26-00aa591fad0c\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.UDProcessor.<Process>d__9.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6c6f10ca-9922-4f3d-8be1-61c4256f073c\__ScopeCodeGen__.dll
+(Microsoft.Wps.WifiService.CosmosPipeline.AccessPointToJsonProcessor.<Process>d__4.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\fac7a2ac-edac-436f-86d3-1f12f25d7ed7\Microsoft.Wps.WifiService.CosmosPipeline.dll
+(Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.VisitRecognizer.ComputeUCPHubSeedsReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\b1d5170a-40a4-48aa-a425-2066692691b2\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll
+(___Scope_Generated_Classes___.HeroVideoProcessor.<Process>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\970924bd-aa21-4231-9856-aacff53342a8\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.SchemaProcessor.<Process>d__8.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\db2e3a97-420e-40ad-a9b6-38edadf025ed\__ScopeCodeGen__.dll
+(MatchingUtil.SingleQueryIndexReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\7c1c079e-ddac-4186-8149-4a39de8f5e5a\MatchingUtil.dll
+(Microsoft.Jarvis.Graph.ProcessingLibrary.Reducers.SharedDeviceUsersDataReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\f61fa402-9fa0-462c-ae1a-70bb8a3553ff\Microsoft.Jarvis.Graph.ProcessingLibrary.dll
+(___Scope_Generated_Classes___.RecipeReducer.<Reduce>d__0.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d1a99ff5-9bce-442e-bfde-6d19b5ef882b\__ScopeCodeGen__.dll
+(___Scope_Generated_Classes___.ClickReduce.<Reduce>d__1f.MoveNext())
+	\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6c6f10ca-9922-4f3d-8be1-61c4256f073c\__ScopeCodeGen__.dll
+Total number of potential redundant processors is 91

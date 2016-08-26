@@ -105,6 +105,7 @@
     <Content Include="scripts\compute_mappings_stats.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="scripts\compute_savings.py" />
     <Content Include="scripts\compute_stats.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

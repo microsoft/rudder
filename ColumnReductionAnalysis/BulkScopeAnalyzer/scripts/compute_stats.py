@@ -24,9 +24,11 @@ def do_work(path):
 	no_column_index_accesses = 0
 	no_concrete_methods_mapped = 0
 	no_column_percentages = 0
-	no_column_byte_savings = 0
-	no_column_byte_percentages = 0
+	#no_column_byte_savings = 0
+	#no_column_byte_percentages = 0
 	cumulative_time = 0
+	no_input_all_used_methods = no_input_unused_methods = no_input_column_percentages = no_input_column_savings = 0
+	no_output_all_used_methods = no_output_unused_methods = no_output_column_percentages = no_output_column_savings = 0
 	for txt in txts:
 		f = open(path + "\\" + txt, "r")
 		trace = f.read()
@@ -63,22 +65,36 @@ def do_work(path):
 				no_interesting_methods += cnt
 			elif line.startswith("Unsupported"): no_unsupported_methods += extract_stat(line)
 			elif line.startswith("Concrete-columns"): no_concrete_methods += extract_stat(line)
-			elif line.startswith("Proper subset:"): no_proper_subset_methods += extract_stat(line)
-			elif line.startswith("Equal"): no_equal_set_methods += extract_stat(line)
-			elif line.startswith("Superset"): no_imprecision_methods += extract_stat(line)
 			elif line.startswith("Concrete methods"): no_concrete_methods_mapped += extract_stat(line)
+
+			elif line.startswith("Union unused:"): no_proper_subset_methods += extract_stat(line)
+			elif line.startswith("Union all used"): no_equal_set_methods += extract_stat(line)
+			elif line.startswith("Union superset"): no_imprecision_methods += extract_stat(line)
+			
+			elif line.startswith("Input unused:"): no_input_unused_methods += extract_stat(line)
+			elif line.startswith("Input all used"): no_input_all_used_methods += extract_stat(line)
+			
+			elif line.startswith("Output unused:"): no_output_unused_methods += extract_stat(line)
+			elif line.startswith("Output all used"): no_output_all_used_methods += extract_stat(line)
+			
+
 			elif line.startswith("Used columns string accesses"): no_column_string_accesses += extract_stat(line)
 			elif line.startswith("Used columns index accesses"): no_column_index_accesses += extract_stat(line)
-			elif line.startswith("Total analysis time"): time += extract_time(line)
+			elif line.startswith("Total analysis time"): time = extract_time(line)
 				
 
-			elif line.startswith("!Columns count cumulative"): no_column_savings += extract_stat(line)			
-			elif line.startswith("!Columns percentage count cumulative"): no_column_percentages += extract_stat_float(line)
-			elif line.startswith("!Columns byte cumulative"): no_column_byte_savings += extract_stat(line)			
-			elif line.startswith("!Columns percentage byte cumulative"): no_column_byte_percentages += extract_stat_float(line)
+			elif line.startswith("!Union columns count cumulative"): no_column_savings += extract_stat(line)			
+			elif line.startswith("!Union columns percentage count cumulative"): no_column_percentages += extract_stat_float(line)
+			#elif line.startswith("!Union columns byte cumulative"): no_column_byte_savings += extract_stat(line)			
+			#elif line.startswith("!Union columns percentage byte cumulative"): no_column_byte_percentages += extract_stat_float(line)
 			
-			if (interesting_assembly): cumulative_time += time
+			elif line.startswith("!Input columns count cumulative"): no_input_column_savings += extract_stat(line)			
+			elif line.startswith("!Input columns percentage count cumulative"): no_input_column_percentages += extract_stat_float(line)
 
+			elif line.startswith("!Output columns count cumulative"): no_output_column_savings += extract_stat(line)			
+			elif line.startswith("!Output columns percentage count cumulative"): no_output_column_percentages += extract_stat_float(line)
+
+		if interesting_assembly: cumulative_time += time
 
 	print("")
 	print(str(no_failed_assemblies) + " dlls failed to be analyzed. (" + str(no_cpp_assemblies) + " of them are cpp asemblies.)")
@@ -100,13 +116,25 @@ def do_work(path):
 	print(str(no_concrete_methods_mapped) + " concrete methods successfully mapped to xml ids.")
 	print("")
 
-	print(str(no_proper_subset_methods) + " mapped methods used less columns than declared.")
+	print(str(no_proper_subset_methods) + " mapped methods used less union columns than declared.")
 	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_savings/no_proper_subset_methods) + " average unused columns count.")
 	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_percentages/no_proper_subset_methods) + " average unused columns percentage.")
-	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_savings/no_proper_subset_methods) + " average unused columns byte size.")
-	print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_percentages/no_proper_subset_methods) + " average unused columns byte size percentage.")
-	print(str(no_equal_set_methods) + " mapped methods used exactly the columns declared.")
+	#print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_savings/no_proper_subset_methods) + " average unused columns byte size.")
+	#print("\t" + str(0 if no_proper_subset_methods == 0 else no_column_byte_percentages/no_proper_subset_methods) + " average unused columns byte size percentage.")
+	print(str(no_equal_set_methods) + " mapped methods used all union columns declared.")
 	print(str(no_imprecision_methods) + " mapped methods with imprecise column analysis.")
+	print("")
+
+	print(str(no_input_unused_methods) + " mapped methods used less input columns than declared.")
+	print("\t" + str(0 if no_input_unused_methods == 0 else no_input_column_savings/no_input_unused_methods) + " average unused columns count.")
+	print("\t" + str(0 if no_input_unused_methods == 0 else no_input_column_percentages/no_input_unused_methods) + " average unused columns percentage.")
+	print(str(no_input_all_used_methods) + " mapped methods used all input columns declared.")
+	print("")
+
+	print(str(no_output_unused_methods) + " mapped methods used less output columns than declared.")
+	print("\t" + str(0 if no_output_unused_methods == 0 else no_output_column_savings/no_output_unused_methods) + " average unused columns count.")
+	print("\t" + str(0 if no_output_unused_methods == 0 else no_output_column_percentages/no_output_unused_methods) + " average unused columns percentage.")
+	print(str(no_output_all_used_methods) + " mapped methods used all output columns declared.")
 	print("")
 
 	print(str(0 if no_interesting_assemblies == 0 else cumulative_time/float(no_interesting_assemblies)) + " average time (s) per assembly")
