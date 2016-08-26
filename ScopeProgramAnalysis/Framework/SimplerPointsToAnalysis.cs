@@ -26,7 +26,7 @@ namespace Backend.Analyses
             /// <summary>
             /// Hack until I add support from addresses
             /// </summary>
-            private Dictionary<IVariable, IVariable> addressMap = new Dictionary<IVariable, IVariable>();
+            private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
 
             internal PTAVisitor(PointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
             {
@@ -45,7 +45,9 @@ namespace Backend.Analyses
                 {
                     var referencedValue = (operand as Reference).Value;
                     var isHandled = HandleLoadWithOperand(load, referencedValue);
-                    addressMap[instruction.Result] = referencedValue as IVariable;
+                    if(!(referencedValue is IVariable))
+                    { }
+                    addressMap[instruction.Result] = referencedValue;
                 }
                 else if (operand is Dereference)
                 {
@@ -162,7 +164,16 @@ namespace Backend.Analyses
                 ptAnalysis.ProcessObjectAllocation(State, instruction.Offset, addr);
                 if(addressMap.ContainsKey(addr))
                 {
-                    ptAnalysis.ProcessCopy(State, addressMap[addr], addr);
+                    var value = addressMap[addr];
+                    if (value is IVariable)
+                    {
+                        ptAnalysis.ProcessCopy(State, value as IVariable, addr);
+                    }
+                    if(value is InstanceFieldAccess)
+                    {
+                        var fieldAccess = value as InstanceFieldAccess;
+                        ptAnalysis.ProcessStore(State, instruction.Offset, fieldAccess.Instance, fieldAccess.Field , addr);
+                    }
                 }
             }
             public override void Visit(ConvertInstruction instruction)
