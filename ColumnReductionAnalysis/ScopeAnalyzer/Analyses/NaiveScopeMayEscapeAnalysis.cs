@@ -417,15 +417,17 @@ namespace ScopeAnalyzer.Analyses
         {
             interestingRowEscaped |= visitor.SomeRowEscaped;
 
-            foreach (var key in visitor.PreStates.Keys)
-            {
-                preResults[key] = visitor.PreStates[key];
-            }
+            // We currently do not need fine grained results, so
+            // this saves us execution time.
+            //foreach (var key in visitor.PreStates.Keys)
+            //{
+            //    preResults[key] = visitor.PreStates[key];
+            //}
 
-            foreach (var key in visitor.PostStates.Keys)
-            {
-                postResults[key] = visitor.PostStates[key];
-            }
+            //foreach (var key in visitor.PostStates.Keys)
+            //{
+            //    postResults[key] = visitor.PostStates[key];
+            //}
         }
 
 
@@ -526,7 +528,8 @@ namespace ScopeAnalyzer.Analyses
         /// it is assigned to a static variable, (2) it is assigned to a field, (3) it is passed as a parameter to a foreign
         /// method or it is a result of such a method, or(4) it is being assigned by an escaped Row(set) variable / field.
         /// Hence, the computed escape variables should all be of type Row.However, sometimes the actual types are not
-        /// available so we safely add such variables as escaped, just to be sure.
+        /// available so we safely add such variables as escaped, just to be sure. 
+        /// TODO: there is no more cloning, rename FreshCurrent accordingly.
         /// </summary>
         class EscapeTransferVisitor : InstructionVisitor
         {
@@ -636,7 +639,10 @@ namespace ScopeAnalyzer.Analyses
                     if (PossiblyRow(v.Type))
                     {
                         escaped = true;
-                        if (!someRowEscaped && !parent.InterestingRowEscaped) Utils.WriteLine("ESCAPE by method call: " + instruction.ToString());
+                        //Print escape by method call when the reason why we are conservative
+                        //is precisely this escape.
+                        if (!someRowEscaped && !parent.InterestingRowEscaped && !parent.Unsupported)
+                            Utils.WriteLine("ESCAPE by method call: " + instruction.ToString());
                         SetEscaped(nstate, v, instruction);
                     }
                 }
@@ -786,7 +792,9 @@ namespace ScopeAnalyzer.Analyses
 
             private ScopeEscapeDomain FreshCurrent()
             {
-                return currentState.Clone();
+                // TODO: this should not be called FreshCurrent anymore.
+                return currentState;
+                //return currentState.Clone();
             }
 
             private void SavePreState(Instruction instruction, ScopeEscapeDomain state)

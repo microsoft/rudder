@@ -18,17 +18,10 @@ namespace BulkScopeAnalyzer
     {
         const string GEN_STATS_PATH = "scripts/compute_stats.py";
         const string MAP_STATS_PATH = "scripts/compute_mappings_stats.py";
-        const string MAPPINGS_DIR = @"C:\Users\t-zpavli\Desktop\test output\mappings";
+        const string MAPPINGS_DIR = @".mappings";
 
         static void Main(string[] args)
         {
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\real examples";
-            //string mainFolder = @"C:\Users\t-zpavli\Desktop\scope benchmarks\issues";
-            //string mainFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            //string libPath = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            //string scopeAnalyzer = @"C:\Users\t-zpavli\Desktop\dfa-analysis\zvonimir\analysis-net\ScopeAnalyzer\bin\\Debug\ScopeAnalyzer.exe";
-            //string outputPrefix = @"C:\Users\t-zpavli\Desktop\test output";
-
             var options = Options.ParseCommandLineArguments(args);
 
             if (options.AskingForHelp)

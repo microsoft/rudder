@@ -546,6 +546,7 @@ namespace ScopeAnalyzer.Analyses
         /// strong update of a variable with a constant, we memorize the constant as singleton set. 
         /// Constant sets are unoined on joins. Also, we support string concatenation of variables/fields known
         /// to be constants. Upon strong updating, special care needs to be taken for fields.
+        /// TODO: there is no more cloning, rename FreshCurrent accordingly.
         /// </summary>
         class ConstantPropagationTransferVisitor : InstructionVisitor
         {
@@ -924,7 +925,9 @@ namespace ScopeAnalyzer.Analyses
 
             private ConstantPropagationDomain FreshCurrent()
             {
-                return current.Clone();
+                // TODO: this should not be called FreshCurrent anymore.
+                return current;
+                //return current.Clone();
             }
 
 
