@@ -23,12 +23,12 @@ namespace ScopeAnalysisBulkScripts
 
             var inputFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             //var inputFolder = @"D:\Madam3";
-            inputFolder = @"C:\temp\MadamOK";
+            inputFolder = @"C:\temp\Madam";
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
             var outputFolder = @"C:\Temp\Madam";
-            outputFolder = @"C:\temp\ZvoList";
+            //outputFolder = @"C:\temp\ZvoList";
 
             var logPath = outputFolder;
 
@@ -148,7 +148,7 @@ namespace ScopeAnalysisBulkScripts
                     comparerProcess.StartInfo.CreateNoWindow = true;
                     comparerProcess.StartInfo.RedirectStandardOutput = true;
                     comparerProcess.Start();
-                    comparerProcess.WaitForExit();
+                    comparerProcess.WaitForExit(1 * 60 * 1000);
                     string output = comparerProcess.StandardOutput.ReadToEnd();
 
                     var outputPath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".passthrough");

@@ -65,11 +65,22 @@ namespace Compare
                     var tool = run.Tool.Name;
                     if (tool != "ScopeProgramAnalysis") continue;
                     var splitId = run.Id.Split('|');
-                    if (splitId.Length != 2) continue;
-                    var processorName = splitId[0];
-                    var processNumber = splitId[1];
+
+                    var processNumber = "0";
+                    var processorName = "";
+                    if (splitId.Length == 2)
+                    {
+                        processorName = splitId[0];
+                        processNumber = splitId[1];
+                    }
+                    else
+                    {
+                        processorName = run.Id;
+                    }
 
                     Console.WriteLine("Processor '{0}', Number '{1}'", processorName, processNumber);
+
+                    var visitedColumns = new HashSet<string>();
 
                     var passThroughColumns = new List<Tuple<string, string>>();
                     var topHappened = false;
@@ -90,6 +101,11 @@ namespace Compare
                             {
                                 topHappened = true;
                             }
+                            if (visitedColumns.Contains(columnName))
+                                continue;
+
+                            visitedColumns.Add(columnName);
+
                             var dataDependencies = result.GetProperty<List<string>>("data depends");
                             if (dataDependencies.Count == 1)
                             {
