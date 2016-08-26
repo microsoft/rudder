@@ -102,6 +102,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="README.txt" />
     <Content Include="scripts\compute_mappings_stats.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -109,6 +110,7 @@
     <Content Include="scripts\compute_stats.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="TODO.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
