@@ -989,22 +989,27 @@ namespace Backend.Analyses
 
                                 var dataDependent = methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)).Any();
 
-                                if(methodCallStmt.IsConstructorCall() && methodInvoked.ContainingType.Name== "AggregateCacheRecord")
-                                { }
-
                                 if (escaping)
                                 {
-                                    if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled 
-                                        || IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass))
-                                    {
-                                        // This updates the Dep Domain and the PTG
-                                        var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
-                                        AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
+                                    var isMethodToInline = IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass);
 
-                                        // If there are unresolved calles
-                                        if (computedCalles.Item2.Any() || !computedCalles.Item1.Any())
+                                    if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled || isMethodToInline )
+                                    {
+
+                                        // For the demo I'll skip this methods that do anything important
+                                        if (isMethodToInline && !methodInvoked.IsConstructor())
+                                        { }
+                                        else
                                         {
-                                            HandleNoAnalyzableMethod(methodCallStmt);
+                                            // This updates the Dep Domain and the PTG
+                                            var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
+                                            AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
+
+                                            // If there are unresolved calles
+                                            if (computedCalles.Item2.Any() || !computedCalles.Item1.Any())
+                                            {
+                                                HandleNoAnalyzableMethod(methodCallStmt);
+                                            }
                                         }
                                     }
                                     else
@@ -1715,8 +1720,14 @@ namespace Backend.Analyses
                         //for(int i=0; i<resolvedCallee.Body.Parameters.Count;i++)
                         //{
                         var instance = this.currentPTG.GetTargets(delegateArgument).OfType<DelegateNode>().First().Instance;
-                        arguments.Add(instance);
-                        arguments.Add(methodCall.Arguments[0]);
+                        var parametersCount = resolvedCallee.Body.Parameters.Count;
+                        if (!resolvedCallee.IsStatic)
+                        {
+                            arguments.Add(instance);
+                            parametersCount--;
+                        }
+                        for (int i = 0; i < parametersCount; i++)
+                            arguments.Add(methodCall.Arguments[i]);
                         //}
                         var interProcInfo = new InterProceduralCallInfo()
                         {
