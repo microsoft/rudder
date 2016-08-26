@@ -33,6 +33,15 @@ namespace ScopeProgramAnalysis
         public HashSet<string> ClousureFilters { get; private set; }
         public string MethodUnderAnalysisName { get; private set; }
 
+        private Regex[] compilerGeneretedMethodMatchers = new Regex[]
+            {
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeFilterTransformer_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeTransformer_\d+$", RegexOptions.Compiled)
+            };
+
         public ScopeProgramAnalysis(Host host, Loader loader)
         {
             this.host = host;
@@ -445,15 +454,6 @@ namespace ScopeProgramAnalysis
         /// <returns></returns>
         private IEnumerable<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze()
         {
-            Regex[] compilerGeneretedMethodMatchers = new Regex[]
-            {
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeFilterTransformer_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled)
-            };
-
-
             var processorsToAnalyze = new HashSet<ClassDefinition>();
 
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
@@ -537,6 +537,11 @@ namespace ScopeProgramAnalysis
                 var results = new List<Result>();
                 foreach (var candidateClass in candidateClasses)
                 {
+                    var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(candidateClass.GetFullName()));
+
+                    if (isCompilerGenerated)
+                        continue;
+
                     var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
                     var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
                                     .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
