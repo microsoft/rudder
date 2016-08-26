@@ -109,7 +109,7 @@ namespace Compare
                             // Do nothing
                             var columnProperty = result.GetProperty<List<string>>("Outputs");
                             totalColumns = columnProperty.Count;
-                            analysisStats.Add(processorName, new Stats() { PassThrough = passThroughColumns.Count, TotalColumns = totalColumns });
+                            analysisStats.Add(processorName, new Stats() { PassThrough = !topHappened? passThroughColumns.Count: -1, TotalColumns = totalColumns });
                         }
                     }
                     if (passThroughColumns.Count == 0)
