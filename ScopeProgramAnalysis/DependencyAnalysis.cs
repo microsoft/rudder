@@ -132,7 +132,7 @@ namespace ScopeProgramAnalysis
             var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
             PropagateExpressions(cfg, this.equalities);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
-            PointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod);
+            SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod);
             this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, calleePTG);
                         
             //this.pta= this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg);

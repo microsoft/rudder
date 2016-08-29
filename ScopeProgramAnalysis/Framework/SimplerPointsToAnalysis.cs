@@ -15,11 +15,11 @@ using Model.ThreeAddressCode.Visitor;
 namespace Backend.Analyses
 {
     // May Points-To Analysis
-    public class IteratorPointsToAnalysis : ForwardDataFlowAnalysis<PointsToGraph>
+    public class IteratorPointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
     {
         public class PTAVisitor : InstructionVisitor
         {
-            public  PointsToGraph State { get; set;  }
+            public  SimplePointsToGraph State { get; set;  }
             private IteratorPointsToAnalysis ptAnalysis;
             private bool analyzeNextDelegateCtor;
 
@@ -28,7 +28,7 @@ namespace Backend.Analyses
             /// </summary>
             private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
 
-            internal PTAVisitor(PointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
+            internal PTAVisitor(SimplePointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
             {
                 this.State = ptg;
                 this.ptAnalysis = ptAnalysis;
@@ -235,15 +235,15 @@ namespace Backend.Analyses
 
         }
 
-        private PointsToGraph initialGraph;
+        private SimplePointsToGraph initialGraph;
         private MethodDefinition method;
         public IVariable ReturnVariable { get; private set; }
         public static IVariable GlobalVariable = new LocalVariable("$Global") { Type = PlatformTypes.Object };  //   { get; private set; }
-        public DataFlowAnalysisResult<PointsToGraph>[] Result { get; private set; }
+        public DataFlowAnalysisResult<SimplePointsToGraph>[] Result { get; private set; }
         public IVariable ThisVariable { get; private set; }
 
         // private IDictionary<string, IVariable> specialFields;
-        protected PointsToGraph initPTG;
+        protected SimplePointsToGraph initPTG;
 
         public IteratorPointsToAnalysis(ControlFlowGraph cfg, MethodDefinition method) //  IDictionary<string, IVariable> specialFields)
 			: base(cfg)
@@ -254,16 +254,16 @@ namespace Backend.Analyses
             
 		}
 
-        public IteratorPointsToAnalysis(ControlFlowGraph cfg, MethodDefinition method, PointsToGraph initPTG) : base(cfg)
+        public IteratorPointsToAnalysis(ControlFlowGraph cfg, MethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
         {
             this.method = method;
-            this.CreateInitialGraph(false);
-            this.initialGraph.Union(initPTG);
+            this.CreateInitialGraph(false, initPTG);
+            //this.initialGraph.Union(initPTG);
             this.initPTG = this.initialGraph; // initPTG;
 
         }
        
-        public PointsToGraph GetInitialValue()
+        public SimplePointsToGraph GetInitialValue()
         {
             if (this.initPTG != null)
             {
@@ -272,7 +272,7 @@ namespace Backend.Analyses
             return this.initialGraph; // .Clone();
         }
 
-        protected override PointsToGraph InitialValue(CFGNode node)
+        protected override SimplePointsToGraph InitialValue(CFGNode node)
         {
             if (this.cfg.Entry.Id == node.Id && this.initPTG != null)
             {
@@ -281,20 +281,20 @@ namespace Backend.Analyses
             return this.initialGraph; // .Clone();
         }
 
-        public override DataFlowAnalysisResult<PointsToGraph>[] Analyze()
+        public override DataFlowAnalysisResult<SimplePointsToGraph>[] Analyze()
         {
             Result = base.Analyze();
             return Result;
         }
         
-        protected override bool Compare(PointsToGraph left, PointsToGraph right)
+        protected override bool Compare(SimplePointsToGraph left, SimplePointsToGraph right)
         {
             return left.GraphLessEquals(right);
         }
 
-        protected override PointsToGraph Join(PointsToGraph left, PointsToGraph right)
+        protected override SimplePointsToGraph Join(SimplePointsToGraph left, SimplePointsToGraph right)
         {
-            //var result = new PointsToGraph();
+            //var result = new SimplePointsToGraph();
             //result.Union(left);
 
             //var result = left.ShalowClone();
@@ -304,7 +304,7 @@ namespace Backend.Analyses
             return result;
         }
 
-        protected override PointsToGraph Flow(CFGNode node, PointsToGraph input)
+        protected override SimplePointsToGraph Flow(CFGNode node, SimplePointsToGraph input)
         {
             var ptg = input.Clone();
 
@@ -319,13 +319,13 @@ namespace Backend.Analyses
             return ptaVisitor.State;
         }
 
-        //private void Flow(PointsToGraph ptg, Instruction instruction)
+        //private void Flow(SimplePointsToGraph ptg, Instruction instruction)
         //{
         //    var ptaVisitor = new PTAVisitor(ptg, this);
         //    ptaVisitor.Visit(instruction);
         //}
 
-		private void CreateInitialGraph(bool createNodeForParams = true)
+		private void CreateInitialGraph(bool createNodeForParams = true, SimplePointsToGraph initialGraph = null)
 		{
             this.ReturnVariable = new LocalVariable(this.method.Name+"_"+"$RV");
             this.ReturnVariable.Type = PlatformTypes.Object;
@@ -333,7 +333,8 @@ namespace Backend.Analyses
             //IteratorPointsToAnalysis.GlobalVariable= new LocalVariable("$Global");
             //IteratorPointsToAnalysis.GlobalVariable.Type = PlatformTypes.Object;
 
-            var ptg = new PointsToGraph();
+            var ptg = initialGraph==null ? new SimplePointsToGraph() : initialGraph.Clone();
+
 			var variables = cfg.GetVariables();
             if(this.method.Body.Parameters!=null)
                 variables.AddRange(this.method.Body.Parameters);
@@ -372,7 +373,7 @@ namespace Backend.Analyses
 				else
 				{
 					//ptg.Add(variable);
-                    ptg.PointsTo(variable, PointsToGraph.NullNode);
+                    ptg.PointsTo(variable, SimplePointsToGraph.NullNode);
 				}
 			}
 
@@ -388,19 +389,19 @@ namespace Backend.Analyses
             //}
             ptg.Add(this.ReturnVariable);
             ptg.Add(IteratorPointsToAnalysis.GlobalVariable);
-            ptg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, PointsToGraph.GlobalNode);
+            ptg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
 			this.initialGraph = ptg;
 		}
 
-		private void ProcessNull(PointsToGraph ptg, IVariable dst)
+		private void ProcessNull(SimplePointsToGraph ptg, IVariable dst)
 		{
             ptg.RemoveRootEdges(dst);
 
             if (!dst.Type.IsClassOrStruct()) return;
-            ptg.PointsTo(dst, PointsToGraph.NullNode);
+            ptg.PointsTo(dst, SimplePointsToGraph.NullNode);
 		}
 
-        private void ProcessObjectAllocation(PointsToGraph ptg, uint offset, IVariable dst)
+        private void ProcessObjectAllocation(SimplePointsToGraph ptg, uint offset, IVariable dst)
 		{
             ptg.RemoveRootEdges(dst);
             if (!dst.Type.IsClassOrStruct()) return;
@@ -411,7 +412,7 @@ namespace Backend.Analyses
             ptg.PointsTo(dst, node);
         }
 
-		internal void ProcessArrayAllocation(PointsToGraph ptg, uint offset, IVariable dst)
+		internal void ProcessArrayAllocation(SimplePointsToGraph ptg, uint offset, IVariable dst)
         {
             ptg.RemoveRootEdges(dst);
 
@@ -423,7 +424,7 @@ namespace Backend.Analyses
             ptg.PointsTo(dst, node);
         }
 
-        internal void ProcessCopy(PointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
+        internal void ProcessCopy(SimplePointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
         {
             ptg.RemoveRootEdges(dst);
 
@@ -436,7 +437,7 @@ namespace Backend.Analyses
                 ptg.PointsTo(dst, target);
             }
         }
-        internal void ProcessCopy(PointsToGraph ptg, IVariable dst, IVariable src)
+        internal void ProcessCopy(SimplePointsToGraph ptg, IVariable dst, IVariable src)
         {
             ProcessCopy(ptg, dst, new HashSet<IVariable>() { src });
 			//if (dst.Type.TypeKind == TypeKind.ValueType || src.Type.TypeKind == TypeKind.ValueType) return;
@@ -450,7 +451,7 @@ namespace Backend.Analyses
    //         }
         }
 
-		public void ProcessLoad(PointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
+		public void ProcessLoad(SimplePointsToGraph ptg, uint offset, IVariable dst, IVariable instance, IFieldReference field)
         {
 			if (!dst.Type.IsClassOrStruct()|| !field.Type.IsClassOrStruct()) return;
             // TODO: I need to support value types when they are Structs..
@@ -460,16 +461,19 @@ namespace Backend.Analyses
 			var nodes = ptg.GetTargets(instance, false);
             foreach (var node in nodes)
             {
-                var hasField = ptg.GetTargets(node,field).Any();
+                var targets = ptg.GetTargets(node, field);
+
+                var hasField = targets.Any();
 
                 if (!hasField)
 				{
                     // ptg.PointsTo(node, access.Field, ptg.Null);
-                    if (!node.Equals(PointsToGraph.GlobalNode) && !MayReacheableFromParameter(ptg, node))
+                    if (!MayReacheableFromParameter(ptg, node))
                     {
                         System.Console.WriteLine("In {0}:{1:X4} there is variable that is not a parameter and has no object to load.", this.method.ToSignatureString(), offset);
                     }
 
+                    if (MayReacheableFromParameter(ptg, node))
                     {
                         var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
                         // TODO: Should be a LOAD NODE
@@ -479,7 +483,6 @@ namespace Backend.Analyses
                     }
                 }
 
-                var targets = ptg.GetTargets(node,field);
 
                 foreach (var target in targets)
                 {
@@ -488,7 +491,7 @@ namespace Backend.Analyses
             }
         }
 
-        public PTGNode CreateSummaryForCollection(PointsToGraph ptg, uint offset, IVariable collectionVariable)
+        public PTGNode CreateSummaryForCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable)
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
             var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
@@ -499,21 +502,21 @@ namespace Backend.Analyses
             return collectionNode;
         }
 
-        public IFieldReference AddItemforCollection(PointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item)
+        public IFieldReference AddItemforCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item)
         {
             var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
             this.ProcessStore(ptg, offset, collectionVariable, itemsField, item);
             return itemsField;
         }
 
-        public IFieldReference GetItemforCollection(PointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result)
+        public IFieldReference GetItemforCollection(SimplePointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result)
         {
             var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
             this.ProcessLoad(ptg, offset, result, collectionVariable, itemsField);
             return itemsField;
         }
 
-        public PTGNode ProcessGetEnum(PointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable result)
+        public PTGNode ProcessGetEnum(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable result)
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
 
@@ -522,7 +525,7 @@ namespace Backend.Analyses
             ptg.PointsTo(result, enumNode);
 
             var nodes = ptg.GetTargets(collectionVariable);
-            if(nodes.Count==1 && nodes.Single()==PointsToGraph.NullNode)
+            if(nodes.Count==1 && nodes.Single()==SimplePointsToGraph.NullNode)
             {
                 var collectionNode = new PTGNode(ptgId, collectionVariable.Type);
                 ptg.PointsTo(collectionVariable, collectionNode);
@@ -537,7 +540,7 @@ namespace Backend.Analyses
             return enumNode;
         }
 
-        public IEnumerable<PTGNode> ProcessGetCurrent(PointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result)
+        public IEnumerable<PTGNode> ProcessGetCurrent(SimplePointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result)
         {
             var targets = new HashSet<PTGNode>();
             // get Collection
@@ -555,7 +558,7 @@ namespace Backend.Analyses
         }
 
 
-        private bool MayReacheableFromParameter(PointsToGraph ptg, PTGNode n)
+        private bool MayReacheableFromParameter(SimplePointsToGraph ptg, PTGNode n)
         {
             var result = method.Body.Parameters.Where(p => ptg.Reachable(p,n)).Any();
             // This version does not need the inverted mapping of nodes-> variables (which may be expensive to maintain)
@@ -563,12 +566,12 @@ namespace Backend.Analyses
             return result;
         }
 
-        public void ProcessStore(PointsToGraph ptg, uint offset, IVariable instance, IFieldReference field, IVariable src)
+        public void ProcessStore(SimplePointsToGraph ptg, uint offset, IVariable instance, IFieldReference field, IVariable src)
         {
 			if (!field.Type.IsClassOrStruct() || !src.Type.IsClassOrStruct()) return;
 
 			var nodes = ptg.GetTargets(instance, false);
-            var targets = ptg.GetTargets(src).Except(new HashSet<PTGNode>() { PointsToGraph.NullNode });
+            var targets = ptg.GetTargets(src).Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode });
 
             if (targets.Any())
             {
@@ -592,7 +595,7 @@ namespace Backend.Analyses
             }
         }
 
-        protected void ProcessDelegateAddr(PointsToGraph ptg, uint offset, IVariable dst, IMethodReference methodRef, IVariable instance)
+        protected void ProcessDelegateAddr(SimplePointsToGraph ptg, uint offset, IVariable dst, IMethodReference methodRef, IVariable instance)
         {
             var ptgID = new PTGID(new MethodContex(this.method), (int)offset);
             var delegateNode = new DelegateNode(ptgID, methodRef, instance);
@@ -602,10 +605,11 @@ namespace Backend.Analyses
         }
 
 
-        private PTGNode NewNode(PointsToGraph ptg, PTGID ptgID, IType type, PTGNodeKind kind = PTGNodeKind.Object)
+        private PTGNode NewNode(SimplePointsToGraph ptg, PTGID ptgID, IType type, PTGNodeKind kind = PTGNodeKind.Object)
 		{
 			PTGNode node;
-            node = ptg.GetNode(ptgID, type, kind);
+            node = new PTGNode(ptgID, type, kind);
+            //node = ptg.GetNode(ptgID, type, kind);
             return node;
 		}
     }

@@ -47,7 +47,7 @@ namespace ScopeProgramAnalysis
     {
         public MethodDefinition Caller { get; set; }
         public DependencyPTGDomain CallerState { get; set; }
-        public PointsToGraph CallerPTG { get; set; }
+        public SimplePointsToGraph CallerPTG { get; set; }
 
         public IteratorDependencyAnalysis.ScopeInfo ScopeData { get; set; }
 
@@ -158,7 +158,7 @@ namespace ScopeProgramAnalysis
             this.callStack.Push(callInfo.Callee);   
             System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToSignatureString(), stackDepth);
             // 1) Bind PTG and create a Poinst-to Analysis for the  callee. In pta.Result[node.Exit] is the PTG at exit of the callee
-            PointsToGraph calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
+            var calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
             IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
@@ -205,7 +205,7 @@ namespace ScopeProgramAnalysis
 
             // Recover the frame of the original Ptg and bind ptg results
             //PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, calleePTA);
-            PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, exitCalleePTG, calleePTA.ReturnVariable);
+            var bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, exitCalleePTG, calleePTA.ReturnVariable);
             exitResult.PTG = bindPtg;
 
             return new InterProceduralReturnInfo(exitResult);
@@ -345,7 +345,7 @@ namespace ScopeProgramAnalysis
         /// <param name="instruction"></param>
         /// <param name="resolvedCallee"></param>
         /// <param name="calleeCFG"></param>
-        public PointsToGraph PTAInterProcAnalysis(PointsToGraph ptg, IList<IVariable> arguments, IVariable result, MethodDefinition resolvedCallee)
+        public SimplePointsToGraph PTAInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IVariable result, MethodDefinition resolvedCallee)
         {
             if (resolvedCallee.Body.Instructions.Any())
             {
@@ -360,7 +360,7 @@ namespace ScopeProgramAnalysis
             return ptg;
         }
 
-        private PointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, IteratorPointsToAnalysis pta)
+        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, IteratorPointsToAnalysis pta)
         {
             var exitPTG = pta.Result[calleeCFG.Exit.Id].Output;
             if (result != null)
@@ -374,7 +374,7 @@ namespace ScopeProgramAnalysis
             return exitPTG;
         }
 
-        private PointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, PointsToGraph calleePTG, IVariable rv)
+        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, SimplePointsToGraph calleePTG, IVariable rv)
         {
             var exitPTG = calleePTG;
             if (result != null)
@@ -389,9 +389,9 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
+        public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
         {
-            PointsToGraph bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
+            var bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
 
             // Compute PT analysis for callee
             var pta = new IteratorPointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
@@ -399,7 +399,7 @@ namespace ScopeProgramAnalysis
             return pta;
         }
 
-        public static PointsToGraph PTABindCallerCallee(PointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee)
+        public static SimplePointsToGraph PTABindCallerCallee(SimplePointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee)
         {
             var bindPtg = ptg.Clone();
             var argParamMap = new Dictionary<IVariable, IVariable>();
@@ -409,13 +409,13 @@ namespace ScopeProgramAnalysis
                 argParamMap[arguments[i]] = resolvedCallee.Body.Parameters[i];
             }
             bindPtg.NewFrame(argParamMap);
-            bindPtg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, PointsToGraph.GlobalNode);
+            bindPtg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
             return bindPtg;
         }
         #endregion
 
 
-        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, PointsToGraph ptg)
+        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, SimplePointsToGraph ptg)
         {
             var resolvedCallees = new HashSet<MethodDefinition>();
             var unresolvedCallees = new HashSet<IMethodReference>();
@@ -427,7 +427,7 @@ namespace ScopeProgramAnalysis
             return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
         }
 
-        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, PointsToGraph ptg)
+        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, SimplePointsToGraph ptg)
         {
             var resolvedCallees = new HashSet<MethodDefinition>();
             var unresolvedCallees = new HashSet<IMethodReference>();

@@ -25,14 +25,14 @@ namespace ScopeProgramAnalysis
     public class DependencyPTGDomain: IAnalysisDomain<DependencyPTGDomain>
     {
         public DependencyDomain Dependencies { get; private set; }
-        public PointsToGraph PTG { get; set; }
+        public SimplePointsToGraph PTG { get; set; }
 
         public DependencyPTGDomain()
         {
             Dependencies = new DependencyDomain();
-            PTG = new PointsToGraph();
+            PTG = new SimplePointsToGraph();
         }
-        public DependencyPTGDomain(DependencyDomain dependencies, PointsToGraph ptg)
+        public DependencyPTGDomain(DependencyDomain dependencies, SimplePointsToGraph ptg)
         {
             Dependencies = dependencies;
             PTG = ptg;
@@ -45,7 +45,7 @@ namespace ScopeProgramAnalysis
 
         public DependencyPTGDomain Clone()
         {
-            //var ptgClone = new PointsToGraph();
+            //var ptgClone = new SimplePointsToGraph();
             //ptgClone.Union(this.PTG);
             //var ptgClone = this.PTG.Clone();
             var ptgClone = this.PTG;
@@ -58,7 +58,7 @@ namespace ScopeProgramAnalysis
         {
             var joinedDep = this.Dependencies.Join(right.Dependencies);
 
-            var joinedPTG = this.PTG.FakeJoin(right.PTG);
+            var joinedPTG = this.PTG.Join(right.PTG);
 
             return new DependencyPTGDomain(joinedDep, joinedPTG);
         }
@@ -87,7 +87,7 @@ namespace ScopeProgramAnalysis
             {
                 foreach (var targetNode in PTG.GetTargets(destination))
                 {
-                    if (targetNode != PointsToGraph.NullNode)
+                    if (targetNode != SimplePointsToGraph.NullNode)
                         this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
                 }
             }
@@ -108,7 +108,7 @@ namespace ScopeProgramAnalysis
             {
                 foreach (var targetNode in PTG.GetTargets(destination))
                 {
-                    if(targetNode!=PointsToGraph.NullNode)
+                    if(targetNode!=SimplePointsToGraph.NullNode)
                         this.Dependencies.A2_References.AddRange(targetNode, traceables);
                 }
             }
@@ -127,7 +127,7 @@ namespace ScopeProgramAnalysis
                 // This should be only for scalars
                 foreach (var ptgNode in nodes)
                 {
-                    if (ptgNode != PointsToGraph.NullNode)
+                    if (ptgNode != SimplePointsToGraph.NullNode)
                         AddHeapTraceables(ptgNode, field, traceables);
                 }
             }
@@ -151,12 +151,12 @@ namespace ScopeProgramAnalysis
             // This should be only for references
             if (field.Type.IsClassOrStruct())
             {
-                var targets = PTG.GetTargets(ptgNode, field).Except(new HashSet<PTGNode>() { PointsToGraph.NullNode } );
+                var targets = PTG.GetTargets(ptgNode, field).Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
                 if (targets.Any())
                 {
                     foreach (var targetNode in targets)
                     {
-                        if (targetNode != PointsToGraph.NullNode)
+                        if (targetNode != SimplePointsToGraph.NullNode)
                         {
                             // TODO: Change for Add
                             //this.Dependencies.A2_References.AddRange(targetNode, traceables);
@@ -195,7 +195,7 @@ namespace ScopeProgramAnalysis
             {
                 foreach (var target in PTG.GetTargets(node, field))
                 {
-                    if (Dependencies.A2_References.ContainsKey(target) && target!=PointsToGraph.NullNode)
+                    if (Dependencies.A2_References.ContainsKey(target) && target!=SimplePointsToGraph.NullNode)
                     {
                         traceables.UnionWith(Dependencies.A2_References[target]);
                     }
@@ -290,7 +290,7 @@ namespace ScopeProgramAnalysis
             {
                 foreach (var ptgNode in PTG.GetTargets(arg))
                 {
-                    if (ptgNode!=PointsToGraph.NullNode && Dependencies.A2_References.ContainsKey(ptgNode))
+                    if (ptgNode!=SimplePointsToGraph.NullNode && Dependencies.A2_References.ContainsKey(ptgNode))
                     {
                         traceables.UnionWith(Dependencies.A2_References[ptgNode]);
                     }
@@ -402,7 +402,7 @@ namespace ScopeProgramAnalysis
 
         public ISet<IVariable> ControlVariables { get; set; }
 
-        //public PointsToGraph PTG { get; set; }
+        //public SimplePointsToGraph PTG { get; set; }
 
         public DependencyDomain()
         {

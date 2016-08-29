@@ -330,7 +330,7 @@ namespace Backend.Analyses
 
         public Location(IFieldReference f) 
         {
-            this.ptgNode = PointsToGraph.GlobalNode;
+            this.ptgNode = SimplePointsToGraph.GlobalNode;
             this.Field = f;
         }
         public override bool Equals(object obj)
@@ -489,7 +489,7 @@ namespace Backend.Analyses
 
             private ScopeInfo scopeData;
             internal DependencyPTGDomain State { get; private set; }
-            private PointsToGraph currentPTG;
+            private SimplePointsToGraph currentPTG;
             private CFGNode cfgNode;
             private MethodDefinition method;
             private PTAVisitor visitorPTA;
@@ -497,7 +497,7 @@ namespace Backend.Analyses
 
             public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, PTAVisitor visitorPTA,
                                    CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
-                                   ScopeInfo scopeData, PointsToGraph ptg, DependencyPTGDomain oldInput)
+                                   ScopeInfo scopeData, SimplePointsToGraph ptg, DependencyPTGDomain oldInput)
             {
                 this.iteratorDependencyAnalysis = iteratorDependencyAnalysis;
                 this.equalities = equalities;
@@ -780,13 +780,13 @@ namespace Backend.Analyses
                 //    if (isClousureField || isReducerField)
                 {
                     var traceables = new HashSet<Traceable>();
-                    traceables.UnionWith(this.State.GetHeapTraceables(PointsToGraph.GlobalNode, fieldAccess.Field));
+                    traceables.UnionWith(this.State.GetHeapTraceables(SimplePointsToGraph.GlobalNode, fieldAccess.Field));
 
                     // a2:= [v <- a3[loc(o.f)] if loc(o.f) is CF
-                    // if (ISClousureField(PointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
+                    // if (ISClousureField(SimplePointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
                     //{
                     //    // this is a[loc(C.f)]
-                    //    var loc = new Location(PointsToGraph.GlobalNode, fieldAccess.Field);
+                    //    var loc = new Location(SimplePointsToGraph.GlobalNode, fieldAccess.Field);
                     //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                     //    {
                     //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
@@ -908,9 +908,9 @@ namespace Backend.Analyses
                     var field = (instructionResult as StaticFieldAccess).Field;
                     var traceables = this.State.GetTraceables(instruction.Operand);
 
-                    this.State.AddHeapTraceables(PointsToGraph.GlobalNode, field, traceables);
+                    this.State.AddHeapTraceables(SimplePointsToGraph.GlobalNode, field, traceables);
 
-                    //this.State.Dependencies.A3_Fields[new Location(PointsToGraph.GlobalNode, field)] = traceables;
+                    //this.State.Dependencies.A3_Fields[new Location(SimplePointsToGraph.GlobalNode, field)] = traceables;
 
                     this.State.Dependencies.A1_Escaping.UnionWith(traceables);
                 }
@@ -972,7 +972,7 @@ namespace Backend.Analyses
                             {
                                 // I first check in the calle may a input/output row
                                 var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
-                                                    .Where(n => n!=PointsToGraph.NullNode);
+                                                    .Where(n => n!=SimplePointsToGraph.NullNode);
 
                                 // If it is a method within the same class it will be able to acesss all the fields 
                                 // I also see that compiler generated methods (like lambbas should also access)
@@ -1030,7 +1030,7 @@ namespace Backend.Analyses
                                     foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
                                     {
                                         var escapingField = new FieldReference("escape", PlatformTypes.Object, this.method.ContainingType);
-                                        currentPTG.PointsTo(PointsToGraph.GlobalNode, escapingField, escapingNode);
+                                        currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
                                     }
                                 }
                             }
@@ -1767,7 +1767,7 @@ namespace Backend.Analyses
         public IVariable ReturnVariable { get; private set; }
 
         private IDictionary<IVariable, IExpression> equalities;
-        DataFlowAnalysisResult<PointsToGraph>[] ptgs;
+        DataFlowAnalysisResult<SimplePointsToGraph>[] ptgs;
         private ScopeInfo scopeData;
         // private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
