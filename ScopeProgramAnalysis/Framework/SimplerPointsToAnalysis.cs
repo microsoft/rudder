@@ -460,7 +460,7 @@ namespace Backend.Analyses
 			var nodes = ptg.GetTargets(instance, false);
             foreach (var node in nodes)
             {
-                var hasField = node.Targets.ContainsKey(field);
+                var hasField = ptg.GetTargets(node,field).Any();
 
                 if (!hasField)
 				{
@@ -479,7 +479,7 @@ namespace Backend.Analyses
                     }
                 }
 
-                var targets = node.Targets[field];
+                var targets = ptg.GetTargets(node,field);
 
                 foreach (var target in targets)
                 {
