@@ -776,7 +776,7 @@ namespace Backend.Analyses
                 var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType!=null 
                                         && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == fieldAccess.Field.ContainingType.Name;
                 // TODO: Hack. I need to check for private fields and properly model 
-                if (ISClousureField(PointsToGraph.GlobalNode.Variables.Single(), fieldAccess.Field))
+                if (ISClousureField(IteratorPointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
                 {
                     var traceables = new HashSet<Traceable>();
@@ -1854,7 +1854,7 @@ namespace Backend.Analyses
                     // currentPTG.Variables.Single(v => v.Name == "this");
                     foreach (var ptgNode in currentPTG.GetTargets(thisVar))
                     {
-                        foreach (var target in ptgNode.Targets)
+                        foreach (var target in currentPTG.GetTargets(ptgNode))
                         {
                             var potentialRowNode = target.Value.First() as ParameterNode;
                             //if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
