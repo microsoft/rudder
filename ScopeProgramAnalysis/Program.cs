@@ -25,6 +25,8 @@ namespace ScopeProgramAnalysis
         private IDictionary<string, ClassDefinition> factoryReducerMap;
         private Loader loader;
         private InterproceduralManager interprocAnalysisManager;
+        public static Schema InputSchema;
+        public static Schema OutputSchema;
 
         public Assembly ScopeGenAssembly { get; private set; }
         public IEnumerable<string> ReferenceFiles { get; private set; }
@@ -67,7 +69,6 @@ namespace ScopeProgramAnalysis
             // Mike example: FileChunker
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
             //const string input = @"\\research\root\public\mbarnett\Parasail\ExampleWithXML\69FDA6E7DB709175\ScopeMapAccess_4D88E34D25958F3B\__ScopeCodeGen__.dll";
-
             //const string input = @"C:\Users\t-diga\Source\Repos\ScopeExamples\\ExampleWithXML\ILAnalyzer.exe";
             //useScopeFactory = false;
 
@@ -109,7 +110,7 @@ namespace ScopeProgramAnalysis
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ab0de7e-6110-4cd4-8c30-6e72c013c2f0\__ScopeCodeGen__.dll";
 
             // Mike's example: 
-            //const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
+            const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02e7c1bd-42ab-4f5b-8506-d6c49e562790\__ScopeCodeGen__.dll";
 
@@ -120,13 +121,11 @@ namespace ScopeProgramAnalysis
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\__ScopeCodeGen__.dll";
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\018c2f92-f63d-4790-a843-40a1b0e0e58a\__ScopeCodeGen__.dll";
-
             //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\98a9c4a1-6996-4c34-8d33-f7dd140ffbf9\__ScopeCodeGen__.dll";
 
             //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\d9b320ac-a1ff-415a-93e3-0d47d3d949ad\__ScopeCodeGen__.dll";
 
             // input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll";
-
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -247,6 +246,8 @@ namespace ScopeProgramAnalysis
             {
                 var log = CreateSarifOutput();
 
+                var allSchemas = program.ReadSchemasFromXML(inputPath);
+
                 foreach (var methodPair in scopeMethodPairs)
                 {
                     AnalysisStats.TotalMethods++;
@@ -256,18 +257,29 @@ namespace ScopeProgramAnalysis
                     var getEnumMethod = methodPair.Item3;
                     System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
 
+                    Schema inputSchema = null;
+                    Schema outputSchema = null;
+                    Tuple<Schema, Schema> schemas;
+                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
+                    {
+                        inputSchema = schemas.Item1;
+                        outputSchema = schemas.Item2;
+                    }
+
                     try
                     {
-                        //var xmlFile = "";
-                        //var inputColumn = GetInputColumn(xmlFile, )
 
+                        InputSchema = inputSchema;
+                        OutputSchema = outputSchema;
                         var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                         System.Console.WriteLine("Done!");
 
-                        program.ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
 
                         WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, dependencyAnalysis,  program.factoryReducerMap);
+
+                        InputSchema = null;
+                        OutputSchema = null;
 
                     }
                     catch (Exception e)
@@ -576,8 +588,10 @@ namespace ScopeProgramAnalysis
         //    return resolvedClass;
         //}
 
-        private void ValidateInputSchema(string inputPath, MethodDefinition method, DependencyPTGDomain dependencyResults)
+        private IReadOnlyDictionary<string, Tuple<Schema, Schema>>
+            ReadSchemasFromXML(string inputPath)
         {
+            var d = new Dictionary<string, Tuple<Schema, Schema>>();
             var inputDirectory = Path.GetDirectoryName(inputPath);
             var xmlFile = Path.Combine(inputDirectory, "ScopeVertexDef.xml");
             if (File.Exists(xmlFile))
@@ -586,12 +600,28 @@ namespace ScopeProgramAnalysis
                 var operators = x.Descendants("operator");
                 foreach (var processId in this.factoryReducerMap.Keys)
                 {
-                    //var reducers = operators.Where(op => op.Attribute("className") != null && op.Attribute("className").Value.StartsWith("ScopeReducer"));
-                    var reducers = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
-                    var inputSchemas = reducers.SelectMany(r => r.Descendants("input").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
-                    var outputSchemas = reducers.SelectMany(r => r.Descendants("output").Select(i => i.Attribute("schema")), (r, t) => Tuple.Create(r.Attribute("id"), r.Attribute("className"), t));
+                    var processors = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
+                    var inputSchemas = processors.SelectMany(processor => processor.Descendants("input").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), processor.Attribute("className"), schema));
+                    var outputSchemas = processors.SelectMany(processor => processor.Descendants("output").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), processor.Attribute("className"), schema));
+                    var inputSchema = inputSchemas.FirstOrDefault();
+                    var outputSchema = outputSchemas.FirstOrDefault();
+                    if (inputSchema == null || outputSchema == null) continue; // BUG? Silent failure okay?
+                    if (inputSchema.Item1 != outputSchema.Item1) continue; // silent failure okay?
+                    if (inputSchema.Item2 != outputSchema.Item2) continue; // silent failure okay?
+                    var inputColumns = ParseColumns(inputSchema.Item3.Value);
+                    var outputColumns = ParseColumns(outputSchema.Item3.Value);
+                    d.Add(inputSchema.Item2.Value, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
                 }
             }
+            return d;
+        }
+
+        private static IEnumerable<Column> ParseColumns(string schema)
+        {
+            // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
+            return schema
+                .Split(',')
+                .Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
         }
 
         private static SarifLog CreateSarifOutput()

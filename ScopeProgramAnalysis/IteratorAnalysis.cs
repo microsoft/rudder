@@ -71,85 +71,50 @@ namespace Backend.Analyses
 
     }
 
-
-    public class ColumnName : ColumnDomain
-    {
-        public string Name { get; private set; }
-        public ColumnName(string columnName) 
-        {
-            this.Name = columnName;
-        }
-        public override string ToString()
-        {
-            if (IsTOP || IsAll) return base.ToString();
-            else
-            {
-                return Name.ToString(CultureInfo.InvariantCulture);
-            }
-        }
-        public override bool Equals(object obj)
-        {
-            var oth = obj as ColumnName;
-
-            return oth!=null && oth.Name == this.Name && base.Equals(oth);
-        }
-        public override int GetHashCode()
-        {
-            return this.Name.GetHashCode() + base.GetHashCode();
-        }
-    }
-
-    public class ColumnPosition : ColumnDomain
-    {
-        public RangeDomain Range{ get; private set; }
-
-        public int Position {  get { return Range.LowerBound; } }
-        public ColumnPosition(int position )
-        {
-            this.Range = new RangeDomain(position, position);
-        }
-        public ColumnPosition(RangeDomain range) 
-        {
-            this.Range = range;
-        }
-        public override string ToString()
-        {
-            if (IsTOP || IsAll) return base.ToString();
-            else
-            {
-                return Range.ToString(); //  String.Format(CultureInfo.InvariantCulture,"[{0}..{1}]", Range.Start, Range.End);
-            }
-        }
-        public override bool Equals(object obj)
-        {
-            var oth = obj as ColumnPosition;
-
-            return oth != null && oth.Range.Equals(this.Range) && base.Equals(oth);
-        }
-        public override int GetHashCode()
-        {
-            return this.Range.GetHashCode();
-        }
-    }
-
-
-
-    public class ColumnDomain
+    /// <summary>
+    /// Representation of a column in a SCOPE table.
+    /// 
+    /// If the actual column is known, then this contains its name, position, and type.
+    /// There might also be partial information, e.g., the name might be known, but not
+    /// the position or type.
+    /// 
+    /// There is a special instance that represents *all* columns (e.g., if the schema
+    /// is unknown and there is a call to Row.CopyTo) and a special instance that represents
+    /// an unknown column (i.e., TOP).
+    /// Every instance is exactly one of TOP, ALL, or known.
+    /// 
+    /// TODO: Should instances be immutable? 
+    /// </summary>
+    public class Column
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
-        public static readonly ColumnDomain TOP = new ColumnDomain() { IsTOP = true };
-        public static readonly ColumnDomain ALL = new ColumnPosition(RangeAnalysis.TOP); //  ColumnPosition (-3) { ColumnName = "__ALL__", IsTOP = false};
-        //public string ColumnName { get; private set; }
-        //public int ColumnPosition { get; private set; }
-        //public bool IsString { get; private set; }
+        public static readonly Column TOP = new Column() { IsTOP = true };
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
+        public static readonly Column ALL = new Column() { IsAll = true };
+
+        /// <summary>
+        /// Null represents unknown name
+        /// </summary>
+        public string Name { get; private set; }
+        /// <summary>
+        /// Null represents unknown position
+        /// </summary>
+        public RangeDomain Position { get; private set; }
+        /// <summary>
+        /// Null represents unknown type
+        /// </summary>
+        public string Type { get; private set; }
+
         public virtual bool IsTOP { get; private set; }
-        public virtual bool IsAll { get { return this == ALL; } }
+        public virtual bool IsAll { get; private set; }
 
-
-
-        public ColumnDomain()
+        private Column() { }
+        
+        public Column(string name, RangeDomain position, string type)
         {
-
+            this.Name = name;
+            this.Position = position;
+            this.Type = type;
         }
 
         public override string ToString()
@@ -158,119 +123,67 @@ namespace Backend.Analyses
                 return "_TOP_";
             if (IsAll)
                 return "_All_";
-            return "";
+            if (Name == null && !Position.Equals(RangeDomain.BOTTOM))
+                return this.Position.ToString();
+            if (Name != null && Position.Equals(RangeDomain.BOTTOM))
+                return this.Name;
+            return String.Format("<n: {0}, i: {1}, t: {2}>", this.Name, this.Position, this.Type);
         }
         public override bool Equals(object obj)
         {
-            var oth = obj as ColumnDomain;
-
-            return this.IsTOP == oth.IsTOP && this.IsAll == oth.IsAll;
+            var other = obj as Column;
+            if (other == null) return false;
+            return this.IsTOP == other.IsTOP && this.IsAll == other.IsAll
+                && this.Name == other.Name && this.Position.Equals(other.Position) && this.Type == other.Type;
         }
         public override int GetHashCode()
         {
-            return this.IsTOP?1:0;
+            uint hash = (uint)IsTOP.GetHashCode();
+            hash = (hash << 2) | (hash >> 30);
+            hash ^= (uint)IsAll.GetHashCode();
+            if (Name != null)
+            {
+                hash = (hash << 2) | (hash >> 30);
+                hash ^= (uint)Name.GetHashCode();
+            }
+            if (!Position.Equals(RangeDomain.BOTTOM))
+            {
+                hash = (hash << 2) | (hash >> 30);
+                hash ^= (uint)Position.GetHashCode();
+            }
+            if (Type != null)
+            {
+                hash = (hash << 2) | (hash >> 30);
+                hash ^= (uint)Type.GetHashCode();
+            }
+            return (int)hash;
         }
 
-        //public ColumnDomain(string columnName)
-        //{
-        //    this.ColumnName = columnName;
-        //    this.IsString = true;
-        //    this.ColumnPosition = -1;
-        //    IsTOP = columnName == "_TOP_";
-        //    if (IsTOP)
-        //    {
-        //        this.ColumnPosition = -2;
-        //    }
-        //}
-        //public ColumnDomain(int columnPosition)
-        //{
-        //    this.ColumnName = "_TOP_";
-        //    this.IsString = false;
-        //    this.ColumnPosition = columnPosition;
-        //    IsTOP = columnPosition == -2;
-        //}
-        //public override string ToString()
-        //{
-        //    if (IsTOP)
-        //        return "_TOP_";
-        //    if (IsAll)
-        //        return "_All_";
-        //    if (IsString)
-        //    {
-        //        return ColumnName;
-        //    }
-        //    else
-        //    {
-        //        return ColumnPosition.ToString(CultureInfo.InvariantCulture);
-        //    }
-        //}
-        //public override bool Equals(object obj)
-        //{
-        //    var oth = obj as ColumnDomain;
-
-        //    return oth.IsString==this.IsString && oth.IsTOP == oth.IsTOP 
-        //            && oth.ColumnName==this.ColumnName 
-        //            && oth.ColumnPosition==this.ColumnPosition;
-        //}
-        //public override int GetHashCode()
-        //{
-        //    if (IsString)
-        //    {
-        //        return this.ColumnName.GetHashCode();
-        //    }
-        //    return this.ColumnPosition.GetHashCode();
-        //}
     }
 
+    public class Schema
+    {
+        private readonly IEnumerable<Column> columns;
 
-    //public class TraceableColumnNumber: Traceable
-    //{
-    //    public int Column { get; private set; }
-    //    public TraceableColumnNumber(string name, int column): base(name)
-    //    {
-    //        this.Column = column;
-    //    }
-    //    public override string ToString()
-    //    {
-    //        return String.Format(CultureInfo.InvariantCulture, "Col({0},{1})", TableName, Column);
-    //    }
-    //    public override bool Equals(object obj)
-    //    {
-    //        var oth = obj as TraceableColumnName;
-    //        return oth != null && oth.Column.Equals(this.Column) && base.Equals(oth);
-    //    }
-    //    public override int GetHashCode()
-    //    {
-    //        return base.GetHashCode() + Column.GetHashCode();
-    //    }
-    //}
-    //public class TraceableColumnName: Traceable
-    //{
-    //    public string Column { get; private set; }
-    //    public TraceableColumnName(string name, string column): base(name)
-    //    {
-    //        this.Column = column;
-    //    }
-    //    public override string ToString()
-    //    {
-    //        return String.Format(CultureInfo.InvariantCulture, "Col({0},{1})", TableName, Column);
-    //    }
-    //    public override bool Equals(object obj)
-    //    {
-    //        var oth = obj as TraceableColumnName;
-    //        return oth != null && oth.Column.Equals(this.Column) && base.Equals(oth);
-    //    }
-    //    public override int GetHashCode()
-    //    {
-    //        return base.GetHashCode()+Column.GetHashCode();
-    //    }
-    //}
+        public Schema(IEnumerable<Column> columns)
+        {
+            this.columns = columns;
+        }
+        public Column GetColumn(RangeDomain rd)
+        {
+            return this.columns.Where(c => c.Position.Equals(rd)).FirstOrDefault();
+        }
+        public Column GetColumn(string name)
+        {
+            return this.columns.Where(c => c.Name == name).FirstOrDefault();
+        }
+    }
 
     public class TraceableColumn : Traceable
     {
         public TraceableTable Table { get; private set; }
-        public ColumnDomain Column { get; private set; }
-        public TraceableColumn(TraceableTable table,  ColumnDomain column) : base(table)
+        public Column Column { get; private set; }
+        public TraceableColumn(TraceableTable table,  Column column) : base(table)
         {
             this.Table = table;
             this.Column = column;
@@ -440,8 +353,7 @@ namespace Backend.Analyses
             {
                 return this.schemaTableMap.ContainsKey(arg);
             }
-            internal void UpdateColumnMap(MethodCallInstruction methodCallStmt, ColumnDomain columnLiteral)
-            {
+            internal void UpdateColumnMap(MethodCallInstruction methodCallStmt, Column columnLiteral) {
                 columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
             }
 
@@ -1393,7 +1305,15 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var col = methodCallStmt.Arguments[1];
-                    var columnLiteral = ObtainColumn(col);
+
+                    var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
+                        .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
+                    Schema s;
+                    if (tableType == ProtectedRowKind.Input)
+                        s = Program.InputSchema;
+                    else
+                        s = Program.OutputSchema;
+                    var columnLiteral = ObtainColumn(col, s);
 
                     var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableColumn(table_i, columnLiteral));
@@ -1430,7 +1350,7 @@ namespace Backend.Analyses
                     var arg1 = methodCallStmt.Arguments[1];
 
                     var tables = this.State.GetTraceables(arg0);
-                    var allColumns = ColumnDomain.ALL;
+                    var allColumns = Column.ALL;
 
                     // Create a fake column for the output table
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
@@ -1480,9 +1400,9 @@ namespace Backend.Analyses
             /// </summary>
             /// <param name="col"></param>
                 /// <returns></returns>
-            private ColumnDomain ObtainColumn(IVariable col)
+            private Column ObtainColumn(IVariable col, Schema schema)
             {
-                ColumnDomain result = result = ColumnDomain.TOP; 
+                Column result = result = Column.TOP; 
                 var columnLiteral = "";
                 if (col.Type.Equals(PlatformTypes.String))
                 {
@@ -1490,7 +1410,7 @@ namespace Backend.Analyses
                     if (columnValue is Constant)
                     {
                         columnLiteral = columnValue.ToString();
-                        result = new ColumnName(columnLiteral);
+                        result = schema.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, "string");
                     }
                 }
                 else
@@ -1498,14 +1418,14 @@ namespace Backend.Analyses
                     if (scopeData.columnVariable2Literal.ContainsKey(col))
                     {
                         columnLiteral = scopeData.columnVariable2Literal[col];
-                        result = new ColumnName(columnLiteral);
+                        result = schema.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, null);
                     }
                     else
                     {
                         var rangeForColumn = variableRanges.GetValue(col);
                         if (!rangeForColumn.IsBottom)
                         {
-                            result = new ColumnPosition(rangeForColumn);
+                            result = schema.GetColumn(rangeForColumn) ?? new Column(null, rangeForColumn, null);
                         }
                         else
                         {
@@ -1514,7 +1434,8 @@ namespace Backend.Analyses
                             if (colValue is Constant)
                             {
                                 var value = colValue as Constant;
-                                result = new ColumnPosition((int)value.Value);
+                                var r = new RangeDomain((int)value.Value);
+                                result = schema.GetColumn(r) ?? new Column(null, r, null);
                             }
                         }
                     }
@@ -1594,16 +1515,26 @@ namespace Backend.Analyses
                 else if (IsIndexOfMethod(methodInvoked))
                 {
                     var arg = methodCallStmt.Arguments[0];
+
                     if (scopeData.HasTableForSchemaVar(arg))
                     {
                         var tables = scopeData.GetTableFromSchemaMap(arg);
-                        ColumnDomain column = UpdateColumnData(methodCallStmt);
+                    var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
+                        .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
+                    Schema s;
+                    if (tableType == ProtectedRowKind.Input)
+                        s = Program.InputSchema;
+                    else
+                        s = Program.OutputSchema;
+
+                    Column column = UpdateColumnData(methodCallStmt, s);
                     }
                     else
                     {
                         this.State.SetTOP();
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
                     }
+
                     //this.State.AssignTraceables(methodCallStmt.Result, tables.OfType<TraceableTable>().Select(t => new TraceableColumn(t, column)));
                 }
                 else
@@ -1613,17 +1544,17 @@ namespace Backend.Analyses
                 return result;
             }
 
-            private ColumnDomain UpdateColumnData(MethodCallInstruction methodCallStmt)
+            private Column UpdateColumnData(MethodCallInstruction methodCallStmt, Schema s)
             {
-                var columnn = ObtainColumn(methodCallStmt.Arguments[1]);
-                scopeData.UpdateColumnMap(methodCallStmt, columnn);
-                if(columnn.IsTOP)
+                var column = ObtainColumn(methodCallStmt.Arguments[1], s);
+                scopeData.UpdateColumnMap(methodCallStmt, column);
+                if(column.IsTOP)
                 {
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
                                                     String.Format(CultureInfo.InvariantCulture, "Could not compute a value for the column {0} {1}", methodCallStmt.Arguments[0], methodCallStmt.Arguments[1])));
 
                 }
-                return columnn;
+                return column;
             }
 
             /// <summary>
