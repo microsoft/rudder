@@ -29,7 +29,7 @@ namespace ScopeAnalysisBulkScripts
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
             var outputFolder = @"C:\Temp\Madam";
-            //outputFolder = @"C:\temp\ZvoList";
+            outputFolder = @"C:\temp\ZvoList";
 
             var logPath = outputFolder;
 
@@ -44,18 +44,25 @@ namespace ScopeAnalysisBulkScripts
 
             bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
 
+            stopWatch.Stop();
+            TimeSpan ts = stopWatch.Elapsed;
+
+            stopWatch.Reset();
+            stopWatch.Start();
+
             bulkAnalysis.AnalyzeOutput(dllList, outputAnalyzer, outputFolder);
-            
+
             //analysisFolder = @"D:\MadanExamples\";
             ///AnalyzeScopeScripts(new string[] { analysisFolder, @"C:\Temp\", "Reducer" });
             //AnalysisStats.PrintStats(System.Console.Out);
             stopWatch.Stop();
-            TimeSpan ts = stopWatch.Elapsed;
+            TimeSpan ts2 = stopWatch.Elapsed;
 
             var outputStream = File.CreateText(Path.Combine(logPath,"summary.txt"));
 
             System.Console.WriteLine("Bulk Analysis finished on {0} dlls", dllList.Count);
-            System.Console.WriteLine("Total time {0} seconds", ts.Seconds);
+            System.Console.WriteLine("Total analysis time {0} seconds", ts.Seconds);
+            System.Console.WriteLine("Total output procesing time {0} seconds", ts2.Seconds);
             System.Console.WriteLine("Max time {0} seconds", bulkAnalysis.maxTime);
 
             outputStream.WriteLine("Bulk Analysis finished on {0} dlls", dllList.Count);
