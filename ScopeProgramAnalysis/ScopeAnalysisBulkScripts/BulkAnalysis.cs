@@ -15,6 +15,7 @@ namespace ScopeAnalysisBulkScripts
     {
         private long maxTime = 0;
         private long totalTime = 0;
+        private int totalCanceled = 0;
 
         static void Main(string[] args)
         {
@@ -23,7 +24,7 @@ namespace ScopeAnalysisBulkScripts
 
             var inputFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             //var inputFolder = @"D:\Madam3";
-            inputFolder = @"C:\temp\Madam";
+            //inputFolder = @"C:\temp\Madam";
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
@@ -35,13 +36,13 @@ namespace ScopeAnalysisBulkScripts
             var bulkAnalysis = new BulkAnalysis();
 
             // var dllList = bulkAnalysis.LoadListFromFile(inputList);
-            //var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
-            var dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
+            var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
+            //var dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
 
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            //bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
+            bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
 
             bulkAnalysis.AnalyzeOutput(dllList, outputAnalyzer, outputFolder);
             
@@ -60,6 +61,7 @@ namespace ScopeAnalysisBulkScripts
             outputStream.WriteLine("Bulk Analysis finished on {0} dlls", dllList.Count);
             outputStream.WriteLine("Total time {0} seconds", ts.Seconds);
             outputStream.WriteLine("Max time for one analysis {0} ms", bulkAnalysis.maxTime);
+            outputStream.WriteLine("Total canceled {0}", bulkAnalysis.totalCanceled);
             outputStream.Close();
 
             // System.Console.ReadKey();
@@ -113,8 +115,12 @@ namespace ScopeAnalysisBulkScripts
                     scopeAnalysisProcess.StartInfo.UseShellExecute = false;
                     scopeAnalysisProcess.StartInfo.CreateNoWindow = true;
                     scopeAnalysisProcess.Start();
-                    scopeAnalysisProcess.WaitForExit(5*60*1000);
-                    stopWatch.Start();
+                    if (!scopeAnalysisProcess.WaitForExit(3 * 60 * 1000))
+                    {
+                        scopeAnalysisProcess.Kill();
+                        totalCanceled++; 
+                    }
+                    stopWatch.Stop();
                     TimeSpan ts = stopWatch.Elapsed;
                     if (ts.Milliseconds > maxTime)
                         maxTime = ts.Milliseconds;
@@ -138,8 +144,8 @@ namespace ScopeAnalysisBulkScripts
                 {
                     var folder = Path.GetDirectoryName(input);
                     string[] directories = folder.Split(Path.DirectorySeparatorChar);
-                    //var sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
-                    var sarifFilePath = input;
+                    var sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+                    //var sarifFilePath = input;
 
                     var comparerProcess = new Process();
                     comparerProcess.StartInfo.FileName = outputAnalyzerPath;
