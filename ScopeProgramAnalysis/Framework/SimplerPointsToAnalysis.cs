@@ -484,10 +484,7 @@ namespace Backend.Analyses
                 }
 
 
-                foreach (var target in targets)
-                {
-                    ptg.PointsTo(dst, target);
-                }
+                ptg.PointsTo(dst, targets);
             }
         }
 
@@ -495,9 +492,9 @@ namespace Backend.Analyses
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
             var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
-            var itemNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
-            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
-            ptg.PointsTo(collectionNode, itemsField, itemNode);
+            //var itemNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
+            //var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            //ptg.PointsTo(collectionNode, itemsField, itemNode);
 
             return collectionNode;
         }

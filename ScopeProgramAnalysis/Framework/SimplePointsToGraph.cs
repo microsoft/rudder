@@ -157,6 +157,9 @@ namespace Backend.Model
 
         public void PointsTo(PTGNode source, IFieldReference field, PTGNode target)
         {
+            if (source.Equals(SimplePointsToGraph.NullNode))
+                return;
+
             this.nodes.Add(target);
             this.nodes.Add(source);
 
