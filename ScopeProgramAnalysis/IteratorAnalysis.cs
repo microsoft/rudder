@@ -935,7 +935,10 @@ namespace Backend.Analyses
             }
             public override void Visit(CreateObjectInstruction instruction)
             {
+                var traceables = new HashSet<Traceable>();
+                traceables.Add(new Other(instruction.AllocationType.ToString()));
                 instruction.Accept(visitorPTA);
+                this.State.AssignTraceables(instruction.Result, traceables);
                 
             }
             public override void Visit(MethodCallInstruction instruction)
@@ -1209,22 +1212,23 @@ namespace Backend.Analyses
                 var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
                  
                 var result = true;
+                // For constructors of collections we create an small summary for the PTA
                 if(methodInvoked.IsConstructor() && methodInvoked.ContainingType.IsCollection())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.iteratorDependencyAnalysis.pta.CreateSummaryForCollection(this.State.PTG, methodCallStmt.Offset, arg);
 
                 }
+                // For GetEnum we need to create an object iterator that points-to the colecction
                 if (methodInvoked.Name == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
                      var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
-                    // This method makes method.Result point to the collectionso automatically getting the traceables from there
+                    // This method makes method.Result point to the collections automatically getting the traceables from there
                     this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
                 }
-                // v = arg.Current
-                // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
+                // For Current we need to obtain one item from the collection
                 else if (methodInvoked.Name == "get_Current"  
                     && (methodInvoked.ContainingType.IsIEnumerator() || methodInvoked.ContainingType.IsEnumerator()))
                 {
@@ -1233,16 +1237,18 @@ namespace Backend.Analyses
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
                 }
+                // set_Item add an element to the colecction using a fake field "$item"
                 else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     var traceables = this.State.GetTraceables(methodCallStmt.Arguments[2]);
 
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
-                    // TODO: Hack for connecting a dictionary with its items
                     var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
                     this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, traceables);
+                    // Notice that we add the traceables to the receiver object (arg0.Add(args...))
                     this.State.AddTraceables(methodCallStmt.Arguments[0], traceables);
                 }
+                // for Add we need to add an element the collection using a fake field "$item"
                 else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
@@ -1250,33 +1256,33 @@ namespace Backend.Analyses
                     {
                         var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
                         this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
+                        // Notice that we add the traceables to the receiver object (arg0.Add(args...))
                         this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
-                        // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
                     }
                     else
                     {
                         var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[1]);
                         this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[1]);
                         //this.State.AssignTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
-
                         this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
                     }
                 }
+                // get_Item recover an element to the colecction using a fake field "$item"
                 else if (methodInvoked.Name == "get_Item"  && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
-                    // TODO: Hack for connecting a dictionary with its items
                     if (methodInvoked.ContainingType.IsDictionary())
                     {
                         var itemField = this.iteratorDependencyAnalysis.pta.GetItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Result);
                         this.State.AssignTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], itemField));
-
                         // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
                     }
                     else
                     {
+                        // For the case of a list or other colections we treat it as an unknowm call (but pure)
                         UpdateCall(methodCallStmt);
                     }
                 }
+                // For movenext we treated as an unknowm call (but pure, even it modified the it)
                 else if (methodInvoked.Name == "MoveNext"
                     && methodInvoked.ContainingType.IsIEnumerator())
                 {
@@ -1303,7 +1309,7 @@ namespace Backend.Analyses
                 {
                     UpdateCall(methodCallStmt);
                 }
-                // Check for a predefined set of pure methods
+                // Check for a predefined set of pure methods and we just propagate the arguments to the return value (and update the PT graph)
                 else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
                 {
                     UpdateCall(methodCallStmt);
@@ -1887,7 +1893,7 @@ namespace Backend.Analyses
         {
             foreach (var v in cfg.GetVariables())
             {
-                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && v.Type.IsValueType())
+                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && !v.Type.IsClassOrStruct())
                 {
                     depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
                 }
