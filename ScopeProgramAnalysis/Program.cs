@@ -110,7 +110,7 @@ namespace ScopeProgramAnalysis
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0ab0de7e-6110-4cd4-8c30-6e72c013c2f0\__ScopeCodeGen__.dll";
 
             // Mike's example: 
-            const string input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
+            //input = @"\\research\root\public\mbarnett\Parasail\Diego\SimpleProcessors_9E4B4B56B06EFFD2\__ScopeCodeGen__.dll";
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02e7c1bd-42ab-4f5b-8506-d6c49e562790\__ScopeCodeGen__.dll";
 
@@ -174,7 +174,7 @@ namespace ScopeProgramAnalysis
             // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
             return schema
                 .Split(',')
-                .Select((c, i) => { var a = c.Split(':'); return new Column() { Name = a[0], Index = i, Type = a[1] }; });
+                .Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
         }
 
 
@@ -260,7 +260,7 @@ namespace ScopeProgramAnalysis
                     Schema inputSchema = null;
                     Schema outputSchema = null;
                     Tuple<Schema, Schema> schemas;
-                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
+                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.GetFullName(), out schemas))
                     {
                         inputSchema = schemas.Item1;
                         outputSchema = schemas.Item2;
@@ -313,39 +313,97 @@ namespace ScopeProgramAnalysis
             {
                 if (depAnalysisResult.Dependencies.A4_Ouput.Any())
                 {
+
+                    var outColumnMap = new MapSet<TraceableColumn, Traceable>();
+                    var outColumnControlMap = new MapSet<TraceableColumn, Traceable>();
                     foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
                     {
-                        //var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
-                        //                                            .Where(t => t.TableKind == ProtectedRowKind.Output);
                         var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
-                                                                    .Where(t => t.TableKind == ProtectedRowKind.Output);
+                                                                 .Where(t => t.TableKind == ProtectedRowKind.Output);
                         foreach (var column in outColumns)
                         {
-                            var result = new Result();
-                            result.Id = "SingleColumn";
-                            var columnString = column.ToString();
-                            var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
-                            
-                            //dependsOn.AddRange(traceables);
-                            result.SetProperty("column", columnString);
-                            result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
-                            if (depAnalysisResult.Dependencies.A4_Ouput_Control.ContainsKey(outColum))
+                            if (!outColumnMap.ContainsKey(column))
                             {
-                                var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
-                                result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
-                                inputUses.AddRange(controlDependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                                outColumnMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput[outColum]);
                             }
                             else
                             {
-                                result.SetProperty("control depends", new string[] { });
+                                outColumnMap.AddRange(column, outColumnMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput[outColum]));
                             }
-                            result.SetProperty("escapes", escapes);
-                            results.Add(result);
-
-                            inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
-                            outputModifies.Add(column);
+                            if (!outColumnControlMap.ContainsKey(column))
+                            {
+                                outColumnControlMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]);
+                            }
+                            else
+                            {
+                                outColumnControlMap.AddRange(column, outColumnControlMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]));
+                            }
                         }
                     }
+
+                    foreach (var entryOutput in outColumnMap)
+                    {
+                        var result = new Result();
+                        result.Id = "SingleColumn";
+                        var column = entryOutput.Key;
+                        var columnString = column.ToString();
+                        var dependsOn = entryOutput.Value;
+                        var controlDepends = new HashSet<Traceable>();
+
+                        result.SetProperty("column", columnString);
+                        result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
+
+                        if (outColumnControlMap.ContainsKey(column))
+                        {
+                            var controlDependsOn = outColumnControlMap[column];
+                            result.SetProperty("control depends", controlDependsOn.Select(traceable => traceable.ToString()));
+                        }
+                        else
+                        {
+                            result.SetProperty("control depends", new string[] { });
+                        }
+                        result.SetProperty("escapes", escapes);
+                        results.Add(result);
+
+                        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                        outputModifies.Add(column);
+                    }
+
+
+                    //foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
+                    //{
+                    //    //var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
+                    //    //                                            .Where(t => t.TableKind == ProtectedRowKind.Output);
+                    //    var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
+                    //                                                .Where(t => t.TableKind == ProtectedRowKind.Output);
+
+                    //    foreach (var column in outColumns)
+                    //    {
+                    //        var result = new Result();
+                    //        result.Id = "SingleColumn";
+                    //        var columnString = column.ToString();
+                    //        var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
+
+                    //        //dependsOn.AddRange(traceables);
+                    //        result.SetProperty("column", columnString);
+                    //        result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
+                    //        if (depAnalysisResult.Dependencies.A4_Ouput_Control.ContainsKey(outColum))
+                    //        {
+                    //            var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
+                    //            result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
+                    //            inputUses.AddRange(controlDependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                    //        }
+                    //        else
+                    //        {
+                    //            result.SetProperty("control depends", new string[] { });
+                    //        }
+                    //        result.SetProperty("escapes", escapes);
+                    //        results.Add(result);
+
+                    //        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+                    //        outputModifies.Add(column);
+                    //    }
+                    //}
                 }
                 else
                 {
@@ -598,30 +656,23 @@ namespace ScopeProgramAnalysis
             {
                 XElement x = XElement.Load(xmlFile);
                 var operators = x.Descendants("operator");
-                foreach (var processId in this.factoryReducerMap.Keys)
+                foreach (var kv in this.factoryReducerMap)
                 {
+                    var processId = kv.Key;
+                    var className = kv.Value.GetFullName();
                     var processors = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
-                    var inputSchemas = processors.SelectMany(processor => processor.Descendants("input").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), processor.Attribute("className"), schema));
-                    var outputSchemas = processors.SelectMany(processor => processor.Descendants("output").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), processor.Attribute("className"), schema));
+                    var inputSchemas = processors.SelectMany(processor => processor.Descendants("input").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));
+                    var outputSchemas = processors.SelectMany(processor => processor.Descendants("output").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));
                     var inputSchema = inputSchemas.FirstOrDefault();
                     var outputSchema = outputSchemas.FirstOrDefault();
                     if (inputSchema == null || outputSchema == null) continue; // BUG? Silent failure okay?
                     if (inputSchema.Item1 != outputSchema.Item1) continue; // silent failure okay?
-                    if (inputSchema.Item2 != outputSchema.Item2) continue; // silent failure okay?
-                    var inputColumns = ParseColumns(inputSchema.Item3.Value);
-                    var outputColumns = ParseColumns(outputSchema.Item3.Value);
-                    d.Add(inputSchema.Item2.Value, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
+                    var inputColumns = ParseColumns(inputSchema.Item2.Value);
+                    var outputColumns = ParseColumns(outputSchema.Item2.Value);
+                    d.Add(className, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
                 }
             }
             return d;
-        }
-
-        private static IEnumerable<Column> ParseColumns(string schema)
-        {
-            // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
-            return schema
-                .Split(',')
-                .Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
         }
 
         private static SarifLog CreateSarifOutput()

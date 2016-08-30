@@ -127,7 +127,7 @@ namespace Backend.Analyses
                 return this.Position.ToString();
             if (Name != null && Position.Equals(RangeDomain.BOTTOM))
                 return this.Name;
-            return String.Format("<n: {0}, i: {1}, t: {2}>", this.Name, this.Position, this.Type);
+            return String.Format("{0}({1})", this.Name, this.Position);
         }
         public override bool Equals(object obj)
         {
@@ -163,20 +163,22 @@ namespace Backend.Analyses
 
     public class Schema
     {
-        private readonly IEnumerable<Column> columns;
+        public IEnumerable<Column> Columns { get; private set; }
 
         public Schema(IEnumerable<Column> columns)
         {
-            this.columns = columns;
+            this.Columns = columns;
         }
         public Column GetColumn(RangeDomain rd)
         {
-            return this.columns.Where(c => c.Position.Equals(rd)).FirstOrDefault();
+            return this.Columns.Where(c => c.Position.Equals(rd)).FirstOrDefault();
         }
         public Column GetColumn(string name)
         {
-            return this.columns.Where(c => c.Name == name).FirstOrDefault();
+            return this.Columns.Where(c => c.Name == name).FirstOrDefault();
         }
+
+
     }
 
     public class TraceableColumn : Traceable
@@ -1310,9 +1312,9 @@ namespace Backend.Analyses
                         .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
                     Schema s;
                     if (tableType == ProtectedRowKind.Input)
-                        s = Program.InputSchema;
+                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
                     else
-                        s = Program.OutputSchema;
+                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
                     var columnLiteral = ObtainColumn(col, s);
 
                     var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
@@ -1349,19 +1351,39 @@ namespace Backend.Analyses
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
 
-                    var tables = this.State.GetTraceables(arg0);
-                    var allColumns = Column.ALL;
+                    var inputSchema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
 
-                    // Create a fake column for the output table
-                    var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
+                    var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
                     var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
 
-                    this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
-                    arg1 = allColumnsVar;
-                    this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
-                    //
-                    var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputControlTraceables(arg1, traceables);
+                    foreach(var column in inputSchema.Columns)
+                    {
+                        var traceableInputColumn = new TraceableColumn(inputTable, column);
+                        var traceableOutputColumn = new TraceableColumn(outputTable, column);
+
+                        var outputColumnVar = new TemporalVariable(arg1.Name + "_$"+ column.Name, 1) { Type = PlatformTypes.Void };
+                        this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn } );
+
+                        this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn } );
+
+                        var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+                        this.State.AddOutputControlTraceables(outputColumnVar, traceables);
+
+                    }
+
+                    //var tables = this.State.GetTraceables(arg0);
+                    //var allColumns = Column.ALL;
+
+                    //// Create a fake column for the output table
+                    //var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
+
+                    //var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
+                    //this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
+                    //arg1 = allColumnsVar;
+                    //this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
+                    ////
+                    //var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+                    //this.State.AddOutputControlTraceables(arg1, traceables);
                 }
                 else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
                 {
@@ -1506,7 +1528,14 @@ namespace Backend.Analyses
                 }
                 else if (IsSchemaItemMethod(methodInvoked))
                 {
-                    var columnn = ObtainColumn(methodCallStmt.Arguments[1]);
+                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var tableKind = this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableTable>().FirstOrDefault().TableKind;
+                    if(tableKind == ProtectedRowKind.Output)
+                    {
+                        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                    }
+
+                    var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
                     scopeData.UpdateColumnMap(methodCallStmt, columnn);
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
@@ -1523,9 +1552,9 @@ namespace Backend.Analyses
                         .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
                     Schema s;
                     if (tableType == ProtectedRowKind.Input)
-                        s = Program.InputSchema;
+                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
                     else
-                        s = Program.OutputSchema;
+                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
 
                     Column column = UpdateColumnData(methodCallStmt, s);
                     }
