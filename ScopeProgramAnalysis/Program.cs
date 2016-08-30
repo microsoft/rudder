@@ -115,7 +115,7 @@ namespace ScopeProgramAnalysis
 
             // Loop
             //const string 
-            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02e7c1bd-42ab-4f5b-8506-d6c49e562790\__ScopeCodeGen__.dll";
+            //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02e7c1bd-42ab-4f5b-8506-d6c49e562790\__ScopeCodeGen__.dll";
 
             // const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\__ScopeCodeGen__.dll";
 
@@ -258,69 +258,6 @@ namespace ScopeProgramAnalysis
             {
                 System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
             }
-
-
-
-            //var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
-            //.Where(c => c.Base != null && c.Base.Name == classFilter);
-
-            //if (candidateClasses.Any())
-            //{
-            //    var results = new List<Result>();
-            //    foreach (var candidateClass in candidateClasses)
-            //    {
-            //        var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
-            //        var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
-            //                        .Where(c => c.Name.StartsWith(clousureFilter));
-            //        var methods = candidateClousures.SelectMany(t => t.Members.OfType<MethodDefinition>())
-            //                                    .Where(md => md.Body != null
-            //                                    && md.Name.Equals(methodUnderAnalysisName));
-
-            //        if (methods.Any())
-            //        {
-            //            var entryMethodDef = candidateClass.Methods.Where(m => m.Name == entryMethod).Single();
-            //            var moveNextMethod = methods.First();
-            //            System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, candidateClass.FullPathName());
-            //            var dependencyAnalysis = new SongTaoDependencyAnalysis(host, moveNextMethod, entryMethodDef);
-            //            var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
-            //            System.Console.WriteLine("Done!");
-
-            //            ValidateInputSchema(inputPath, moveNextMethod, depAnalysisResult);
-
-            //            var escapes = depAnalysisResult.A1_Escaping.Select(traceable => traceable.ToString());
-
-            //            if (depAnalysisResult.A4_Ouput.Any())
-            //            {
-            //                foreach (var outColum in depAnalysisResult.A4_Ouput.Keys)
-            //                {
-            //                    var result = new Result();
-            //                    var columnString = depAnalysisResult.A2_Variables[outColum].SingleOrDefault().ToString();
-            //                    var dependsOn = depAnalysisResult.A4_Ouput[outColum].Select(traceable => traceable.ToString());
-            //                    result.SetProperty("column", columnString);
-            //                    result.SetProperty("depends", dependsOn.Union(escapes));
-            //                    results.Add(result);
-            //                }
-            //            }
-            //            else
-            //            {
-            //                var result = new Result();
-            //                result.SetProperty("column", "_ALL_");
-            //                result.SetProperty("depends", escapes);
-            //                results.Add(result);
-            //            }
-
-            //        }
-            //        else
-            //        {
-            //            System.Console.WriteLine("No method {0} on class {1} in {2}", methodUnderAnalysisName, candidateClass.GenericName, inputPath);
-            //        }
-            //    }
-            //    WriteSarifOutput(inputPath, outputPath, results);
-            //}
-            //else
-            //{
-            //    System.Console.WriteLine("No {0} class in {1}", kind, inputPath);
-            //}
         }
 
         private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, 
