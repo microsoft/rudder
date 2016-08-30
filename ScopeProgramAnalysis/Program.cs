@@ -39,7 +39,11 @@ namespace ScopeProgramAnalysis
                     new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled),
-                    new Regex(@"^___Scope_Generated_Classes___.ScopeTransformer_\d+$", RegexOptions.Compiled)
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeTransformer_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeReducer__\d+$", RegexOptions.Compiled)
+                    // ScopeRuntime.
             };
 
         public ScopeProgramAnalysis(Host host, Loader loader)
@@ -335,7 +339,9 @@ namespace ScopeProgramAnalysis
                 {
                     foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
                     {
-                        var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
+                        //var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
+                        //                                            .Where(t => t.TableKind == ProtectedRowKind.Output);
+                        var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
                                                                     .Where(t => t.TableKind == ProtectedRowKind.Output);
                         foreach (var column in outColumns)
                         {
@@ -372,7 +378,33 @@ namespace ScopeProgramAnalysis
                     result.SetProperty("column", "_EMPTY_");
                     result.SetProperty("escapes", escapes);
                     results.Add(result);
+
                 }
+                var resultSummary = new Result();
+                resultSummary.Id = "Summary";
+
+                //var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
+                //var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
+                //result2.SetProperty("Inputs", inputsString);
+                //result2.SetProperty("Outputs", outputsString);
+
+                var inputsString = dependencyAnalysis.InputColumns.Select(t => t.ToString());
+                var outputsString = dependencyAnalysis.OutputColumns.Select(t => t.ToString());
+                resultSummary.SetProperty("Inputs", inputsString);
+                resultSummary.SetProperty("Outputs", outputsString);
+                results.Add(resultSummary);
+
+                if (outputStream != null)
+                {
+                    outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
+                    if (depAnalysisResult.IsTop)
+                    {
+                        outputStream.WriteLine("Analysis returns TOP");
+                    }
+                    outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
+                    outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
+                }
+
             }
             else
             {
@@ -381,28 +413,13 @@ namespace ScopeProgramAnalysis
                 result.SetProperty("column", "_TOP_");
                 result.SetProperty("depends", "_TOP_");
                 results.Add(result);
+                var resultEmpty = new Result();
+                resultEmpty.Id = "Summary";
+                resultEmpty.SetProperty("Inputs", "_TOP_");
+                resultEmpty.SetProperty("Outputs", "_TOP_");
+                results.Add(resultEmpty);
             }
-            var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
-            var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
 
-            var result2 = new Result();
-            result2.Id = "Summary";
-            //result2.SetProperty("Inputs", inputsString);
-            //result2.SetProperty("Outputs", outputsString);
-            result2.SetProperty("Inputs", dependencyAnalysis.InputColumns.Select(t => t.ToString()));
-            result2.SetProperty("Outputs", dependencyAnalysis.OutputColumns.Select(t => t.ToString()));
-            results.Add(result2);
-
-            if (outputStream != null)
-            {
-                outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
-                if (depAnalysisResult.IsTop)
-                {
-                    outputStream.WriteLine("Analysis returns TOP");
-                }
-                outputStream.WriteLine("Inputs: {0}", String.Join(", ", inputsString));
-                outputStream.WriteLine("Outputs: {0}", String.Join(", ", outputsString));
-            }
 
             var id = String.Format("[{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
 
