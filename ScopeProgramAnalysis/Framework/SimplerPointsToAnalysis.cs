@@ -470,7 +470,8 @@ namespace Backend.Analyses
                     // ptg.PointsTo(node, access.Field, ptg.Null);
                     if (!reachable)
                     {
-                        System.Console.WriteLine("In {0}:{1:X4} there is variable that is not a parameter and has no object to load.", this.method.ToSignatureString(), offset);
+                        System.Console.WriteLine("In {0}:{1:X4}.  Variable {2} field {3} has no object to load and {2} is not a parameter.", 
+                            this.method.ToSignatureString(), offset, instance, field);
                     }
 
                     if (reachable)

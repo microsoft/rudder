@@ -672,6 +672,14 @@ namespace Backend.Analyses
 
                     var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                     traceables.UnionWith(this.State.GetHeapTraceables(baseArray, fakeField));
+
+                    var targets = this.State.PTG.GetTargets(baseArray, fakeField);
+                    if(!targets.Any() && SongTaoDependencyAnalysis.IsScopeType(arrayAccess.Type))
+                    {
+                        this.State.SetTOP();
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to access index array with no objects associated"));
+                    }
+
                     //foreach (var ptgNode in currentPTG.GetTargets(baseArray))
                     //{
                     //    // TODO: I need to provide a BasicType. I need the base of the array 
@@ -683,7 +691,7 @@ namespace Backend.Analyses
                     //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
                     //    }
                     //}
-                    
+
                     //this.State.AssignTraceables(loadStmt.Result, traceables);
                 }
                 else if (operand is ArrayLengthAccess)
