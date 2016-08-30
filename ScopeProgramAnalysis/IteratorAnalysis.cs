@@ -1210,7 +1210,7 @@ namespace Backend.Analyses
                 if (methodInvoked.Name == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
-                    var arg = methodCallStmt.Arguments[0];
+                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
                     // This method makes method.Result point to the collectionso automatically getting the traceables from there
                     this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
@@ -1658,15 +1658,28 @@ namespace Backend.Analyses
                             }
                             else
                             {
-                                var tables = this.State.GetTraceables(arg).Where(t => true || !(t is Other));
+                                var tables = this.State.GetTraceables(arg).Where(t => !(t is Other));
                                 traceables.UnionWith(tables);
                             }
                         }
-                        traceables.Add(new Other(String.Format("Func({0})", methodCallStmt.Method.Name)));
+                        traceables.AddRange(GetCallTraceables(methodCallStmt));
                         UpdatePTAForPure(methodCallStmt);
                         this.State.AssignTraceables(result, traceables);
                     }
                 }
+            }
+
+            private IEnumerable<Traceable>  GetCallTraceables(MethodCallInstruction methodCallStmt)
+            {
+                var result = new HashSet<Traceable>();
+                //string argString = String.Join(",", methodCallStmt.Arguments.Select(arg => arg.Type.ToString()).ToList());
+                string argString = String.Join(",",  methodCallStmt.Arguments.Select(arg => "["+String.Join(",", this.State.GetTraceables(arg))+"]").ToList());
+                result.Add(new Other(String.Format("{0}({1})", methodCallStmt.Method.Name,argString)));
+                //foreach(var arg in methodCallStmt.Arguments)
+                //{
+                //    result.AddRange(this.State.GetTraceables(arg));
+                //}
+                return result;
             }
 
             private void UpdateCtor(MethodCallInstruction constructor)
