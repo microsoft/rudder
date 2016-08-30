@@ -287,8 +287,7 @@ namespace ScopeProgramAnalysis
             {
                 //if (exitResult.HasOutputTraceables(outputVar))
                 {
-                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
-                    newVar.Type = outputVar.Type;
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name) { Type = outputVar.Type };
                     callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
                     callInfo.CallerState.AddOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
                     callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
@@ -298,8 +297,7 @@ namespace ScopeProgramAnalysis
             {
                 //if (exitResult.HasOutputControlTraceables(outputVar))
                 {
-                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name);
-                    newVar.Type = outputVar.Type;
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name) { Type = outputVar.Type };
                     callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
                     callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
                 }

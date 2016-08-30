@@ -1455,6 +1455,7 @@ namespace Backend.Analyses
 
                     // Create a fake column for the output table
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
+                    var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
                     var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
                     //this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
                     this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
@@ -1803,8 +1804,7 @@ namespace Backend.Analyses
             this.protectedNodes = protectedNodes;
             this.interproceduralManager = interprocManager;
             this.initValue = null;
-            this.ReturnVariable = new LocalVariable(method.Name+"_$RV");
-            this.ReturnVariable.Type = PlatformTypes.Object;
+            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = PlatformTypes.Object };
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
             this.rangeAnalysis = rangeAnalysis;
