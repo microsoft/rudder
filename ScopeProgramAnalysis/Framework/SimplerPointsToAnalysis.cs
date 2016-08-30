@@ -327,8 +327,7 @@ namespace Backend.Analyses
 
 		private void CreateInitialGraph(bool createNodeForParams = true, SimplePointsToGraph initialGraph = null)
 		{
-            this.ReturnVariable = new LocalVariable(this.method.Name+"_"+"$RV");
-            this.ReturnVariable.Type = PlatformTypes.Object;
+            this.ReturnVariable = new LocalVariable(this.method.Name + "_" + "$RV") { Type = PlatformTypes.Object };
 
             //IteratorPointsToAnalysis.GlobalVariable= new LocalVariable("$Global");
             //IteratorPointsToAnalysis.GlobalVariable.Type = PlatformTypes.Object;
@@ -467,13 +466,14 @@ namespace Backend.Analyses
 
                 if (!hasField)
 				{
+                    var reachable = MayReacheableFromParameter(ptg, node);
                     // ptg.PointsTo(node, access.Field, ptg.Null);
-                    if (!MayReacheableFromParameter(ptg, node))
+                    if (!reachable)
                     {
                         System.Console.WriteLine("In {0}:{1:X4} there is variable that is not a parameter and has no object to load.", this.method.ToSignatureString(), offset);
                     }
 
-                    if (MayReacheableFromParameter(ptg, node))
+                    if (reachable)
                     {
                         var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
                         // TODO: Should be a LOAD NODE
@@ -560,10 +560,12 @@ namespace Backend.Analyses
 
         private bool MayReacheableFromParameter(SimplePointsToGraph ptg, PTGNode n)
         {
-            var result = method.Body.Parameters.Where(p => ptg.Reachable(p,n)).Any();
+            var rootNodes = method.Body.Parameters.SelectMany(p => ptg.GetTargets(p)).Union(new HashSet<PTGNode>() { SimplePointsToGraph.GlobalNode });
+            var reachable = ptg.ReachableNodes(rootNodes).Contains(n);
             // This version does not need the inverted mapping of nodes-> variables (which may be expensive to maintain)
             // var result = method.Body.Parameters.Any(p =>ptg.GetTargets(p).Contains(n));
-            return result;
+            return reachable;
+            ;
         }
 
         public void ProcessStore(SimplePointsToGraph ptg, uint offset, IVariable instance, IFieldReference field, IVariable src)

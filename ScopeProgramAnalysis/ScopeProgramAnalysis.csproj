@@ -61,8 +61,10 @@
     <Compile Include="AlternativeDepenencyAnalysis.cs" />
     <Compile Include="AnalysisStats.cs" />
     <Compile Include="Domains.cs" />
+    <Compile Include="Framework\DGMLSerializer.cs" />
     <Compile Include="Framework\HostAndLoader.cs" />
     <Compile Include="Framework\MyTypesHelper.cs" />
+    <Compile Include="Framework\SimplePointsToGraph.cs" />
     <Compile Include="InterproceduralManager.cs" />
     <Compile Include="IteratorAnalysis.cs" />
     <Compile Include="DependencyAnalysis.cs" />
