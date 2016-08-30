@@ -134,7 +134,9 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, scopeKind, useScopeFactory);
+            var log = AnalyzeOneDll(input, scopeKind, useScopeFactory);
+            WriteSarifOutput(log, outputPath);
+
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -147,15 +149,15 @@ namespace ScopeProgramAnalysis
 
         public enum ScopeMethodKind { Producer, Reducer, All };
 
-        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
+        private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
         {
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, outputPath, kind, useScopeFactory, interProcAnalysis);
+            return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
         }
 
-        public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind,
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
@@ -252,13 +254,22 @@ namespace ScopeProgramAnalysis
                                         String.Format(CultureInfo.InvariantCulture, "Throw exception {0}\n{1}", e.Message, e.StackTrace.ToString())));
                     }
                 }
-                WriteSarifOutput(log, outputPath);
+                return log;
             }
             else
             {
                 System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
+                return null;
             }
         }
+
+        public static void AnalyzeDllAndWriteLog(string inputPath, string outputPath, ScopeMethodKind kind,
+                              bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        {
+            var log = AnalyzeDll(inputPath, ScopeMethodKind.All, useScopeFactory, interProc, outputStream);
+            WriteSarifOutput(log, outputPath);
+        }
+
 
         private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, 
             SongTaoDependencyAnalysis dependencyAnalysis, IDictionary<string, ClassDefinition> processorMap)
@@ -599,7 +610,7 @@ namespace ScopeProgramAnalysis
 
             log.Runs.Add(run);
         }
-        private static void WriteSarifOutput(SarifLog log, string outputFilePath)
+        public static void WriteSarifOutput(SarifLog log, string outputFilePath)
         {
             JsonSerializerSettings settings = new JsonSerializerSettings()
             {

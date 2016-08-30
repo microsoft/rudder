@@ -53,17 +53,17 @@ namespace AnalysisClient
             outputStream.WriteLine("Analyzing {0}", dllToAnalyze);
 
 
-            ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true, interproc, outputStream);
+            ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true, interproc, outputStream);
 
-                if (AnalysisStats.AnalysisReasons.Any())
-                {
-                    outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
-                    AnalysisStats.WriteAnalysisReasons(outputStream);
-                }
-                outputStream.WriteLine("===========================================================================");
-                outputStream.Flush();
+            if (AnalysisStats.AnalysisReasons.Any())
+            {
+                outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
+                AnalysisStats.WriteAnalysisReasons(outputStream);
+            }
+            outputStream.WriteLine("===========================================================================");
+            outputStream.Flush();
 
-                System.Console.WriteLine("=========================================================================");
+            System.Console.WriteLine("=========================================================================");
 
 
             AnalysisStats.PrintStats(outputStream);
