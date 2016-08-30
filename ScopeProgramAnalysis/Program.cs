@@ -155,6 +155,30 @@ namespace ScopeProgramAnalysis
             AnalyzeDll(input, outputPath, kind, useScopeFactory, interProcAnalysis);
         }
 
+        private void ComputeColumns(string xmlFile, string processNumber)
+        {
+            XElement x = XElement.Load(xmlFile);
+            var processor = x
+                .Descendants("operator")
+                .Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processNumber)
+                .FirstOrDefault()
+                ;
+
+            Console.Write("Processor: {0}. ", processor.Attribute("className").Value);
+
+            var inputSchema = ParseColumns(processor.Descendants("input").FirstOrDefault().Attribute("schema").Value);
+            
+        }
+
+        private static IEnumerable<Column> ParseColumns(string schema)
+        {
+            // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
+            return schema
+                .Split(',')
+                .Select((c, i) => { var a = c.Split(':'); return new Column() { Name = a[0], Index = i, Type = a[1] }; });
+        }
+
+
         public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind,
                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
@@ -234,6 +258,9 @@ namespace ScopeProgramAnalysis
 
                     try
                     {
+                        //var xmlFile = "";
+                        //var inputColumn = GetInputColumn(xmlFile, )
+
                         var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                         System.Console.WriteLine("Done!");
