@@ -81,14 +81,19 @@ namespace ScopeProgramAnalysis
 
         public void AssignTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
-            this.Dependencies.A2_Variables[destination] = new HashSet<Traceable>(traceables);
+            // TODO: In the future only assign A2_Variable to Scalaras
+            //if (destination.Type != null && !destination.Type.IsClassOrStruct())
+            {
+                this.Dependencies.A2_Variables[destination] = new HashSet<Traceable>(traceables);
+            }
 
             if (destination.Type!=null && destination.Type.IsClassOrStruct())
             {
                 foreach (var targetNode in PTG.GetTargets(destination))
                 {
                     if (targetNode != SimplePointsToGraph.NullNode)
-                        this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                        //this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                        this.Dependencies.A2_References.AddRange(targetNode,new HashSet<Traceable>(traceables));
                 }
             }
 
@@ -102,7 +107,11 @@ namespace ScopeProgramAnalysis
 
         public void AddTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
-            this.Dependencies.A2_Variables.AddRange(destination, traceables);
+            // TODO: In the future only assign A2_Variable to Scalaras
+            //if (!destination.Type.IsClassOrStruct())
+            {
+                this.Dependencies.A2_Variables.AddRange(destination, traceables);
+            }
 
             if (destination.Type.IsClassOrStruct())
             {
@@ -140,18 +149,21 @@ namespace ScopeProgramAnalysis
 
         public void AddHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
         {
+
+            // If it is a scalar field we modify A3_Field
             if (!field.Type.IsClassOrStruct())
             {
                 var location = new Location(ptgNode, field);
-                this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
+                //this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
+                // TODO:  a weak update
+                this.Dependencies.A3_Fields.AddRange(location, traceables);
             }
-            // TODO:  a weak update
-            //this.Dependencies.A3_Fields.AddRange(location, traceables);
 
             // This should be only for references
+            // we modify A2_Refs(n) where n \in PT(ptgNode, field)
             if (field.Type.IsClassOrStruct())
             {
-                var targets = PTG.GetTargets(ptgNode, field).Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
+                var targets = PTG.GetTargets(ptgNode, field);// .Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
                 if (targets.Any())
                 {
                     foreach (var targetNode in targets)
@@ -159,8 +171,8 @@ namespace ScopeProgramAnalysis
                         if (targetNode != SimplePointsToGraph.NullNode)
                         {
                             // TODO: Change for Add
-                            //this.Dependencies.A2_References.AddRange(targetNode, traceables);
-                            this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                            this.Dependencies.A2_References.AddRange(targetNode, traceables);
+                            //this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
                         }
                     }
                 }
@@ -328,22 +340,11 @@ namespace ScopeProgramAnalysis
             //return this.Dependencies.A4_Ouput[arg];
         }
 
-        public void AssignOutputTraceables(IVariable destination, IVariable source)
-        {
-            HashSet<Traceable> union = GetTraceables(source);
-            this.Dependencies.A4_Ouput[destination] = union;
-        }
-
         public void AssignOutputTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
             this.Dependencies.A4_Ouput[destination] = new HashSet<Traceable>(traceables);
         }
 
-        public void AddOutputTraceables(IVariable destination, IVariable source)
-        {
-            HashSet<Traceable> traceables = GetTraceables(source);
-            this.Dependencies.A4_Ouput.AddRange(destination, traceables);
-        }
         public void AddOutputTraceables(IVariable destination, IEnumerable<Traceable> traceables)
         {
             this.Dependencies.A4_Ouput.AddRange(destination, traceables);
@@ -358,8 +359,6 @@ namespace ScopeProgramAnalysis
         {
             this.Dependencies.A4_Ouput_Control.AddRange(destination, traceables);
         }
-
-
 
         public void SetTOP()
         {

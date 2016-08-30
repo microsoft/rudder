@@ -720,30 +720,17 @@ namespace Backend.Analyses
                 var traceables = new HashSet<Traceable>();
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
+
                 //if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
-         
-                    //if (IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field) || fieldAccess.Field.Type.IsValueType())
                 //if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
-                {
+                //{
                     
                     // this is a[loc(o.f)]
                     var nodes = currentPTG.GetTargets(fieldAccess.Instance);
                     if (nodes.Any())
                     {
+                        // TODO: SHould I only consider the clousure fields?
                         traceables.UnionWith(this.State.GetHeapTraceables(fieldAccess.Instance, fieldAccess.Field));
-                        //foreach (var ptgNode in nodes)
-                        //{
-                        //    var loc = new Location(ptgNode, fieldAccess.Field);
-                        //    //if(fieldAccess.Field.Type.IsValueType() || fieldAccess.Type==PlatformTypes.String)
-                        //    //{ }
-                        //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
-                        //    {
-                        //        //if (!IsProctectedAccess(fieldAccess.Instance, fieldAccess.Field))
-                        //        //{ }
-                        //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
-                        //    }
-                        //}
-                        //if (fieldAccess.Instance.Type.IsRowType()  || fieldAccess.Instance.Type.IsScopeMapUsage())
                         //if(IsClousureType(fieldAccess.Instance))
                         {
                             traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
@@ -755,7 +742,7 @@ namespace Backend.Analyses
                         this.State.SetTOP();
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to load a field with no objects associated"));
                     }
-                }
+                //}
                 this.State.AssignTraceables(loadStmt.Result, traceables);
             }
 
@@ -965,8 +952,7 @@ namespace Backend.Analyses
                             // Pure Methods
                             if(IsPureMethod(methodCallStmt))
                             {
-                                UpdateUsingDefUsed(methodCallStmt);
-                                UpdatePTAForPure(methodCallStmt);
+                                UpdateCall(methodCallStmt);
                             }
                             else
                             {
@@ -987,7 +973,6 @@ namespace Backend.Analyses
 
                                 var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
 
-                                var dataDependent = methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)).Any();
 
                                 if (escaping)
                                 {
@@ -1020,10 +1005,7 @@ namespace Backend.Analyses
                                 else
                                 {
 
-                                    UpdateUsingDefUsed(methodCallStmt);
-
-                                    if(dataDependent)
-                                    { }
+                                    UpdateCall(methodCallStmt);
 
                                     // I should at least update the Poinst-to graph
                                     // or make the parameters escape
@@ -1071,7 +1053,6 @@ namespace Backend.Analyses
                             else
                             { }
                         }
-                        this.State.PTG.PointsTo(result, returnNode);
                     }
 
                 }
@@ -1125,14 +1106,13 @@ namespace Backend.Analyses
 
             private void HandleNoAnalyzableMethod(MethodCallInstruction methodCallStmt)
             {
-                UpdatePTAForPure(methodCallStmt);
-                UpdateUsingDefUsed(methodCallStmt);
+                UpdateCall(methodCallStmt);
                 // I already know that the are argument escaping (because I only invoke this method in that case
                 //var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => ptg.GetTargets(arg, false));
                 //var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                 //if(escaping)
                 //{
-                    this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
+                this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, 
                                                     String.Format(CultureInfo.InvariantCulture, "Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
                     this.State.SetTOP();
@@ -1188,9 +1168,11 @@ namespace Backend.Analyses
 
             public override void Visit(ConvertInstruction instruction)
             {
-                this.State.CopyTraceables(instruction.Result, instruction.Operand);
-
+                var traceables = this.State.GetTraceables(instruction.Operand);
                 instruction.Accept(visitorPTA);
+
+                this.State.AssignTraceables(instruction.Result, traceables);
+
 
             }
 
@@ -1229,10 +1211,9 @@ namespace Backend.Analyses
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
                     var arg = methodCallStmt.Arguments[0];
-
+                    var traceables = this.State.GetTraceables(arg);
+                    // This method makes method.Result point to the collectionso automatically getting the traceables from there
                     this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
-                    //this.State.AddTraceables(methodCallStmt.Result, arg);
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1240,20 +1221,19 @@ namespace Backend.Analyses
                     && (methodInvoked.ContainingType.IsIEnumerator() || methodInvoked.ContainingType.IsEnumerator()))
                 {
                     var arg = methodCallStmt.Arguments[0];
-
+                    var traceables = this.State.GetTraceables(arg);
+                    // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
-                    //this.State.AddTraceables(methodCallStmt.Result, arg);
-
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 }
                 else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
+                    var traceables = this.State.GetTraceables(methodCallStmt.Arguments[2]);
 
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
                     // TODO: Hack for connecting a dictionary with its items
                     var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
-                    this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
-                    this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
+                    this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, traceables);
+                    this.State.AddTraceables(methodCallStmt.Arguments[0], traceables);
                 }
                 else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
@@ -1263,7 +1243,6 @@ namespace Backend.Analyses
                         var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
                         this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
                         this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
-
                         // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
                     }
                     else
@@ -1274,27 +1253,8 @@ namespace Backend.Analyses
 
                         this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[1]));
                     }
-
-                    // TODO: Hack for connecting a dictionary with its items
-                    // We need summaries for 
-                    //foreach (var ptgNode in this.State.PTG.GetTargets(methodCallStmt.Arguments[0]))
-                    //{
-                    //    var sources = ptgNode.Sources.Where(nf => nf.Key.Name == "$item");
-                    //    if (ptgNode.Sources.Any(nf => nf.Key.Name == "$item"))
-                    //    {
-                    //        foreach (var source in sources)
-                    //        {
-                    //            foreach (var node in source.Value)
-                    //            {
-                    //                var traceables = this.State.GetHeapTraceables(node, source.Key);
-                    //                this.State.Dependencies.A2_References.AddRange(node, traceables);
-                    //            }
-
-                    //        }
-                    //    }
-                    //}
                 }
-                else if (methodInvoked.Name == "get_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                else if (methodInvoked.Name == "get_Item"  && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     // TODO: Hack for connecting a dictionary with its items
                     if (methodInvoked.ContainingType.IsDictionary())
@@ -1306,9 +1266,17 @@ namespace Backend.Analyses
                     }
                     else
                     {
-                        UpdateUsingDefUsed(methodCallStmt);
-                        UpdatePTAForPure(methodCallStmt);
+                        UpdateCall(methodCallStmt);
                     }
+                }
+                else if (methodInvoked.Name == "MoveNext"
+                    && methodInvoked.ContainingType.IsIEnumerator())
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdateCall(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                    
                 }
                 //else if (methodInvoked.Name == "get_Current" && methodInvoked.ContainingType.IsIEnumerable())
                 //{
@@ -1316,13 +1284,6 @@ namespace Backend.Analyses
                 //    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 //    UpdatePTAForPure(methodCallStmt);
                 //}
-                else if (methodInvoked.Name == "MoveNext"
-                    && methodInvoked.ContainingType.IsIEnumerator())
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
-                    UpdatePTAForPure(methodCallStmt);
-                }
                 //else if (methodInvoked.Name == "GetEnumerator"
                 //    && methodInvoked.ContainingType.IsIEnumerable())
                 //{
@@ -1330,37 +1291,30 @@ namespace Backend.Analyses
                 //    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 //    UpdatePTAForPure(methodCallStmt);
                 //}
-
                 else if (methodInvoked.Name == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods
-                if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
+                else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsEnumerable())
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsContainerMethod())
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsSet())
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsDictionary())
                 {
-                    UpdateUsingDefUsed(methodCallStmt);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else
                 {
@@ -1378,7 +1332,10 @@ namespace Backend.Analyses
                 if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType()) 
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
+
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     // TODO: I don't know I need this
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
@@ -1390,9 +1347,9 @@ namespace Backend.Analyses
                        || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
-
-                    // a2[ v = a2[arg[0]]] 
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1401,7 +1358,9 @@ namespace Backend.Analyses
                          || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1410,6 +1369,8 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableCounter(table_i));
+
+                    UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tablesCounters);
                 }
                 // v = arg.getItem(col)
@@ -1422,6 +1383,8 @@ namespace Backend.Analyses
 
                     var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableColumn(table_i, columnLiteral));
+
+                    UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
 
                     this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind==ProtectedRowKind.Input));
@@ -1437,10 +1400,12 @@ namespace Backend.Analyses
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
 
-                    this.State.AddOutputTraceables(arg0, arg1);
+                    var traceables = this.State.GetTraceables(arg1);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AddOutputTraceables(arg0, traceables);
 
-                    var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputControlTraceables(arg0, traceables);
+                    var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+                    this.State.AddOutputControlTraceables(arg0, controlTraceables);
                 }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
@@ -1454,10 +1419,9 @@ namespace Backend.Analyses
                     var allColumns = ColumnDomain.ALL;
 
                     // Create a fake column for the output table
-                    var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1);
                     var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
                     var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
-                    //this.State.AddTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) } );
+
                     this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
                     arg1 = allColumnsVar;
                     this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
@@ -1468,7 +1432,10 @@ namespace Backend.Analyses
                 else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
                 {
                     var arg = methodCallStmt.Arguments[0];
-                    this.State.CopyTraceables(methodCallStmt.Result, arg);
+
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.IsRowListType()) 
                 {
@@ -1478,19 +1445,17 @@ namespace Backend.Analyses
                 }
                 else if(methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
                 {
-                    this.UpdateUsingDefUsed(methodCallStmt);
+                    UpdateCall(methodCallStmt);
                 }
                 else
                 {
                     result = false;
                 }
 
-                if(result && methodCallStmt.HasResult)
-                {
-                    UpdatePTAForPure(methodCallStmt);
-                    //var node = new PTGNode(new PTGID(new MethodContex(this.method), (int)methodCallStmt.Offset), methodCallStmt.Result.Type);
-                    //this.State.PTG.PointsTo(methodCallStmt.Result, node);
-                }
+                //if(result && methodCallStmt.HasResult)
+                //{
+                //    UpdatePTAForPure(methodCallStmt);
+                //}
 
                 return result;
 
@@ -1664,22 +1629,46 @@ namespace Backend.Analyses
                         var traceables = new HashSet<Traceable>();
                         foreach (var arg in instruction.UsedVariables)
                         {
-                            // If a paramete is a delegate we try to evaluate it with the parameters available
-                            if (instruction is MethodCallInstruction && arg.Type.IsDelegateType())
-                            {
-                                var methodCall = instruction as MethodCallInstruction;
-                                traceables.UnionWith(EvaluateDelegate(arg, methodCall));
-                            }
-                            else
-                            {
-                                var tables = this.State.GetTraceables(arg);
-                                traceables.UnionWith(tables);
-                            }
+                            var tables = this.State.GetTraceables(arg).Where(t => !(t is Other));
+                            traceables.UnionWith(tables);
                         }
                         this.State.AssignTraceables(result, traceables);
                     }
                 }
             }
+
+            private void UpdateCall(MethodCallInstruction methodCallStmt)
+            {
+                if (methodCallStmt.IsConstructorCall())
+                {
+                    UpdateCtor(methodCallStmt);
+                }
+                else
+                {
+                    foreach (var result in methodCallStmt.ModifiedVariables)
+                    {
+                        var traceables = new HashSet<Traceable>();
+                        foreach (var arg in methodCallStmt.UsedVariables)
+                        {
+                            // If a paramete is a delegate we try to evaluate it with the parameters available
+                            if (methodCallStmt is MethodCallInstruction && arg.Type.IsDelegateType())
+                            {
+                                var methodCall = methodCallStmt as MethodCallInstruction;
+                                traceables.UnionWith(EvaluateDelegate(arg, methodCall));
+                            }
+                            else
+                            {
+                                var tables = this.State.GetTraceables(arg).Where(t => true || !(t is Other));
+                                traceables.UnionWith(tables);
+                            }
+                        }
+                        traceables.Add(new Other(String.Format("Func({0})", methodCallStmt.Method.Name)));
+                        UpdatePTAForPure(methodCallStmt);
+                        this.State.AssignTraceables(result, traceables);
+                    }
+                }
+            }
+
             private void UpdateCtor(MethodCallInstruction constructor)
             {
                 PropagateArguments(constructor, constructor.Arguments[0]);
@@ -1704,7 +1693,7 @@ namespace Backend.Analyses
                         }
                     }
                 }
-                this.State.AssignTraceables(result, traceables);
+                this.State.AddTraceables(result, traceables);
            }
 
             // Evaluate a delegate within a non analyzed method invocation
@@ -1877,7 +1866,7 @@ namespace Backend.Analyses
         {
             foreach (var v in cfg.GetVariables())
             {
-                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter)
+                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && v.Type.IsValueType())
                 {
                     depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
                 }
