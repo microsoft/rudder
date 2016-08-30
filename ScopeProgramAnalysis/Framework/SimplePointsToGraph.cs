@@ -367,7 +367,7 @@ namespace Backend.Model
                 {
                     continue;
                 }
-                foreach (var adjacents in ptgNode.Targets)
+                foreach (var adjacents in ptg.GetTargets(ptgNode))
                 {
                     if (filter != null)
                     {
@@ -420,7 +420,7 @@ namespace Backend.Model
                     continue;
                 }
                 if (ptgNode.Equals(n)) return true;
-                foreach (var adjacents in ptgNode.Targets.Values)
+                foreach (var adjacents in ptg.GetTargets(ptgNode).Values)
                 {
                     foreach (var adjacent in adjacents)
                     {

@@ -248,7 +248,7 @@ namespace ScopeProgramAnalysis
             var nodes = PTG.GetTargets(arg);
             foreach (var node in nodes)
             {
-                var locations = node.Targets.Select(nf => new Location(node, nf.Key));
+                var locations = this.PTG.GetTargets(node).Select(nf => new Location(node, nf.Key));
                 result.UnionWith(locations.Select(location => new Tuple<IFieldReference, IEnumerable<Traceable>>(location.Field, GetTraceablesForLocation(location))));
             }
             return result;
