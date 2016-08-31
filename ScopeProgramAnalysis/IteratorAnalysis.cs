@@ -355,7 +355,7 @@ namespace Backend.Analyses
             {
                 return this.schemaTableMap.ContainsKey(arg);
             }
-            internal void UpdateColumnMap(MethodCallInstruction methodCallStmt, Column columnLiteral) {
+            internal void UpdateColumnLiteralMap(MethodCallInstruction methodCallStmt, Column columnLiteral) {
                 columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
             }
 
@@ -624,7 +624,10 @@ namespace Backend.Analyses
                 }
                 // For these cases I'm doing nothing
                 else if (operand is Constant)
-                { }
+                {
+                    var constant = operand as Constant;
+                    this.State.AssignTraceables(loadStmt.Result, new Traceable[] { new Other(constant.Type.ToString()) });
+                }
                 else
                 {
                     result = false;
@@ -1315,7 +1318,9 @@ namespace Backend.Analyses
                         s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
                     else
                         s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
-                    var columnLiteral = ObtainColumn(col, s);
+
+                    //var columnLiteral = ObtainColumn(col, s);
+                    var columnLiteral = UpdateColumnData(methodCallStmt, s); //  ObtainColumn(col, s);
 
                     var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableColumn(table_i, columnLiteral));
@@ -1431,7 +1436,7 @@ namespace Backend.Analyses
                     var columnValue = this.equalities.GetValue(col);
                     if (columnValue is Constant)
                     {
-                        columnLiteral = columnValue.ToString();
+                        columnLiteral = (columnValue as Constant).Value.ToString();
                         result = schema.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, "string");
                     }
                 }
@@ -1535,8 +1540,10 @@ namespace Backend.Analyses
                         schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
                     }
 
-                    var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
-                    scopeData.UpdateColumnMap(methodCallStmt, columnn);
+                    Column column = UpdateColumnData(methodCallStmt, schema);
+
+                    //var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
+                    //scopeData.UpdateColumnLiteralMap(methodCallStmt, columnn);
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // callResult = arg.IndexOf(colunm)
@@ -1548,15 +1555,18 @@ namespace Backend.Analyses
                     if (scopeData.HasTableForSchemaVar(arg))
                     {
                         var tables = scopeData.GetTableFromSchemaMap(arg);
-                    var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                        .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
-                    Schema s;
-                    if (tableType == ProtectedRowKind.Input)
-                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    else
-                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
+                            .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
 
-                    Column column = UpdateColumnData(methodCallStmt, s);
+                        var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+
+                        var tableKind = this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableTable>().FirstOrDefault().TableKind;
+                        if (tableKind == ProtectedRowKind.Output)
+                        {
+                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        }
+
+                        Column column = UpdateColumnData(methodCallStmt, schema);
                     }
                     else
                     {
@@ -1576,7 +1586,7 @@ namespace Backend.Analyses
             private Column UpdateColumnData(MethodCallInstruction methodCallStmt, Schema s)
             {
                 var column = ObtainColumn(methodCallStmt.Arguments[1], s);
-                scopeData.UpdateColumnMap(methodCallStmt, column);
+                scopeData.UpdateColumnLiteralMap(methodCallStmt, column);
                 if(column.IsTOP)
                 {
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
