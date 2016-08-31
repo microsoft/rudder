@@ -1142,8 +1142,10 @@ namespace Backend.Analyses
                 {
                      var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
-                    // This method makes method.Result point to the collections automatically getting the traceables from there
+                    // This method makes method.Result point to the iterator 
                     this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
+                    // We copy the traceables from the collection to the iterator
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 // For Current we need to obtain one item from the collection
                 else if (methodInvoked.Name == "get_Current"  
@@ -1200,8 +1202,7 @@ namespace Backend.Analyses
                     }
                 }
                 // For movenext we treated as an unknowm call (but pure, even it modified the it)
-                else if (methodInvoked.Name == "MoveNext"
-                    && methodInvoked.ContainingType.IsIEnumerator())
+                else if (methodInvoked.Name == "MoveNext" && (methodInvoked.ContainingType.IsIEnumerator()) || methodInvoked.ContainingType.IsEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
