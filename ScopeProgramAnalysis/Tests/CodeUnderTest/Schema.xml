@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ScopeVertices helperAssembly="__ScopeCodeGen__.dll" signatureVersion="1">
+  <ScopeVertex id="CodeUnderTest" cppReady="true">
+    <operator id="Process_2" uid="5" assemblyName="__ScopeCodeGen__.dll" className="CopyProcessor">
+      <input id="Process_1_Data0" uid="4" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <output id="Process_2_Data0" uid="6" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <ReflectedScopeScript>
+        <![CDATA[_var_100004_PROCESS = PROCESS _var_100003_TRANSFORM PRODUCE JobGUID, SubmitTime USING CopyProcessor();
+]]>
+      </ReflectedScopeScript>
+    </operator>
+    <operator id="Process_3" uid="7" assemblyName="__ScopeCodeGen__.dll" className="ModifyExistingColumnProcessor">
+      <input id="Process_2_Data0" uid="6" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <output id="Process_3_Data0" uid="8" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <ReflectedScopeScript>
+        <![CDATA[_var_100005_PROCESS = PROCESS _var_100004_PROCESS PRODUCE JobGUID, SubmitTime USING ModifyExistingColumnProcessor();
+]]>
+      </ReflectedScopeScript>
+    </operator>
+    <operator id="Process_4" uid="9" assemblyName="__ScopeCodeGen__.dll" className="AddOneColumnProcessor">
+      <input id="Process_3_Data0" uid="8" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <output id="SV1_Extract_out0" uid="10" schema="JobGUID:string,SubmitTime:DateTime?,NewColumn:string" outputIndex="0" numberOfOutputs="1" />
+      <ReflectedScopeScript>
+        <![CDATA[_var_100006_PROCESS = PROCESS _var_100005_PROCESS PRODUCE JobGUID, SubmitTime, NewColumn USING AddOneColumnProcessor();
+]]>
+      </ReflectedScopeScript>
+    </operator>
+  </ScopeVertex>
+</ScopeVertices>
