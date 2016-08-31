@@ -136,7 +136,9 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            AnalyzeOneDll(input, outputPath, scopeKind, useScopeFactory);
+            var log = AnalyzeOneDll(input, scopeKind, useScopeFactory);
+            WriteSarifOutput(log, outputPath);
+
 
             AnalysisStats.PrintStats(outputStream);
             AnalysisStats.WriteAnalysisReasons(outputStream);
@@ -149,12 +151,12 @@ namespace ScopeProgramAnalysis
 
         public enum ScopeMethodKind { Producer, Reducer, All };
 
-        private static void AnalyzeOneDll(string input, string outputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
+        private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
         {
             var folder = Path.GetDirectoryName(input);
             var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            AnalyzeDll(input, outputPath, kind, useScopeFactory, interProcAnalysis);
+            return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
         }
 
         private void ComputeColumns(string xmlFile, string processNumber)
@@ -181,7 +183,8 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public static void AnalyzeDll(string inputPath, string outputPath, ScopeMethodKind kind,
+       public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
+
                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
@@ -296,13 +299,22 @@ namespace ScopeProgramAnalysis
                                         String.Format(CultureInfo.InvariantCulture, "Throw exception {0}\n{1}", e.Message, e.StackTrace.ToString())));
                     }
                 }
-                WriteSarifOutput(log, outputPath);
+                return log;
             }
             else
             {
                 System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
+                return null;
             }
         }
+
+        public static void AnalyzeDllAndWriteLog(string inputPath, string outputPath, ScopeMethodKind kind,
+                              bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        {
+            var log = AnalyzeDll(inputPath, ScopeMethodKind.All, useScopeFactory, interProc, outputStream);
+            WriteSarifOutput(log, outputPath);
+        }
+
 
         private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, 
             SongTaoDependencyAnalysis dependencyAnalysis, IDictionary<string, ClassDefinition> processorMap)
@@ -587,8 +599,11 @@ namespace ScopeProgramAnalysis
         {
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
-            var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
-                            .Where(c => c.Base != null && this.ClassFilters.Contains(c.Base.Name));
+            var candidateClasses = host
+                .Assemblies
+                .Where(a => a.Name != "mscorlib")
+                .SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
+                .Where(c => c.Base != null && this.ClassFilters.Contains(c.Base.Name));
             if (candidateClasses.Any())
             {
                 var results = new List<Result>();
@@ -599,7 +614,6 @@ namespace ScopeProgramAnalysis
                     if (isCompilerGenerated)
                         continue;
 
-                    var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
                     var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
                                     .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
                     foreach (var candidateClousure in candidateClousures)
@@ -612,8 +626,11 @@ namespace ScopeProgramAnalysis
                         {
                             var entryMethod = candidateClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
                             var moveNextMethod = methods.First();
+                            // BUG: Really should do this by getting the name of the Row type used by the processor, but just a quick hack for now to allow unit testing (which uses a different Row type).
+                            // System.Collections.Generic.IEnumerable<FakeRuntime.Row>.GetEnumerator
+                            // And really, this should be a type test anyway. The point is to find the explicit interface implementation of IEnumerable<T>.GetEnumerator.
                             var getEnumMethods = candidateClousure.Methods
-                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                                                        .Where(m => m.Name.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.EndsWith(">.GetEnumerator"));
                             var getEnumeratorMethod = getEnumMethods.First();
 
                             scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
@@ -712,15 +729,9 @@ namespace ScopeProgramAnalysis
 
             log.Runs.Add(run);
         }
-        private static void WriteSarifOutput(SarifLog log, string outputFilePath)
+        public static void WriteSarifOutput(SarifLog log, string outputFilePath)
         {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
-            {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            var sarifText = JsonConvert.SerializeObject(log, settings);
+            string sarifText = SarifLogToString(log);
             try
             {
                 File.WriteAllText(outputFilePath, sarifText);
@@ -731,6 +742,17 @@ namespace ScopeProgramAnalysis
             }
         }
 
+        public static string SarifLogToString(SarifLog log)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings()
+            {
+                ContractResolver = SarifContractResolver.Instance,
+                Formatting = Formatting.Indented
+            };
+
+            var sarifText = JsonConvert.SerializeObject(log, settings);
+            return sarifText;
+        }
     }
 
 }
