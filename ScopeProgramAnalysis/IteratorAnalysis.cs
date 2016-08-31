@@ -356,7 +356,7 @@ namespace Backend.Analyses
                 return this.schemaTableMap.ContainsKey(arg);
             }
             internal void UpdateColumnLiteralMap(MethodCallInstruction methodCallStmt, Column columnLiteral) {
-                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
+                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.Name;
             }
 
             internal void PropagateLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
@@ -1438,7 +1438,7 @@ namespace Backend.Analyses
                     if (columnValue is Constant)
                     {
                         columnLiteral = (columnValue as Constant).Value.ToString();
-                        result = schema.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, "string");
+                        result = schema.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, null);
                     }
                 }
                 else
@@ -1534,15 +1534,20 @@ namespace Backend.Analyses
                 }
                 else if (IsSchemaItemMethod(methodInvoked))
                 {
-                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    var tableKind = this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableTable>().FirstOrDefault().TableKind;
-                    if(tableKind == ProtectedRowKind.Output)
+                    var arg = methodCallStmt.Arguments[0];
+
+                    if (scopeData.HasTableForSchemaVar(arg))
                     {
-                        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        var tables = scopeData.GetTableFromSchemaMap(arg);
+                        var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                        var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
+                        if (tableKind == ProtectedRowKind.Output)
+                        {
+                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        }
+
+                        Column column = UpdateColumnData(methodCallStmt, schema);
                     }
-
-                    Column column = UpdateColumnData(methodCallStmt, schema);
-
                     //var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
                     //scopeData.UpdateColumnLiteralMap(methodCallStmt, columnn);
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
