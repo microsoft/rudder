@@ -273,7 +273,14 @@ namespace ScopeProgramAnalysis
             {
                 var log = CreateSarifOutput();
 
-                var allSchemas = program.ReadSchemasFromXML(inputPath);
+                IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
+                if (useScopeFactory)
+                {
+                    allSchemas = program.ReadSchemasFromXML(inputPath);
+                } else
+                {
+                    allSchemas = program.ReadSchemasFromXML2(inputPath);
+                }
 
                 foreach (var methodPair in scopeMethodPairs)
                 {
@@ -709,6 +716,28 @@ namespace ScopeProgramAnalysis
                     var inputColumns = ParseColumns(inputSchema.Item2.Value);
                     var outputColumns = ParseColumns(outputSchema.Item2.Value);
                     d.Add(className, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
+                }
+            }
+            return d;
+        }
+
+        private IReadOnlyDictionary<string, Tuple<Schema, Schema>>
+            ReadSchemasFromXML2(string inputPath)
+        {
+            var d = new Dictionary<string, Tuple<Schema, Schema>>();
+            var inputDirectory = Path.GetDirectoryName(inputPath);
+            var xmlFile = Path.Combine(inputDirectory, "Schema.xml");
+            if (File.Exists(xmlFile))
+            {
+                XElement x = XElement.Load(xmlFile);
+                var operators = x.Descendants("operator");
+                foreach (var op in operators)
+                {
+                    var inputSchema = op.Descendants("input").First();
+                    var outputSchema = op.Descendants("output").First();
+                    var inputColumns = ParseColumns(inputSchema.Value);
+                    var outputColumns = ParseColumns(outputSchema.Value);
+                    d.Add(op.Attribute("className").Value, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
                 }
             }
             return d;
