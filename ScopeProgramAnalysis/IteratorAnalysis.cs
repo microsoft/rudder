@@ -766,7 +766,17 @@ namespace Backend.Analyses
 
                         // a3 := a3[loc(o.f) <- a2[v]] 
                         // union = a2[v]
-                        var OK = this.State.AddHeapTraceables(o, field, instruction.Operand);
+                        var traceables = this.State.GetTraceables(instruction.Operand);
+
+                        var OK = true;
+                        if (o.Name == "this")
+                        {
+                            OK = this.State.AssignHeapTraceables(o, field, traceables);
+                        }
+                        else
+                        {
+                            OK = this.State.AddHeapTraceables(o, field, traceables);
+                        }
 
                         //var traceables = this.State.GetTraceables(instruction.Operand);
                         //var nodes = currentPTG.GetTargets(o);
@@ -1154,7 +1164,12 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
-                    this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
+                    bool createdNode;
+                    this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result, out createdNode);
+                    if(createdNode)
+                    {
+                        this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                    }
                 }
                 // set_Item add an element to the colecction using a fake field "$item"
                 else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
@@ -1261,7 +1276,7 @@ namespace Backend.Analyses
                 var result = true;
                 // This is when you get rows
                 // a2 = a2[v<- a[arg_0]] 
-                if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType()) 
+                if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1274,8 +1289,8 @@ namespace Backend.Analyses
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
-                else if (methodInvoked.Name == "GetEnumerator"  
-                    && ( methodInvoked.ContainingType.IsIEnumerableRow()
+                else if (methodInvoked.Name == "GetEnumerator"
+                    && (methodInvoked.ContainingType.IsIEnumerableRow()
                        || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
@@ -1285,8 +1300,8 @@ namespace Backend.Analyses
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "get_Current" 
-                    && ( methodInvoked.ContainingType.IsIEnumeratorRow()
+                else if (methodInvoked.Name == "get_Current"
+                    && (methodInvoked.ContainingType.IsIEnumeratorRow()
                          || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
                 {
                     var arg = methodCallStmt.Arguments[0];
@@ -1329,7 +1344,7 @@ namespace Backend.Analyses
                     UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
 
-                    this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind==ProtectedRowKind.Input));
+                    this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
                     this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
 
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
@@ -1337,7 +1352,7 @@ namespace Backend.Analyses
                 // arg.Set(arg1)
                 // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
                 else if (methodInvoked.Name == "Set" && methodInvoked.ContainingType.IsColumnDataType())
-//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
@@ -1375,15 +1390,15 @@ namespace Backend.Analyses
                     var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
                     var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
 
-                    foreach(var column in inputSchema.Columns)
+                    foreach (var column in inputSchema.Columns)
                     {
                         var traceableInputColumn = new TraceableColumn(inputTable, column);
                         var traceableOutputColumn = new TraceableColumn(outputTable, column);
 
-                        var outputColumnVar = new TemporalVariable(arg1.Name + "_$"+ column.Name, 1) { Type = PlatformTypes.Void };
-                        this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn } );
+                        var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = PlatformTypes.Void };
+                        this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
 
-                        this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn } );
+                        this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
 
                         var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                         this.State.AddOutputControlTraceables(outputColumnVar, traceables);
