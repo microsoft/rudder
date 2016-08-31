@@ -472,6 +472,10 @@ namespace Backend.Analyses
                     {
                         System.Console.WriteLine("In {0}:{1:X4}.  Variable {2} field {3} has no object to load and {2} is not a parameter.", 
                             this.method.ToSignatureString(), offset, instance, field);
+                        if(field.Name=="[]")
+                        {
+                            targets.AddRange(nodes);
+                        }
                     }
 
                     if (reachable)
@@ -538,8 +542,9 @@ namespace Backend.Analyses
             return enumNode;
         }
 
-        public IEnumerable<PTGNode> ProcessGetCurrent(SimplePointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result)
+        public IEnumerable<PTGNode> ProcessGetCurrent(SimplePointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result, out bool createdNodes)
         {
+            createdNodes = false;
             var targets = new HashSet<PTGNode>();
             // get Collection
             var collectionField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
@@ -549,6 +554,17 @@ namespace Backend.Analyses
             {
                 var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
                 targets.AddRange(collectionNodes.SelectMany(n => ptg.GetTargets(n, itemsField)));
+                if(!targets.Any())
+                {
+                    foreach (var collectionNode in collectionNodes)
+                    {
+                        var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
+                        var itemNode = this.NewNode(ptg, ptgId, collectionNode.Type);
+                        ptg.PointsTo(collectionNode, itemsField, itemNode);
+                        targets.Add(itemNode);
+                        createdNodes = true;
+                    }
+                }
             }
             ptg.RemoveRootEdges(result);
             ptg.PointsTo(result, targets);
