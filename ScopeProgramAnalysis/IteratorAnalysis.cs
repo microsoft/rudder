@@ -1280,7 +1280,7 @@ namespace Backend.Analyses
                 if (!traceables.Any())
                 {
                     this.State.SetTOP();
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expected a traceable and there isn't any"));
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expecting a traceable and there isn't any"));
                 }
             }
 
@@ -1618,6 +1618,25 @@ namespace Backend.Analyses
                 }
                 else
                 {
+                    if(this.State.HasTraceables(arg))
+                    {
+                        var table = this.State.GetTraceables(arg).OfType<TraceableTable>().FirstOrDefault(); // BUG: what if there are more than one?
+                        if (table != null)
+                        {
+                            var tableType = table.TableKind;
+                            Schema s;
+                            if (tableType == ProtectedRowKind.Input)
+                                s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                            else
+                                s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                            return s;
+                        }
+                        else
+                        {
+                            this.State.SetTOP();
+                            AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Table not available as traceable argument"));
+                        }
+                    }
                     this.State.SetTOP();
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
                 }

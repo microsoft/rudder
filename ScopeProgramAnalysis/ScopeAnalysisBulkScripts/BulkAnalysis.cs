@@ -29,13 +29,13 @@ namespace ScopeAnalysisBulkScripts
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
             var outputFolder = @"C:\Temp\Madam";
-            outputFolder = @"C:\temp\ZvoList";
+            //outputFolder = @"C:\temp\ZvoList";
 
             var logPath = outputFolder;
 
             var bulkAnalysis = new BulkAnalysis();
 
-            // var dllList = bulkAnalysis.LoadListFromFile(inputList);
+            //var dllList = bulkAnalysis.LoadListFromFile(inputList);
             var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
             //var dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
 
