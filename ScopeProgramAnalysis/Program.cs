@@ -98,11 +98,11 @@ namespace ScopeProgramAnalysis
             // Example 2
             //string input = Path.Combine(zvonimirDirectory, @"0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll");
             // Example 3
-            //string input = Path.Combine(zvonimirDirectory, @"10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll");
+            input = Path.Combine(zvonimirDirectory, @"10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll");
             // Example 4
-            //string input = Path.Combine(zvonimirDirectory, @"2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll");
+            //input = Path.Combine(zvonimirDirectory, @"2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll");
             // Example 5
-            input = Path.Combine(zvonimirDirectory, @"3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll");
+            //input = Path.Combine(zvonimirDirectory, @"3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll");
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
@@ -127,6 +127,9 @@ namespace ScopeProgramAnalysis
 
             // input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\69dc12be-aacd-48a5-a776-e2766178a343\Microsoft.Bing.Platform.Inferences.Offline.SignalsCooking.dll";
 
+            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\6a02b587-21b6-4b4d-84c5-4caaebc9d5ad\__ScopeCodeGen__.dll";
+
+            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0c3e04fe-75ec-59a8-a3e6-a85aecfe5476\__ScopeCodeGen__.dll";
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
@@ -232,8 +235,12 @@ namespace ScopeProgramAnalysis
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
                 if (!scopeMethodPairs.Any())
                 {
-                    System.Console.WriteLine("Failed to obtain methods from the ScopeFactory. Now trying to find methods in the the assembly");
-                    scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
+                    if(outputStream!=null)
+                        outputStream.WriteLine("Failed to obtain methods from the ScopeFactory. ");
+                    System.Console.WriteLine("Failed to obtain methods from the ScopeFactory.");
+
+                    //System.Console.WriteLine("Now trying to find methods in the the assembly");
+                    //scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
                 }
             }
             else
@@ -273,8 +280,6 @@ namespace ScopeProgramAnalysis
                         OutputSchema = outputSchema;
                         var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
-                        System.Console.WriteLine("Done!");
-
 
                         WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, dependencyAnalysis,  program.factoryReducerMap);
 
