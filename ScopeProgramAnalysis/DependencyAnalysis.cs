@@ -203,7 +203,7 @@ namespace ScopeProgramAnalysis
             {
                 return false;
             }
-            if (basicType.ContainingAssembly.Name == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
+            if (basicType.ContainingNamespace == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
             {
                 return true;
             }
