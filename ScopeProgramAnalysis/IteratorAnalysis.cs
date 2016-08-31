@@ -1349,6 +1349,19 @@ namespace Backend.Analyses
                     var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg0, controlTraceables);
                 }
+                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
+                //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+                {
+                    var arg0 = methodCallStmt.Arguments[0];
+                    var arg1 = methodCallStmt.Arguments[1];
+
+                    var traceables = this.State.GetTraceables(arg0);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AddOutputTraceables(arg1, traceables);
+
+                    var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+                    this.State.AddOutputControlTraceables(arg1, controlTraceables);
+                }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
                 else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsRowType())
