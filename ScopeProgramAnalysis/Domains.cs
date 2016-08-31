@@ -184,6 +184,69 @@ namespace ScopeProgramAnalysis
         }
 
 
+        public bool AssignHeapTraceables(IVariable destination, IFieldReference field, IVariable source)
+        {
+            return AssignHeapTraceables(destination, field, GetTraceables(source));
+        }
+
+        public bool AssignHeapTraceables(IVariable destination, IFieldReference field, IEnumerable<Traceable> traceables)
+        {
+            var nodes = PTG.GetTargets(destination);
+            if (nodes.Any())
+            {
+                // This should be only for scalars
+                foreach (var ptgNode in nodes)
+                {
+                    if (ptgNode != SimplePointsToGraph.NullNode)
+                        AssignHeapTraceables(ptgNode, field, traceables);
+                }
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public void AssignHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
+        {
+
+            var newTraceables = new HashSet<Traceable>(traceables);
+            // If it is a scalar field we modify A3_Field
+            if (!field.Type.IsClassOrStruct())
+            {
+                var location = new Location(ptgNode, field);
+                //this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
+                // TODO:  a weak update
+                this.Dependencies.A3_Fields[location]= newTraceables;
+            }
+
+            // This should be only for references
+            // we modify A2_Refs(n) where n \in PT(ptgNode, field)
+            if (field.Type.IsClassOrStruct())
+            {
+                var targets = PTG.GetTargets(ptgNode, field);// .Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
+                if (targets.Any())
+                {
+                    foreach (var targetNode in targets)
+                    {
+                        if (targetNode != SimplePointsToGraph.NullNode)
+                        {
+                            // TODO: Change for Add
+                            this.Dependencies.A2_References[targetNode] = newTraceables;
+                            //this.Dependencies.A2_References[targetNode] = new HashSet<Traceable>(traceables);
+                        }
+                    }
+                }
+                else
+                { }
+            }
+
+
+        }
+
+
+
         public IEnumerable<Traceable> GetHeapTraceables(IVariable arg, IFieldReference field)
         {
             var result = new HashSet<Traceable>();
@@ -198,7 +261,7 @@ namespace ScopeProgramAnalysis
         public IEnumerable<Traceable> GetHeapTraceables(PTGNode node, IFieldReference field)
         {
             var location = new Location(node, field);
-            var originalTraceables = GetTraceablesForLocation(location);
+            var originalTraceables = GetLocationTraceables(location);
 
             var traceables = new HashSet<Traceable>();
 
@@ -223,7 +286,7 @@ namespace ScopeProgramAnalysis
             return originalTraceables;
         }
 
-        private HashSet<Traceable> GetTraceablesForLocation(Location location)
+        private HashSet<Traceable> GetLocationTraceables(Location location)
         {
             var result = new HashSet<Traceable>();
             if (!location.Field.Type.IsClassOrStruct())
@@ -231,8 +294,8 @@ namespace ScopeProgramAnalysis
                 if (Dependencies.A3_Fields.ContainsKey(location))
                     result.UnionWith(Dependencies.A3_Fields[location]);
             }
-            else
-            { }
+            //else
+            //{ }
             return result;
         }
 
@@ -249,7 +312,7 @@ namespace ScopeProgramAnalysis
             foreach (var node in nodes)
             {
                 var locations = this.PTG.GetTargets(node).Select(nf => new Location(node, nf.Key));
-                result.UnionWith(locations.Select(location => new Tuple<IFieldReference, IEnumerable<Traceable>>(location.Field, GetTraceablesForLocation(location))));
+                result.UnionWith(locations.Select(location => new Tuple<IFieldReference, IEnumerable<Traceable>>(location.Field, GetLocationTraceables(location))));
             }
             return result;
         }
