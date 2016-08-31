@@ -1662,8 +1662,9 @@ namespace Backend.Analyses
             private IEnumerable<Traceable>  GetCallTraceables(MethodCallInstruction methodCallStmt)
             {
                 var result = new HashSet<Traceable>();
-                //string argString = String.Join(",", methodCallStmt.Arguments.Select(arg => arg.Type.ToString()).ToList());
-                string argString = String.Join(",",  methodCallStmt.Arguments.Select(arg => "["+String.Join(",", this.State.GetTraceables(arg))+"]").ToList());
+                string argString = String.Join(",", methodCallStmt.Arguments.Select(arg => arg.Type.ToString()).ToList());
+                //var argList = new HashSet<Traceable>( methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
+                //string argString = "["+ String.Join(",", argList) +"]";
                 result.Add(new Other(String.Format("{0}({1})", methodCallStmt.Method.Name,argString)));
                 //foreach(var arg in methodCallStmt.Arguments)
                 //{
