@@ -496,8 +496,11 @@ namespace ScopeProgramAnalysis
         {
             var scopeMethodPairsToAnalyze = new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
 
-            var candidateClasses = host.Assemblies.SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
-                            .Where(c => c.Base != null && this.ClassFilters.Contains(c.Base.Name));
+            var candidateClasses = host
+                .Assemblies
+                .Where(a => a.Name != "mscorlib")
+                .SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
+                .Where(c => c.Base != null && this.ClassFilters.Contains(c.Base.Name));
             if (candidateClasses.Any())
             {
                 var results = new List<Result>();
@@ -508,7 +511,6 @@ namespace ScopeProgramAnalysis
                     if (isCompilerGenerated)
                         continue;
 
-                    var assembly = host.Assemblies.Where(a => a.Name == candidateClass.Name);
                     var candidateClousures = candidateClass.Types.OfType<ClassDefinition>()
                                     .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
                     foreach (var candidateClousure in candidateClousures)
@@ -521,8 +523,11 @@ namespace ScopeProgramAnalysis
                         {
                             var entryMethod = candidateClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
                             var moveNextMethod = methods.First();
+                            // BUG: Really should do this by getting the name of the Row type used by the processor, but just a quick hack for now to allow unit testing (which uses a different Row type).
+                            // System.Collections.Generic.IEnumerable<FakeRuntime.Row>.GetEnumerator
+                            // And really, this should be a type test anyway. The point is to find the explicit interface implementation of IEnumerable<T>.GetEnumerator.
                             var getEnumMethods = candidateClousure.Methods
-                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                                                        .Where(m => m.Name.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.EndsWith(">.GetEnumerator"));
                             var getEnumeratorMethod = getEnumMethods.First();
 
                             scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
@@ -612,13 +617,7 @@ namespace ScopeProgramAnalysis
         }
         public static void WriteSarifOutput(SarifLog log, string outputFilePath)
         {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
-            {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            var sarifText = JsonConvert.SerializeObject(log, settings);
+            string sarifText = SarifLogToString(log);
             try
             {
                 File.WriteAllText(outputFilePath, sarifText);
@@ -629,6 +628,17 @@ namespace ScopeProgramAnalysis
             }
         }
 
+        public static string SarifLogToString(SarifLog log)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings()
+            {
+                ContractResolver = SarifContractResolver.Instance,
+                Formatting = Formatting.Indented
+            };
+
+            var sarifText = JsonConvert.SerializeObject(log, settings);
+            return sarifText;
+        }
     }
 
 }
