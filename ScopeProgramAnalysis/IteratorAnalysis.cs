@@ -359,7 +359,7 @@ namespace Backend.Analyses
                 columnVariable2Literal[methodCallStmt.Result] = columnLiteral.Name;
             }
 
-            internal void PropagateLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess)
+            internal void PropagateLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess, DependencyPTGDomain dependencies)
             {
                 if (this.columnFieldMap.ContainsKey(fieldAccess.Field))
                 {
@@ -370,6 +370,10 @@ namespace Backend.Analyses
                 {
                     var recoveredVar = this.schemaFieldMap[fieldAccess.Field];
                     this.schemaTableMap[loadStmt.Result] = this.schemaTableMap[recoveredVar];
+                }
+                if(loadStmt.HasResult && dependencies.HasTraceables(loadStmt.Result))
+                {
+                    this.schemaTableMap[loadStmt.Result] = new HashSet<TraceableTable>(dependencies.GetTraceables(loadStmt.Result).OfType<TraceableTable>());
                 }
             }
             internal void PropagateStore(StoreInstruction instruction, InstanceFieldAccess fieldAccess)
@@ -570,7 +574,7 @@ namespace Backend.Analyses
                     ProcessLoad(loadStmt, fieldAccess);
 
                     // TODO: Filter for columns only
-                    scopeData.PropagateLoad(loadStmt, fieldAccess);
+                    scopeData.PropagateLoad(loadStmt, fieldAccess, this.State);
                 }
                 else if (operand is ArrayElementAccess)
                 {
@@ -1271,9 +1275,31 @@ namespace Backend.Analyses
                 return result;
             }
 
+            private void CheckFailure(Instruction instruction, IEnumerable<Traceable> traceables)
+            {
+                if (!traceables.Any())
+                {
+                    this.State.SetTOP();
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expected a traceable and there isn't any"));
+                }
+            }
+
+            private void CheckFailure(Instruction instruction, IVariable var)
+            {
+                CheckFailure(instruction, this.State.GetTraceables(var));
+            }
+
             private bool  HandleScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
+                if(methodInvoked.Name=="Clone" && methodInvoked.ContainingType.IsRowType())
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    var traceables = this.State.GetTraceables(arg);
+                    UpdatePTAForPure(methodCallStmt);
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                    this.scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+                }
                 // This is when you get rows
                 // a2 = a2[v<- a[arg_0]] 
                 if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
@@ -1286,6 +1312,8 @@ namespace Backend.Analyses
 
                     // TODO: I don't know I need this
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+
+                    CheckFailure(methodCallStmt, traceables);
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
@@ -1297,6 +1325,8 @@ namespace Backend.Analyses
                     var traceables = this.State.GetTraceables(arg);
                     UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
+
+                    CheckFailure(methodCallStmt, traceables);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1308,6 +1338,8 @@ namespace Backend.Analyses
                     var traceables = this.State.GetTraceables(arg);
                     UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
+
+                    CheckFailure(methodCallStmt, traceables);
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
@@ -1319,6 +1351,7 @@ namespace Backend.Analyses
 
                     UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tablesCounters);
+
                 }
                 // v = arg.getItem(col)
                 // a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
@@ -1327,13 +1360,15 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
                     var col = methodCallStmt.Arguments[1];
 
-                    var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                        .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
-                    Schema s;
-                    if (tableType == ProtectedRowKind.Input)
-                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    else
-                        s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                    var s = TryToGetSchemaForTable(arg, methodCallStmt);
+
+                    //var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
+                    //    .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
+                    //Schema s;
+                    //if (tableType == ProtectedRowKind.Input)
+                    //    s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    //else
+                    //    s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
 
                     //var columnLiteral = ObtainColumn(col, s);
                     var columnLiteral = UpdateColumnData(methodCallStmt, s); //  ObtainColumn(col, s);
@@ -1347,6 +1382,7 @@ namespace Backend.Analyses
                     this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
                     this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
 
+                    CheckFailure(methodCallStmt, tableColumns);
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // arg.Set(arg1)
@@ -1363,6 +1399,8 @@ namespace Backend.Analyses
 
                     var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg0, controlTraceables);
+
+                    //CheckFailure(methodCallStmt, traceables);
                 }
                 else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
                 //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
@@ -1376,6 +1414,9 @@ namespace Backend.Analyses
 
                     var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                     this.State.AddOutputControlTraceables(arg1, controlTraceables);
+
+                    //CheckFailure(methodCallStmt, traceables);
+
                 }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
@@ -1387,24 +1428,35 @@ namespace Backend.Analyses
 
                     var inputSchema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
 
-                    var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
-                    var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
+                    //var inputTable = scopeData.GetTableFromSchemaMap(arg0).First(t => t.TableKind == ProtectedRowKind.Input); 
+                    //var outputTable = scopeData.GetTableFromSchemaMap(arg1).First(t => t.TableKind == ProtectedRowKind.Output);
 
-                    foreach (var column in inputSchema.Columns)
+                    if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
                     {
-                        var traceableInputColumn = new TraceableColumn(inputTable, column);
-                        var traceableOutputColumn = new TraceableColumn(outputTable, column);
 
-                        var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = PlatformTypes.Void };
-                        this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
+                        var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
+                        var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Output);
 
-                        this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
+                        foreach (var column in inputSchema.Columns)
+                        {
+                            var traceableInputColumn = new TraceableColumn(inputTable, column);
+                            var traceableOutputColumn = new TraceableColumn(outputTable, column);
 
-                        var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                        this.State.AddOutputControlTraceables(outputColumnVar, traceables);
+                            var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = PlatformTypes.Void };
+                            this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
 
+                            this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
+
+                            var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+                            this.State.AddOutputControlTraceables(outputColumnVar, traceables);
+                        }
                     }
-
+                    else
+                    {
+                        // This is very conservative. I should wait until the end of the fixpoint
+                        this.State.SetTOP();
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
+                    }
                     //var tables = this.State.GetTraceables(arg0);
                     //var allColumns = Column.ALL;
 
@@ -1426,12 +1478,18 @@ namespace Backend.Analyses
                     var traceables = this.State.GetTraceables(arg);
                     UpdatePTAForPure(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
+
+                    CheckFailure(methodCallStmt, traceables);
+
                 }
                 else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.IsRowListType()) 
                 {
                     var receiver = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
                     this.State.AddTraceables(receiver, arg1);
+
+                    CheckFailure(methodCallStmt, arg1);
+
                 }
                 else if(methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
                 {
@@ -1543,6 +1601,29 @@ namespace Backend.Analyses
                return result;
              }
 
+            private Schema TryToGetSchemaForTable(IVariable arg, Instruction methodCallStmt)
+            {
+                Schema result = null;
+
+                if (scopeData.HasTableForSchemaVar(arg))
+                {
+                    var tables = scopeData.GetTableFromSchemaMap(arg);
+                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
+                    if (tableKind == ProtectedRowKind.Output)
+                    {
+                        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                    }
+                    result = schema;
+                }
+                else
+                {
+                    this.State.SetTOP();
+                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
+                }
+                return result;
+            }
+
             /// <summary>
             /// These are method that access columns by name or number 
             /// </summary>
@@ -1564,18 +1645,27 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
 
-                    if (scopeData.HasTableForSchemaVar(arg))
-                    {
-                        var tables = scopeData.GetTableFromSchemaMap(arg);
-                        var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                        var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
-                        if (tableKind == ProtectedRowKind.Output)
-                        {
-                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
-                        }
+                    var schema = TryToGetSchemaForTable(arg, methodCallStmt);
 
-                        Column column = UpdateColumnData(methodCallStmt, schema);
-                    }
+                    Column column = UpdateColumnData(methodCallStmt, schema);
+                    //if (scopeData.HasTableForSchemaVar(arg))
+                    //{
+                    //    var tables = scopeData.GetTableFromSchemaMap(arg);
+                    //    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    //    var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
+                    //    if (tableKind == ProtectedRowKind.Output)
+                    //    {
+                    //        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                    //    }
+
+                    //    Column column = UpdateColumnData(methodCallStmt, schema);
+                    //}
+                    //else
+                    //{
+                    //    this.State.SetTOP();
+                    //    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
+                    //}
+
                     //var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
                     //scopeData.UpdateColumnLiteralMap(methodCallStmt, columnn);
                     //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
@@ -1586,27 +1676,27 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
 
-                    if (scopeData.HasTableForSchemaVar(arg))
-                    {
-                        var tables = scopeData.GetTableFromSchemaMap(arg);
-                        var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                            .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
+                    var schema = TryToGetSchemaForTable(arg, methodCallStmt);
+                    Column column = UpdateColumnData(methodCallStmt, schema);
 
-                        var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    //if (scopeData.HasTableForSchemaVar(arg))
+                    //{
+                    //    var tables = scopeData.GetTableFromSchemaMap(arg);
+                    //    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
 
-                        var tableKind = this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableTable>().FirstOrDefault().TableKind;
-                        if (tableKind == ProtectedRowKind.Output)
-                        {
-                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
-                        }
+                    //    var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
+                    //    if (tableKind == ProtectedRowKind.Output)
+                    //    {
+                    //        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                    //    }
 
-                        Column column = UpdateColumnData(methodCallStmt, schema);
-                    }
-                    else
-                    {
-                        this.State.SetTOP();
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
-                    }
+                    //    Column column = UpdateColumnData(methodCallStmt, schema);
+                    //}
+                    //else
+                    //{
+                    //    this.State.SetTOP();
+                    //    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
+                    //}
 
                     //this.State.AssignTraceables(methodCallStmt.Result, tables.OfType<TraceableTable>().Select(t => new TraceableColumn(t, column)));
                 }
@@ -1619,6 +1709,8 @@ namespace Backend.Analyses
 
             private Column UpdateColumnData(MethodCallInstruction methodCallStmt, Schema s)
             {
+                if (s == null) return Column.TOP;
+
                 var column = ObtainColumn(methodCallStmt.Arguments[1], s);
                 scopeData.UpdateColumnLiteralMap(methodCallStmt, column);
                 if(column.IsTOP)
