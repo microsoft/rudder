@@ -127,7 +127,7 @@ namespace Backend.Analyses
                 return this.Position.ToString();
             if (Name != null && Position.Equals(RangeDomain.BOTTOM))
                 return this.Name;
-            return String.Format("{0}({1})", this.Name, this.Position);
+            return String.Format("{0}[{1}]", this.Name, this.Position);
         }
         public override bool Equals(object obj)
         {
@@ -1449,6 +1449,10 @@ namespace Backend.Analyses
 
                             var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
                             this.State.AddOutputControlTraceables(outputColumnVar, traceables);
+
+                            this.iteratorDependencyAnalysis.InputColumns.Add(traceableInputColumn);
+                            this.iteratorDependencyAnalysis.OutputColumns.Add(traceableOutputColumn);
+
                         }
                     }
                     else
