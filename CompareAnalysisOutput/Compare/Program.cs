@@ -265,12 +265,28 @@ namespace Compare
             public int Index;
             public string Type;
         }
+        //private static IEnumerable<Column> ParseColumns(string schema)
+        //{
+        //    // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
+        //    return schema
+        //        .Split(',')
+        //        .Select((c, i) => { var a = c.Split(':'); return new Column() { Name = a[0], Index = i, Type = a[1] }; });
+        //}
+
         private static IEnumerable<Column> ParseColumns(string schema)
         {
             // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
-            return schema
-                .Split(',')
-                .Select((c, i) => { var a = c.Split(':'); return new Column() { Name = a[0], Index = i, Type = a[1] }; });
+            var schemaList = schema.Split(',');
+            for (int i = 0; i < schemaList.Count(); i++)
+            {
+                if (schemaList[i].Contains("<") && i < schemaList.Count() && schemaList[i + 1].Contains(">"))
+                {
+                    schemaList[i] += schemaList[i + 1];
+                    schemaList[i + 1] = "";
+                    i++;
+                }
+            }
+            return schemaList.Where(elem => !String.IsNullOrEmpty(elem)).Select((c, i) => { var a = c.Split(':'); return new Column { Name = a[0], Index = i, Type = a[1] }; });
         }
 
     }
