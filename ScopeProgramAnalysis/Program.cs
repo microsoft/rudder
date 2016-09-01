@@ -133,7 +133,20 @@ namespace ScopeProgramAnalysis
 
             //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\00f41d12-10e8-4aa4-b54d-1c275bd99550\__ScopeCodeGen__.dll";
 
-            //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\4554b01e-829b-4e37-b818-688b074b00bf\__ScopeCodeGen__.dll";
+            // This one show me the problem in the topological order
+            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\4554b01e-829b-4e37-b818-688b074b00bf\__ScopeCodeGen__.dll";
+
+            // This one is complaining about a missing schema
+            input = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan\00e0c351-4bae-4970-989b-92806b1e657c\__ScopeCodeGen__.dll";
+            // This one fails with changes of type edgardo did:
+            input = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan\0b5243a6-cf68-4c35-8b45-8ce0e0162e14\__ScopeCodeGen__.dll";
+
+            // Could not find column
+            //input = @" \\research\root\public\mbarnett\Parasail\First100JobsFromMadan\0c92351b-f81e-4da1-91c3-930c7778fac6\__ScopeCodeGen__.dll";
+
+            // Failed to find Schema
+            input = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan\0c92351b-f81e-4da1-91c3-930c7778fac6\__ScopeCodeGen__.dll";
+
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -294,7 +307,7 @@ namespace ScopeProgramAnalysis
                     Schema inputSchema = null;
                     Schema outputSchema = null;
                     Tuple<Schema, Schema> schemas;
-                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.GetFullName(), out schemas))
+                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
                     {
                         inputSchema = schemas.Item1;
                         outputSchema = schemas.Item2;
@@ -705,7 +718,7 @@ namespace ScopeProgramAnalysis
                 foreach (var kv in this.factoryReducerMap)
                 {
                     var processId = kv.Key;
-                    var className = kv.Value.GetFullName();
+                    var className = kv.Value.Name;
                     var processors = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
                     var inputSchemas = processors.SelectMany(processor => processor.Descendants("input").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));
                     var outputSchemas = processors.SelectMany(processor => processor.Descendants("output").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));
@@ -733,10 +746,10 @@ namespace ScopeProgramAnalysis
                 var operators = x.Descendants("operator");
                 foreach (var op in operators)
                 {
-                    var inputSchema = op.Descendants("input").First();
-                    var outputSchema = op.Descendants("output").First();
-                    var inputColumns = ParseColumns(inputSchema.Value);
-                    var outputColumns = ParseColumns(outputSchema.Value);
+                    var inputSchema = op.Descendants("input").First().Attribute("schema").Value;
+                    var outputSchema = op.Descendants("output").First().Attribute("schema").Value;
+                    var inputColumns = ParseColumns(inputSchema);
+                    var outputColumns = ParseColumns(outputSchema);
                     d.Add(op.Attribute("className").Value, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
                 }
             }
