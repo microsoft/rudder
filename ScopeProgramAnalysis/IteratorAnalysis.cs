@@ -838,7 +838,7 @@ namespace Backend.Analyses
 
                     //this.State.Dependencies.A3_Fields[new Location(SimplePointsToGraph.GlobalNode, field)] = traceables;
 
-                    this.State.Dependencies.A1_Escaping.UnionWith(traceables);
+                    this.State.Dependencies.A1_Escaping.UnionWith(traceables.Where(t => !(t is Other)));
                 }
                 else
                 {
@@ -1054,7 +1054,8 @@ namespace Backend.Analyses
                 //var escaping = ptg.ReachableNodes(argRootNodes).Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
                 //if(escaping)
                 //{
-                this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
+                this.State.Dependencies.A1_Escaping.UnionWith(methodCallStmt.Arguments
+                                        .SelectMany(arg => this.State.GetTraceables(arg).Where(t => !(t is Other))));
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, 
                                                     String.Format(CultureInfo.InvariantCulture, "Invocation to {0} not analyzed with argument potentially reaching the columns", methodCallStmt.Method)));
                     this.State.SetTOP();
