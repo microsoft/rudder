@@ -129,9 +129,11 @@ namespace Compare
                             // Do nothing
                             var columnProperty = result.GetProperty<List<string>>("Inputs");
                             var totalInputColumns = columnProperty.Count;
+                            var inputHasTop = columnProperty.Contains("Col(Input,_TOP_)");
 
                             columnProperty = result.GetProperty<List<string>>("Outputs");
                             var totalOutputColumns = columnProperty.Count;
+                            var outputHasTop = columnProperty.Contains("Col(Output,_TOP_)");
 
                             columnProperty = result.GetProperty<List<string>>("SchemaInputs");
                             var columnsSchemaInput = columnProperty.Count;
@@ -140,10 +142,10 @@ namespace Compare
                             var columnsSchemaOutput = columnProperty.Count;
                             analysisStats.Add(processorName, new Stats() {
                                         PassThrough = !topHappened? passThroughColumns.Count: -1,
-                                        TotalOutputColumns = totalOutputColumns,
-                                        TotalInputColumns = totalInputColumns,
+                                        TotalOutputColumns = !outputHasTop ? totalOutputColumns :-1,
+                                        TotalInputColumns = !inputHasTop ? totalInputColumns:-1,
                                         TotalSchemaInputs = columnsSchemaInput,
-                                        TotalSchemaOutputs = columnsSchemaOutput
+                                        TotalSchemaOutputs =  columnsSchemaOutput
                             });
                         }
                     }
