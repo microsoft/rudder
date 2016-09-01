@@ -480,6 +480,12 @@ namespace ScopeProgramAnalysis
                 var outputsString = dependencyAnalysis.OutputColumns.Select(t => t.ToString());
                 resultSummary.SetProperty("Inputs", inputsString);
                 resultSummary.SetProperty("Outputs", outputsString);
+
+                var inputSchemaString = InputSchema.Columns.Select(t => t.ToString());
+                var outputSchemaString = OutputSchema.Columns.Select(t => t.ToString());
+
+                resultSummary.SetProperty("SchemaInputs", inputSchemaString);
+                resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
                 results.Add(resultSummary);
 
                 if (outputStream != null)

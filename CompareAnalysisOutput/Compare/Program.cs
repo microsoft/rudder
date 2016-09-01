@@ -34,8 +34,12 @@ namespace Compare
 
         struct Stats
         {
-            public int TotalColumns;
+            public int TotalOutputColumns;
             public int PassThrough;
+
+            public int TotalInputColumns { get; internal set; }
+            public int TotalSchemaInputs { get; internal set; }
+            public int TotalSchemaOutputs { get; internal set; }
         }
 
         static int ComputePassThroughColumns(string sarifFile)
@@ -123,9 +127,24 @@ namespace Compare
                         else if (result.Id == "Summary")
                         {
                             // Do nothing
-                            var columnProperty = result.GetProperty<List<string>>("Outputs");
-                            totalColumns = columnProperty.Count;
-                            analysisStats.Add(processorName, new Stats() { PassThrough = !topHappened? passThroughColumns.Count: -1, TotalColumns = totalColumns });
+                            var columnProperty = result.GetProperty<List<string>>("Inputs");
+                            var totalInputColumns = columnProperty.Count;
+
+                            columnProperty = result.GetProperty<List<string>>("Outputs");
+                            var totalOutputColumns = columnProperty.Count;
+
+                            columnProperty = result.GetProperty<List<string>>("SchemaInputs");
+                            var columnsSchemaInput = columnProperty.Count;
+
+                            columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
+                            var columnsSchemaOutput = columnProperty.Count;
+                            analysisStats.Add(processorName, new Stats() {
+                                        PassThrough = !topHappened? passThroughColumns.Count: -1,
+                                        TotalOutputColumns = totalOutputColumns,
+                                        TotalInputColumns = totalInputColumns,
+                                        TotalSchemaInputs = columnsSchemaInput,
+                                        TotalSchemaOutputs = columnsSchemaOutput
+                            });
                         }
                     }
                     if (passThroughColumns.Count == 0)
@@ -158,7 +177,10 @@ namespace Compare
             Console.WriteLine("=== Summary ===");
             foreach(var entry in analysisStats)
             {
-                Console.WriteLine("{0}, {1}, {2}", entry.Key, entry.Value.PassThrough, entry.Value.TotalColumns);
+                var data = entry.Value;
+                Console.WriteLine("{0}, {1}, {2}, {3}, {4}, {5}", entry.Key, data.PassThrough, 
+                                data.TotalOutputColumns, data.TotalInputColumns, 
+                                data.TotalSchemaOutputs, data.TotalSchemaInputs);
             }
 
             return 0; // success
