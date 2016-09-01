@@ -11,7 +11,7 @@ namespace ScopeProgramAnalysis
     public static class ScopeTypes
     {
         private const string scopeNameSpace = "ScopeRuntime";
-        private const string scopeAssembly = "CodeUnderTest"; //"ScopeRuntime";
+        private const string scopeAssembly = "ScopeRuntime"; // "CodeUnderTest"; 
 
         private static readonly ICollection<BasicType> scopeTypes = new List<BasicType>();
         public static readonly BasicType Producer = New(scopeAssembly, scopeNameSpace, "Producer", TypeKind.ReferenceType);
