@@ -19,30 +19,51 @@ namespace ScopeAnalysisBulkScripts
 
         static void Main(string[] args)
         {
+            var doOnlyPassthrough = true;
+            var doAnalysis = !doOnlyPassthrough;
+
             var analysisClient = @"C:\Users\t-diga\Source\Repos\rudder-github\AnalysisClient\bin\Debug\AnalysisClient.exe";
             var outputAnalyzer = @"C:\Users\t-diga\Source\Repos\rudder-github\CompareAnalysisOutput\Compare\bin\Debug\Compare.exe";
 
+
             var inputFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            if(doOnlyPassthrough)
+            {
+                inputFolder = @"C:\temp\Madam";
+            }
+            //inputFolder = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
             //var inputFolder = @"D:\Madam3";
             //inputFolder = @"C:\temp\Madam";
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
             var outputFolder = @"C:\Temp\Madam";
+            //outputFolder = @"C:\Temp\Mike100";
             //outputFolder = @"C:\temp\ZvoList";
 
             var logPath = outputFolder;
 
             var bulkAnalysis = new BulkAnalysis();
 
+
             //var dllList = bulkAnalysis.LoadListFromFile(inputList);
-            var dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
-            //var dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
+            IList<string> dllList;
+            if(doOnlyPassthrough)
+            {
+                dllList = bulkAnalysis.LoadSarifFromDirectory(inputFolder);
+            }
+            else
+            {
+                dllList = bulkAnalysis.LoadFromDirectory(inputFolder);
+            }
 
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
+            if (doAnalysis)
+            {
+                bulkAnalysis.ProcessDLLs(dllList, analysisClient, outputFolder, outputFolder);
+            }
 
             stopWatch.Stop();
             TimeSpan ts = stopWatch.Elapsed;
@@ -50,7 +71,7 @@ namespace ScopeAnalysisBulkScripts
             stopWatch.Reset();
             stopWatch.Start();
 
-            bulkAnalysis.AnalyzeOutput(dllList, outputAnalyzer, outputFolder);
+            bulkAnalysis.AnalyzeOutput(dllList, outputAnalyzer, outputFolder, doOnlyPassthrough);
 
             //analysisFolder = @"D:\MadanExamples\";
             ///AnalyzeScopeScripts(new string[] { analysisFolder, @"C:\Temp\", "Reducer" });
@@ -98,7 +119,7 @@ namespace ScopeAnalysisBulkScripts
         private IList<string> LoadSarifFromDirectory(string inputFolder)
         {
             const string inputDllName = "*.sarif";
-            string[] files = Directory.GetFiles(inputFolder, inputDllName, SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(inputFolder, inputDllName, SearchOption.TopDirectoryOnly);
             return files;
         }
         private void ProcessDLLs(IList<string> inputs, string scopeAnalyzerPath, string outputFolder, string logFolder)
@@ -140,7 +161,7 @@ namespace ScopeAnalysisBulkScripts
 
         }
 
-        private void AnalyzeOutput(IList<string> inputs, string outputAnalyzerPath, string outputFolder)
+        private void AnalyzeOutput(IList<string> inputs, string outputAnalyzerPath, string outputFolder, bool doOnlyPassthrough)
         {
             var tasks = new List<Task>();
             for (int j = 0; j < inputs.Count; j++)
@@ -151,9 +172,16 @@ namespace ScopeAnalysisBulkScripts
                 {
                     var folder = Path.GetDirectoryName(input);
                     string[] directories = folder.Split(Path.DirectorySeparatorChar);
-                    var sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
-                    //var sarifFilePath = input;
-
+                    string sarifFilePath;
+                    if (doOnlyPassthrough)
+                    {
+                        sarifFilePath = input;
+                    }
+                    else
+                    {
+                        sarifFilePath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+                    }
+                        
                     var comparerProcess = new Process();
                     comparerProcess.StartInfo.FileName = outputAnalyzerPath;
                     comparerProcess.StartInfo.Arguments = String.Format("{0}", sarifFilePath);
