@@ -43,6 +43,7 @@ namespace ScopeProgramAnalysis
 
         public static int TotalMethods { get; set; }
         public static int TotalProducers { get; set; }
+        public static int TotalMethodsNotFound { get; set; }
 
         public static int TotalofFrameworkErrors { get; set; }
         public static int TotalofPTAErrors{ get; set; }
@@ -67,7 +68,8 @@ namespace ScopeProgramAnalysis
             output.WriteLine("Dlls Found: {0}", TotalDllsFound);
             output.WriteLine("Dlls Fail to Load: {0}", TotalDllsFailedToLoad);
             output.WriteLine("Showing the first 10...: {0}", String.Join(", ", DllThatFailedToLoad.Take(Math.Min(10,DllThatFailedToLoad.Count()))));
-            output.WriteLine("Total Methods: {0}", TotalMethods);
+            output.WriteLine("Total Methods Resolved: {0}", TotalMethods);
+            output.WriteLine("Total Methods Unsolved: {0}", TotalMethodsNotFound);
             //output.WriteLine("Total Producers: {0}", TotalProducers);
             output.WriteLine("Total Depencency Analysis errors: {0}", TotalofDepAnalysisErrors);
             output.WriteLine("Total PTA errors: {0}", TotalofPTAErrors);

@@ -511,6 +511,8 @@ namespace ScopeProgramAnalysis
                 resultEmpty.Id = "Summary";
                 resultEmpty.SetProperty("Inputs", "_TOP_");
                 resultEmpty.SetProperty("Outputs", "_TOP_");
+                resultEmpty.SetProperty("SchemaInputs", "_TOP_");
+                resultEmpty.SetProperty("SchemaOutputs", "_TOP_");
                 results.Add(resultEmpty);
             }
 
@@ -626,6 +628,10 @@ namespace ScopeProgramAnalysis
                                 }
                             }
                         }
+                    }
+                    else
+                    {
+                        AnalysisStats.TotalMethodsNotFound++;
                     }
                 }
                 catch (Exception e)
