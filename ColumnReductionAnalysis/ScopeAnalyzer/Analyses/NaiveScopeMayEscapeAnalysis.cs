@@ -395,6 +395,7 @@ namespace ScopeAnalyzer.Analyses
             // to closure field definitions and that can be potentialy unsafe.
             var frefs = cfg.FieldAccesses();
             fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Contains(f.Item2.Resolve(host))).AsEnumerable();
+            //fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Any(fd => fd.InternedKey == f.Item2.InternedKey));
 
             var vars = cfg.GetVariables();
             varsToTrack = vars.Where(v => PossiblyRow(v.Type)).ToList();

@@ -1003,7 +1003,7 @@ namespace ScopeAnalyzer.Analyses
             {
                 foreach(var fd in parent.ClosureFieldDefinitions)
                 {
-                    if (fd == fdef || fd.Equals(fdef))
+                    if (fd == fdef || fd.Equals(fdef) /*|| fd.InternedKey == fdef.InternedKey*/)
                         return true;
                 }
 
