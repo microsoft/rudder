@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace ScopeProgramAnalysis.Framework
 {
-    class MyLoader : Loader
+    public class MyLoader : Loader
     {
         private string assemblyFolder;
         private string assemblyParentFolder;
@@ -141,7 +141,7 @@ namespace ScopeProgramAnalysis.Framework
 
     }
 
-    class MyHost : Host
+    public class MyHost : Host
     {
         public MyLoader Loader { get; set; }
 

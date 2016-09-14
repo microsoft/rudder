@@ -13,5 +13,12 @@ namespace SimpleTests
             var t = typeof(CopyProcessor);
             var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, false, false, null);
         }
+        [TestMethod]
+        public void TestMethod2()
+        {
+            var t = typeof(CopyProcessor);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+
+        }
     }
 }
