@@ -97,11 +97,11 @@ namespace ScopeProgramAnalysis
             // Example 2
             //string input = Path.Combine(zvonimirDirectory, @"0ce5ea59-dec8-4f6f-be08-0e0746e12515\CdpLogCache.Scopelib.dll");
             // Example 3
-            input = Path.Combine(zvonimirDirectory, @"10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll");
+            //input = Path.Combine(zvonimirDirectory, @"10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll");
             // Example 4
             //input = Path.Combine(zvonimirDirectory, @"2407f5f1-0930-4ce5-88d3-e288a86e54ca\__ScopeCodeGen__.dll");
             // Example 5
-            input = Path.Combine(zvonimirDirectory, @"3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll");
+            //input = Path.Combine(zvonimirDirectory, @"3b9f1ec4-0ad8-4bde-879b-65c92d109159\__ScopeCodeGen__.dll");
 
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll";
             //const string input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\10c15390-ea74-4b20-b87e-3f3992a130c0\__ScopeCodeGen__.dll";
@@ -147,11 +147,17 @@ namespace ScopeProgramAnalysis
             //input = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan\0c92351b-f81e-4da1-91c3-930c7778fac6\__ScopeCodeGen__.dll";
 
             // Has 27 passthrough out of 31 out
-            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02c4581e-781a-4798-8875-162b4d740b5f\__ScopeCodeGen__.dll";
+            //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02c4581e-781a-4798-8875-162b4d740b5f\__ScopeCodeGen__.dll";
 
             // Can not find methods in the factory
-            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
+            //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
 
+            const string madansDirectory = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            //input = Path.Combine(madansDirectory, @"01dc7d9c-f0bf-44b3-9228-9d22dda03e5d\__ScopeCodeGen__.dll"); //PassThroughReducer
+            input = Path.Combine(madansDirectory, @"2968e7c3-33a0-4a93-8ac8-81cd105bdbc4\__ScopeCodeGen__.dll"); // WindowsLoginSessionPathComputedColumnProcessor
+            //input = Path.Combine(madansDirectory, @"11f04fe1-fa82-4de6-9557-e54a82f88e5a\__ScopeCodeGen__.dll"); // LiveIDStructuredStreamDecompileProcessor
+            //input = Path.Combine(madansDirectory, @"2c0e5058-12a9-4fee-a36f-1b036f85aaee\__ScopeCodeGen__.dll"); // TopNReducer
+            //input = Path.Combine(madansDirectory, @"30b000af-f6ad-413e-9b27-00f5b63aff1f\__ScopeCodeGen__.dll"); // ConfigurablePassThroughReducer
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -176,9 +182,9 @@ namespace ScopeProgramAnalysis
 
         private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
         {
-            var folder = Path.GetDirectoryName(input);
-            var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
-            referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
+            //var folder = Path.GetDirectoryName(input);
+            //var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
+            //referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
             return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
         }
 
@@ -218,9 +224,9 @@ namespace ScopeProgramAnalysis
         }
 
 
-       public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
 
-                                      bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             MyHost host;
             ScopeProgramAnalysis program;
@@ -271,96 +277,77 @@ namespace ScopeProgramAnalysis
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
             }
 
-
-            if (scopeMethodPairs.Any())
+            if (!scopeMethodPairs.Any())
             {
-                var log = CreateSarifOutput();
+                System.Console.WriteLine("No processors found in {0}", inputPath);
+                return null;
+            }
 
-                IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
-                if (useScopeFactory)
-                {
-                    allSchemas = program.ReadSchemasFromXML(inputPath);
-                }
-                else
-                {
-                    allSchemas = program.ReadSchemasFromXML2(inputPath);
-                }
+            var log = CreateSarifOutput();
 
-                foreach (var methodPair in scopeMethodPairs)
-                {
-                    AnalysisStats.TotalMethods++;
-
-                    var entryMethodDef = methodPair.Item1;
-                    var moveNextMethod = methodPair.Item2;
-                    var getEnumMethod = methodPair.Item3;
-                    System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
-
-                    Schema inputSchema = null;
-                    Schema outputSchema = null;
-                    Tuple<Schema, Schema> schemas;
-                    if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
-                    {
-                        inputSchema = schemas.Item1;
-                        outputSchema = schemas.Item2;
-                    }
-
-                    Run run;
-                    AnalysisReason errorReason;
-                    var ok = AnalyzeProcessor(inputPath, host, program.interprocAnalysisManager, program.factoryReducerMap, entryMethodDef, moveNextMethod, getEnumMethod, inputSchema, outputSchema, out run, out errorReason);
-                    if (ok)
-                    {
-                        log.Runs.Add(run);
-
-                        if (outputStream != null)
-                        {
-                            outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
-
-                            var resultSummary = run.Results.Where(r => r.Id == "Summary").FirstOrDefault();
-                            if (resultSummary != null) // BUG? What to do if it is null?
-                            {
-                                outputStream.WriteLine("Inputs: {0}", String.Join(", ", resultSummary.GetProperty("Inputs")));
-                                outputStream.WriteLine("Outputs: {0}", String.Join(", ", resultSummary.GetProperty("Outputs")));
-                            }
-                        }
-
-                    }
-                    else
-                    {
-                        System.Console.WriteLine("Could not analyze {0}", inputPath);
-                        System.Console.WriteLine("Reason: {0}\n", errorReason.Reason);
-
-                        AnalysisStats.TotalofDepAnalysisErrors++;
-                        AnalysisStats.AddAnalysisReason(errorReason);
-                    }
-
-                }
-                return log;
+            IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
+            if (useScopeFactory)
+            {
+                allSchemas = program.ReadSchemasFromXML(inputPath);
             }
             else
             {
-                System.Console.WriteLine("No method {0} of type {1} in {2}", program.MethodUnderAnalysisName, program.ClassFilters, inputPath);
-                return null;
+                allSchemas = program.ReadSchemasFromXML2(inputPath);
             }
+
+            foreach (var methodPair in scopeMethodPairs)
+            {
+                AnalysisStats.TotalMethods++;
+
+                var entryMethodDef = methodPair.Item1;
+                var moveNextMethod = methodPair.Item2;
+                var getEnumMethod = methodPair.Item3;
+                System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
+
+                Schema inputSchema = null;
+                Schema outputSchema = null;
+                Tuple<Schema, Schema> schemas;
+                if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
+                {
+                    inputSchema = schemas.Item1;
+                    outputSchema = schemas.Item2;
+                }
+
+                Run run;
+                AnalysisReason errorReason;
+                var ok = AnalyzeProcessor(inputPath, host, program.interprocAnalysisManager, program.factoryReducerMap, entryMethodDef, moveNextMethod, getEnumMethod, inputSchema, outputSchema, out run, out errorReason);
+                if (ok)
+                {
+                    log.Runs.Add(run);
+
+                    if (outputStream != null)
+                    {
+                        outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
+
+                        var resultSummary = run.Results.Where(r => r.Id == "Summary").FirstOrDefault();
+                        if (resultSummary != null) // BUG? What to do if it is null?
+                        {
+                            outputStream.WriteLine("Inputs: {0}", String.Join(", ", resultSummary.GetProperty("Inputs")));
+                            outputStream.WriteLine("Outputs: {0}", String.Join(", ", resultSummary.GetProperty("Outputs")));
+                        }
+                    }
+
+                }
+                else
+                {
+                    System.Console.WriteLine("Could not analyze {0}", inputPath);
+                    System.Console.WriteLine("Reason: {0}\n", errorReason.Reason);
+
+                    AnalysisStats.TotalofDepAnalysisErrors++;
+                    AnalysisStats.AddAnalysisReason(errorReason);
+                }
+
+            }
+            return log;
         }
 
         public static Run AnalyzeProcessor(Type processorType, string inputSchema, string outputSchema)
         {
-
-            var baseClass = processorType.BaseType;
-            string entryMethodName = null;
-            if (baseClass.Name == "Processor")
-            {
-                entryMethodName = "Process";
-            }
-            else if (baseClass.Name == "Reducer")
-            {
-                entryMethodName = "Reduce";
-            }
-            else
-            {
-                return null;
-            }
-
             var inputPath = processorType.Assembly.Location;
 
             MyHost host;
@@ -380,7 +367,37 @@ namespace ScopeProgramAnalysis
                 .SingleOrDefault();
             if (processorClass == null) return null;
 
+            // First, walk up the inheritance hierarchy until we find out whether this is a processor or a reducer.
+            string entryMethodName = null;
+            ClassDefinition baseClass = host.ResolveReference(processorClass.Base) as ClassDefinition;
+            while (entryMethodName == null)
+            {
+                var fullName = baseClass.GetFullName();
+                if (fullName == "ScopeRuntime.Processor")
+                {
+                    entryMethodName = "Process";
+                    break;
+                }
+                else if (fullName == "ScopeRuntime.Reducer")
+                {
+                    entryMethodName = "Reduce";
+                    break;
+                } else {
+                    baseClass = host.ResolveReference(baseClass.Base) as ClassDefinition;
+                    if (baseClass == null) break;
+                }
+            }
+            if (entryMethodName == null) return null;
+
+            // Now, find the entry method (potentially walking up the inheritance hierarchy again, stopping
+            // point is not necessarily the same as the class found in the walk above).
             var entryMethod = processorClass.Methods.Where(m => m.Name == entryMethodName).SingleOrDefault();
+            while (entryMethod == null)
+            {
+                processorClass = host.ResolveReference(processorClass.Base) as ClassDefinition;
+                if (processorClass == null) break;
+                entryMethod = processorClass.Methods.Where(m => m.Name == entryMethodName).SingleOrDefault();
+            }
             if (entryMethod == null) return null;
 
             var closureName = "<" + entryMethodName + ">";
@@ -688,6 +705,7 @@ namespace ScopeProgramAnalysis
 
             if (operationFactoryClass == null)
                 return new HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>>();
+
             // Hack: use actual ScopeRuntime Types
             var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal)
                             /*&& m.ReturnType.ToString() == this.ClassFilter*/);
@@ -712,6 +730,19 @@ namespace ScopeProgramAnalysis
 
                     if (resolvedEntryClass != null)
                     {
+                        // Need to climb the class hierarchy until we find a class with an entry method (i.e., Process or Reduce).
+                        var entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).SingleOrDefault();
+                        while (entryMethod == null)
+                        {
+                            resolvedEntryClass = host.ResolveReference(resolvedEntryClass.Base) as ClassDefinition;
+                            if (resolvedEntryClass == null) break;
+                            entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).SingleOrDefault();
+                        }
+                        if (entryMethod == null)
+                        {
+                            continue;
+                        }
+
                         if (processorsToAnalyze.Contains(resolvedEntryClass))
                             continue;
 
@@ -724,7 +755,6 @@ namespace ScopeProgramAnalysis
                             var getEnumMethods = candidateClousure.Methods
                                                         .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
                             var getEnumeratorMethod = getEnumMethods.Single();
-                            var entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
 
                             var moveNextMethods = candidateClousure.Methods
                                                         .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));

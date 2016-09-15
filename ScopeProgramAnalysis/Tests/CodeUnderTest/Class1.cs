@@ -67,4 +67,6 @@ namespace CodeUnderTest
         }
     }
 
+    public class SubtypeOfCopyProcessor : CopyProcessor { }
+
 }

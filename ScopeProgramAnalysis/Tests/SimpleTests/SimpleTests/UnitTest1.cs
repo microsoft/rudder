@@ -20,5 +20,20 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
         }
+        [TestMethod]
+        public void TestMethod3()
+        {
+            var t = typeof(AddOneColumnProcessor);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string, NewColumn: string");
+
+        }
+
+        [TestMethod]
+        public void TestMethod4()
+        {
+            var t = typeof(SubtypeOfCopyProcessor);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+
+        }
     }
 }
