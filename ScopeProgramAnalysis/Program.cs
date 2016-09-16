@@ -149,13 +149,13 @@ namespace ScopeProgramAnalysis
             //input = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan\0c92351b-f81e-4da1-91c3-930c7778fac6\__ScopeCodeGen__.dll";
 
             // Has 27 passthrough out of 31 out
-            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02c4581e-781a-4798-8875-162b4d740b5f\__ScopeCodeGen__.dll";
+            //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02c4581e-781a-4798-8875-162b4d740b5f\__ScopeCodeGen__.dll";
 
             // Can not find methods in the factory
             //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
 
             const string madansDirectory = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            //input = Path.Combine(madansDirectory, @"01dc7d9c-f0bf-44b3-9228-9d22dda03e5d\__ScopeCodeGen__.dll"); //PassThroughReducer
+            input = Path.Combine(madansDirectory, @"01dc7d9c-f0bf-44b3-9228-9d22dda03e5d\__ScopeCodeGen__.dll"); //PassThroughReducer
             //input = Path.Combine(madansDirectory, @"2968e7c3-33a0-4a93-8ac8-81cd105bdbc4\__ScopeCodeGen__.dll"); // WindowsLoginSessionPathComputedColumnProcessor
             //input = Path.Combine(madansDirectory, @"11f04fe1-fa82-4de6-9557-e54a82f88e5a\__ScopeCodeGen__.dll"); // LiveIDStructuredStreamDecompileProcessor
             //input = Path.Combine(madansDirectory, @"2c0e5058-12a9-4fee-a36f-1b036f85aaee\__ScopeCodeGen__.dll"); // TopNReducer
@@ -176,6 +176,7 @@ namespace ScopeProgramAnalysis
             outputStream.WriteLine("End.");
             outputStream.Flush();
 
+            Console.WriteLine("Finished. Press any key to exit.");
             System.Console.ReadKey();
 
         }
@@ -261,9 +262,10 @@ namespace ScopeProgramAnalysis
             program.MethodUnderAnalysisName = "MoveNext";
 
             IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodTuples;
+            List<Tuple<ClassDefinition, string>> errorMessages;
             if (useScopeFactory)
             {
-                scopeMethodTuples = program.ObtainScopeMethodsToAnalyze(assembly);
+                scopeMethodTuples = program.ObtainScopeMethodsToAnalyze(assembly, out errorMessages);
                 if (!scopeMethodTuples.Any())
                 {
                     if (outputStream != null)
@@ -277,15 +279,22 @@ namespace ScopeProgramAnalysis
             else
             {
                 scopeMethodTuples = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
+                errorMessages = new List<Tuple<ClassDefinition, string>>();
             }
 
-            if (!scopeMethodTuples.Any())
+            if (!scopeMethodTuples.Any() && errorMessages.Count == 0)
             {
                 System.Console.WriteLine("No processors found in {0}", inputPath);
                 return null;
             }
 
             var log = CreateSarifOutput();
+
+            foreach (var errorMessage in errorMessages)
+            {
+                var r = CreateRun(inputPath, errorMessage.Item1.GetFullName(), errorMessage.Item2, new List<Result>());
+                log.Runs.Add(r);
+            }
 
             IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
             if (useScopeFactory)
@@ -739,8 +748,10 @@ namespace ScopeProgramAnalysis
         /// 4) the MoveNextMethod that contains the actual reducer/producer code
         /// </summary>
         /// <returns></returns>
-        private IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze(Assembly assembly)
+        private IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze(Assembly assembly, out List<Tuple<ClassDefinition, string>> errorMessages)
         {
+            errorMessages = new List<Tuple<ClassDefinition, string>>();
+
             var processorsToAnalyze = new HashSet<ClassDefinition>();
 
             var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>>();
@@ -776,24 +787,36 @@ namespace ScopeProgramAnalysis
                     if (reducerClassDefinition != null)
                     {
                         var entryMethod = FindEntryMethod(host, reducerClassDefinition);
-                        if (entryMethod == null) continue;
+                        if (entryMethod == null)
+                        {
+                            errorMessages.Add(Tuple.Create(reducerClassDefinition, "Entry method not found"));
+                            continue;
+                        }
                         var containingType = entryMethod.ContainingType as ClassDefinition;
-                        if (containingType == null) continue;
+                        if (containingType == null)
+                        {
+                            continue;
+                        }
 
                         if (processorsToAnalyze.Contains(containingType))
                             continue;
 
                         processorsToAnalyze.Add(containingType);
 
-                        var candidateClousures = containingType.Types.OfType<ClassDefinition>()
+                        var candidateClosures = containingType.Types.OfType<ClassDefinition>()
                                        .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
-                        foreach (var candidateClousure in candidateClousures)
+                        if (!candidateClosures.Any())
                         {
-                            var getEnumMethods = candidateClousure.Methods
+                            errorMessages.Add(Tuple.Create(reducerClassDefinition, "Iterator not found"));
+                            continue;
+                        }
+                        foreach (var candidateClosure in candidateClosures)
+                        {
+                            var getEnumMethods = candidateClosure.Methods
                                                         .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
                             var getEnumeratorMethod = getEnumMethods.Single();
 
-                            var moveNextMethods = candidateClousure.Methods
+                            var moveNextMethods = candidateClosure.Methods
                                                         .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));
                             foreach (var moveNextMethod in moveNextMethods)
                             {
