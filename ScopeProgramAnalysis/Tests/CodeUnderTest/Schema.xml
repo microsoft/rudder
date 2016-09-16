@@ -9,6 +9,14 @@
 ]]>
       </ReflectedScopeScript>
     </operator>
+    <operator id="Process_2" uid="5" assemblyName="__ScopeCodeGen__.dll" className="SubtypeOfCopyProcessor">
+      <input id="Process_1_Data0" uid="4" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <output id="Process_2_Data0" uid="6" schema="JobGUID:string,SubmitTime:DateTime?" />
+      <ReflectedScopeScript>
+        <![CDATA[_var_100004_PROCESS = PROCESS _var_100003_TRANSFORM PRODUCE JobGUID, SubmitTime USING CopyProcessor();
+]]>
+      </ReflectedScopeScript>
+    </operator>
     <operator id="Process_3" uid="7" assemblyName="__ScopeCodeGen__.dll" className="ModifyExistingColumnProcessor">
       <input id="Process_2_Data0" uid="6" schema="JobGUID:string,SubmitTime:DateTime?" />
       <output id="Process_3_Data0" uid="8" schema="JobGUID:string,SubmitTime:DateTime?" />
