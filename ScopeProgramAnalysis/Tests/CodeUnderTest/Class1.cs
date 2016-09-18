@@ -69,4 +69,20 @@ namespace CodeUnderTest
 
     public class SubtypeOfCopyProcessor : CopyProcessor { }
 
+    public class ProcessReturningMethodCall : Processor
+    {
+        public override Schema Produces(string[] requested_columns, string[] args, Schema input_schema)
+        {
+            var output_schema = input_schema.CloneWithSource();
+            return output_schema;
+        }
+
+        private IEnumerable<Row> Foo() { return null; }
+
+        public override IEnumerable<Row> Process(RowSet input_rowset, Row output_row, string[] args)
+        {
+            return Foo();
+        }
+
+    }
 }

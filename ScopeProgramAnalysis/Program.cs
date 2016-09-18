@@ -377,26 +377,44 @@ namespace ScopeProgramAnalysis
                 .OfType<ClassDefinition>()
                 .Where(c => c.Name == processorName)
                 .SingleOrDefault();
-            if (processorClass == null) return null;
-
-
+            if (processorClass == null)
+            {
+                return CreateRun(inputPath, processorName, "Processor class not found", new List<Result>());
+            }
             var entryMethod = FindEntryMethod(host, processorClass);
-            if (entryMethod == null) return null;
+            if (entryMethod == null)
+            {
+                return CreateRun(inputPath, processorName, "Entry method not found", new List<Result>());
+            }
 
             var closureName = "<" + entryMethod.Name + ">";
             var containingType = entryMethod.ContainingType as ClassDefinition;
-            if (containingType == null) return null;
+            if (containingType == null)
+            {
+                return CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
+            }
             var closureClass = containingType.Members.OfType<ClassDefinition>().Where(c => c.Name.StartsWith(closureName)).SingleOrDefault();
-            if (closureClass == null) return null;
+            if (closureClass == null)
+            {
+                return CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
+            }
 
             var moveNextMethod = closureClass.Methods.Where(m => m.Name == "MoveNext").SingleOrDefault();
             if (moveNextMethod == null) return null;
+            if (moveNextMethod == null)
+            {
+                return CreateRun(inputPath, processorName, "MoveNext method not found", new List<Result>());
+            }
 
             var getEnumMethod = closureClass
                 .Methods
                 .Where(m => m.Name.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.EndsWith(">.GetEnumerator"))
                 .SingleOrDefault();
             if (getEnumMethod == null) return null;
+            if (getEnumMethod == null)
+            {
+                return CreateRun(inputPath, processorName, "GetEnumerator method not found", new List<Result>());
+            }
 
             var inputColumns = ParseColumns(inputSchema);
             var outputColumns = ParseColumns(outputSchema);
@@ -404,8 +422,14 @@ namespace ScopeProgramAnalysis
             var o = new Schema(outputColumns);
 
             var ok = AnalyzeProcessor(inputPath, host, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethod, moveNextMethod, getEnumMethod, i, o, out run, out errorReason);
-            if (ok) return run;
-            else return null;
+            if (ok)
+            {
+                return run;
+            }
+            else
+            {
+                return CreateRun(inputPath, processorName, errorReason.Reason, new List<Result>());
+            }
         }
 
         /// <summary>

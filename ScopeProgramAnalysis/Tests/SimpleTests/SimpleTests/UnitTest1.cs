@@ -1,6 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using static ScopeProgramAnalysis.ScopeProgramAnalysis;
 using CodeUnderTest;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SimpleTests
 {
@@ -33,7 +35,19 @@ namespace SimpleTests
         {
             var t = typeof(SubtypeOfCopyProcessor);
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
-
         }
+
+
+        [TestMethod]
+        public void ReturnMethodCall()
+        {
+            var t = typeof(ProcessReturningMethodCall);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.Id == "ProcessReturningMethodCall");
+            Assert.IsTrue(run.ToolNotifications.Count == 1);
+            Assert.IsTrue(run.ToolNotifications[0].Message == "Closure class not found");
+        }
+
     }
 }
