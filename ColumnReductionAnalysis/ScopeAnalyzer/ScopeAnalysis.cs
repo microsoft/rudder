@@ -192,7 +192,7 @@ namespace ScopeAnalyzer
                 // We analyze only (interesting) processor methods.
                 if (IsInterestingProcessor(methodDefinition))
                 {
-                    Utils.WriteLine("\n--------------------------------------------------\n");
+                    Utils.WriteLine("\n--------------------------------------------------");
                     Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
 
                     // Create CFG and run basic analyses, such as copy-propagation.
@@ -225,7 +225,7 @@ namespace ScopeAnalyzer
                   
                     Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
                     Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
-                    Utils.WriteLine("\n--------------------------------------------------\n");                  
+                    Utils.WriteLine("\n--------------------------------------------------");                  
                 } 
                 else
                 {
@@ -258,7 +258,7 @@ namespace ScopeAnalyzer
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
             //Utils.WriteLine(results.EscapeSummary.ToString());
             Utils.WriteLine("Something escaped: " + escAnalysis.InterestingRowEscaped);
-            Utils.WriteLine("Done with escape analysis\n");          
+            Utils.WriteLine("Done with escape analysis");          
             return escAnalysis;
         }
 
@@ -275,7 +275,7 @@ namespace ScopeAnalyzer
             var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost, schemaTypes);
             results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
             //Utils.WriteLine(results.CPropagationSummary.ToString());
-            Utils.WriteLine("Done with constant propagation set analysis\n");
+            Utils.WriteLine("Done with constant propagation set analysis");
             return cpsAnalysis;
         }
 
@@ -302,7 +302,7 @@ namespace ScopeAnalyzer
             }
 
             Utils.WriteLine(results.UsedColumnsSummary.ToString());
-            Utils.WriteLine("Done with used columns analysis\n");
+            Utils.WriteLine("Done with used columns analysis");
             return clsAnalysis;
         }
 

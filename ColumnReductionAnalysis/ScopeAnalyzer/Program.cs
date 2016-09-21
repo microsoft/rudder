@@ -9,6 +9,7 @@ using Frontend;
 using Backend;
 using System.Xml.Linq;
 using ScopeAnalyzer.Misc;
+using System.Text;
 
 namespace ScopeAnalyzer
 {
@@ -74,64 +75,64 @@ namespace ScopeAnalyzer
 
         public override string ToString()
         {
-            string summary = String.Empty;
-            summary += "Assemblies: " + Assemblies + "\n";
-            summary += "Assemblies loaded: " + AssembliesLoaded + "\n";
-            summary += "\n";
-            summary += "Methods: " + Methods + "\n";
-            summary += "Methods failed: " + FailedMethods + "\n";
-            summary += "\n";
-            summary += "Interesting methods (not failed): " + InterestingMethods + "\n";
-            summary += "Unsupported feature methods: " + UnsupportedMethods + "\n";
-            summary += "\n";
-            summary += "Concrete-columns-found methods: " + NotColumnDummies + "\n";
-            summary += "\n";
-            summary += "Concrete methods successfully mapped: " + Mapped + "\n";
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(String.Format("Assemblies: {0}", Assemblies));
+            sb.AppendLine(String.Format("Assemblies loaded: {0}", AssembliesLoaded));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Methods: {0}", Methods));
+            sb.AppendLine(String.Format("Methods failed: {0}", FailedMethods));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Interesting methods (not failed): {0}", InterestingMethods));
+            sb.AppendLine(String.Format("Unsupported feature methods: {0}", UnsupportedMethods));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Concrete-columns-found methods: {0}", NotColumnDummies));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Concrete methods successfully mapped: {0}", Mapped));
 
-            summary += "Union unused: " + UnionColumnsUnused + "\n";
-            summary += "Union all used: " + UnionColumnsAllUsed + "\n";
-            summary += "Union superset (warnings): " + Warnings + "\n";
-            summary += "\n";           
-            summary += "Union columns average count savings: " + (UnionColumnsUnused == 0 ? 0 : UnionColumnsSavings / (double)UnionColumnsUnused) + "\n";          
-            summary += "Union columns average count percentage savings: " + (UnionColumnsUnused == 0? 0: UnionColumnsSavingsPercentages/(double) UnionColumnsUnused) + "\n";        
-            //summary += "Union columns average byte savings: " + (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavings / (double)UnionColumnsUnused) + "\n";          
-            //summary += "Union columns average byte percentage savings: " + (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavingsPercentages / (double)UnionColumnsUnused) + "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("Union unused: {0}", UnionColumnsUnused));
+            sb.AppendLine(String.Format("Union all used: {0}", UnionColumnsAllUsed));
+            sb.AppendLine(String.Format("Union superset (warnings): {0}", Warnings));
+            sb.AppendLine();           
+            sb.AppendLine(String.Format("Union columns average count savings: {0}", (UnionColumnsUnused == 0 ? 0 : UnionColumnsSavings / (double)UnionColumnsUnused)));          
+            sb.AppendLine(String.Format("Union columns average count percentage savings: {0}", (UnionColumnsUnused == 0? 0: UnionColumnsSavingsPercentages/(double) UnionColumnsUnused)));        
+            //sb.AppendLine(String.Format("Union columns average byte savings: {0}", (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavings / (double)UnionColumnsUnused)));          
+            //sb.AppendLine(String.Format("Union columns average byte percentage savings: {0}", (UnionColumnsUnused == 0 ? 0 : InputColumnsByteSavingsPercentages / (double)UnionColumnsUnused)));
+            sb.AppendLine();
 
-            summary += "Input unused: " + InputColumnsUnused + "\n";
-            summary += "Input all used: " + InputColumnsAllUsed + "\n";
-            summary += "\n";
-            summary += "Input columns average count savings: " + (InputColumnsUnused == 0 ? 0 : InputColumnsSavings / (double)InputColumnsUnused) + "\n";
-            summary += "Input columns average count percentage savings: " + (InputColumnsUnused == 0 ? 0 : InputColumnsSavingsPercentages / (double)InputColumnsUnused) + "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("Input unused: {0}", InputColumnsUnused));
+            sb.AppendLine(String.Format("Input all used: {0}", InputColumnsAllUsed));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Input columns average count savings: {0}", (InputColumnsUnused == 0 ? 0 : InputColumnsSavings / (double)InputColumnsUnused)));
+            sb.AppendLine(String.Format("Input columns average count percentage savings: {0}", (InputColumnsUnused == 0 ? 0 : InputColumnsSavingsPercentages / (double)InputColumnsUnused)));
+            sb.AppendLine();
 
-            summary += "Output unused: " + OutputColumnsUnused + "\n";
-            summary += "Output all used: " + OutputColumnsAllUsed + "\n";
-            summary += "\n";
-            summary += "Output columns average count savings: " + (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavings / (double)OutputColumnsUnused) + "\n";
-            summary += "Output columns average count percentage savings: " + (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavingsPercentages / (double)OutputColumnsUnused) + "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("Output unused: {0}", OutputColumnsUnused));
+            sb.AppendLine(String.Format("Output all used: {0}", OutputColumnsAllUsed));
+            sb.AppendLine();
+            sb.AppendLine(String.Format("Output columns average count savings: {0}", (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavings / (double)OutputColumnsUnused)));
+            sb.AppendLine(String.Format("Output columns average count percentage savings: {0}", (OutputColumnsUnused == 0 ? 0 : OutputColumnsSavingsPercentages / (double)OutputColumnsUnused)));
+            sb.AppendLine();
 
 
-            summary += "Used columns string accesses: " + ColumnStringAccesses + "\n";
-            summary += "Used columns index accesses: " + ColumnIndexAccesses + "\n";
-            summary += "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("Used columns string accesses: {0}", ColumnStringAccesses));
+            sb.AppendLine(String.Format("Used columns index accesses: {0}", ColumnIndexAccesses));
+            sb.AppendLine();
+            sb.AppendLine();
 
-            summary += "!Union columns count cumulative savings: " + UnionColumnsSavings + "\n";
-            summary += "!Union columns percentage count cumulative savings: " + UnionColumnsSavingsPercentages + "\n";
-            //summary += "!Union columns byte cumulative savings: " + InputColumnsByteSavings + "\n";
-            //summary += "!Union columns percentage byte cumulative savings: " + InputColumnsByteSavingsPercentages + "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("!Union columns count cumulative savings: {0}", UnionColumnsSavings));
+            sb.AppendLine(String.Format("!Union columns percentage count cumulative savings: {0}", UnionColumnsSavingsPercentages));
+            //sb.AppendLine(String.Format("!Union columns byte cumulative savings: {0}", InputColumnsByteSavings));
+            //sb.AppendLine(String.Format("!Union columns percentage byte cumulative savings: {0}", InputColumnsByteSavingsPercentages));
+            sb.AppendLine();
 
-            summary += "!Input columns count cumulative savings: " + InputColumnsSavings + "\n";
-            summary += "!Input columns percentage count cumulative savings: " + InputColumnsSavingsPercentages + "\n";
-            summary += "\n";
+            sb.AppendLine(String.Format("!Input columns count cumulative savings: {0}", InputColumnsSavings));
+            sb.AppendLine(String.Format("!Input columns percentage count cumulative savings: {0}", InputColumnsSavingsPercentages));
+            sb.AppendLine();
 
-            summary += "!Output columns count cumulative savings: " + OutputColumnsSavings + "\n";
-            summary += "!Output columns percentage count cumulative savings: " + OutputColumnsSavingsPercentages + "\n";
+            sb.AppendLine(String.Format("!Output columns count cumulative savings: {0}", OutputColumnsSavings));
+            sb.AppendLine(String.Format("!Output columns percentage count cumulative savings: {0}", OutputColumnsSavingsPercentages));
 
-            return summary;
+            return sb.ToString();
         }
     }
 
@@ -147,6 +148,17 @@ namespace ScopeAnalyzer
             {
                 Utils.WriteLine("Check README file in the project root.");
                 return;
+            }
+            if (options.BreakIntoDebugger)
+            {
+                if (Debugger.IsAttached)
+                {
+                    Debugger.Break();
+                }
+                else
+                {
+                    Debugger.Launch();
+                }
             }
 
             if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
@@ -183,7 +195,7 @@ namespace ScopeAnalyzer
             {
                 try
                 {
-                    Utils.WriteLine("\n====== Analyzing assembly: " + mAssembly.FileName + " =========\n");
+                    Utils.WriteLine("\n====== Analyzing assembly: " + mAssembly.FileName + " =========");
 
                     // If processor to id mapping and xml with id information are both available, 
                     // then we ask ScopeAnalysis to analyze only those processors mentioned in the mapping.
@@ -194,7 +206,7 @@ namespace ScopeAnalyzer
                     //Update the stats.
                     UpdateStats(analysis.Results, ref stats, vertexDef, processorIdMapping);
 
-                    Utils.WriteLine("\n====== Done analyzing the assembly  =========\n");
+                    Utils.WriteLine("\n====== Done analyzing the assembly  =========");
                 }
                 catch (ScopeAnalysis.MissingScopeMetadataException e)
                 {
