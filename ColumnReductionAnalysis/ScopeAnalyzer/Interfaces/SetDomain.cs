@@ -68,12 +68,12 @@ namespace ScopeAnalyzer.Interfaces
 
         public IReadOnlyCollection<T> Elements
         {
-            get { return elements.ToList().AsReadOnly(); }
+            get { return elements == null ? new List<T>().AsReadOnly() : elements.ToList().AsReadOnly(); }
         }
 
         public int Count
         {
-            get { return elements.Count; }
+            get { return elements == null ? -1 : elements.Count; }
         }
 
         public void SetTop()

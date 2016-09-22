@@ -1431,12 +1431,16 @@ namespace Backend.Analyses
 
                     //var inputTable = scopeData.GetTableFromSchemaMap(arg0).First(t => t.TableKind == ProtectedRowKind.Input); 
                     //var outputTable = scopeData.GetTableFromSchemaMap(arg1).First(t => t.TableKind == ProtectedRowKind.Output);
+                    var inputTable = TryToGetTable(arg0);
+                    var outputTable = TryToGetTable(arg1);
 
-                    if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
+                    //if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
+                    if(inputTable!=null && inputTable.TableKind==ProtectedRowKind.Input 
+                        && outputTable!=null && outputTable.TableKind==ProtectedRowKind.Output)
                     {
 
-                        var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
-                        var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Output);
+                        //var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
+                        //var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Output);
 
                         foreach (var column in inputSchema.Columns)
                         {
@@ -1458,23 +1462,13 @@ namespace Backend.Analyses
                     }
                     else
                     {
-                        // This is very conservative. I should wait until the end of the fixpoint
+                        // TODO: This is OVERLY conservative. I should wait until the end of the fixpoint
+                        // We need to check somehow at the end if the information has not propagated 
+                        // One option: remenber arg0 and arg1 and check at the end if they have traceables. 
+                        // If they have (because of SSA) they will be assigned only here
                         this.State.SetTOP();
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
                     }
-                    //var tables = this.State.GetTraceables(arg0);
-                    //var allColumns = Column.ALL;
-
-                    //// Create a fake column for the output table
-                    //var allColumnsVar = new TemporalVariable(arg1.Name + "_$all", 1) {Type = PlatformTypes.Void };
-
-                    //var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().Single(t => t.TableKind == ProtectedRowKind.Output);
-                    //this.State.AssignTraceables(allColumnsVar, new Traceable[] { new TraceableColumn(outputTable, allColumns) });
-                    //arg1 = allColumnsVar;
-                    //this.State.AddOutputTraceables(arg1, tables.OfType<TraceableTable>().Select( t => new TraceableColumn(t, allColumns)));
-                    ////
-                    //var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    //this.State.AddOutputControlTraceables(arg1, traceables);
                 }
                 else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
                 {
@@ -1644,6 +1638,28 @@ namespace Backend.Analyses
                     }
                     this.State.SetTOP();
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
+                }
+                return result;
+            }
+
+            TraceableTable TryToGetTable(IVariable arg)
+            {
+                TraceableTable result = null;
+
+                if (scopeData.HasTableForSchemaVar(arg))
+                {
+                    var tables = scopeData.GetTableFromSchemaMap(arg);
+                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var table = tables.OfType<TraceableTable>().FirstOrDefault();
+                    return table;
+                }
+                else
+                {
+                    if (this.State.HasTraceables(arg))
+                    {
+                        var table = this.State.GetTraceables(arg).OfType<TraceableTable>().FirstOrDefault(); // BUG: what if there are more than one?
+                        return table;
+                    }
                 }
                 return result;
             }

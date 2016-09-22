@@ -21,7 +21,7 @@ namespace ScopeProgramAnalysis
         }
         public AnalysisReason(MethodDefinition methodDef, IInstruction ins, string reason)
         {
-            this.MethodName = methodDef.ToSignatureString();
+            this.MethodName = methodDef.ContainingType.ContainingAssembly.Name + " " + methodDef.ContainingType.ContainingType.Name +  methodDef.ToSignatureString();
             this.Instruction = ins;
             this.Reason = reason;
         }

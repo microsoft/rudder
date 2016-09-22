@@ -37,37 +37,45 @@ namespace ScopeAnalyzer.Misc
 
         public bool AskingForHelp { get; }
 
-        private Options(string asmbPath, string refAssemblyPath, string outPath, string prcIdPath, string vrxPath, bool verbose, bool askhelp)
+        public bool BreakIntoDebugger { get; }
+
+        private Options(string asmbPath, string refAssemblyPath, string outPath, string prcIdPath, string vrxPath, bool verbose, bool askhelp, bool breakIntoDebugger)
         {
             mainAssembliesPath = asmbPath;
 
-            if (mainAssembliesPath.EndsWith(".dll") || mainAssembliesPath.EndsWith(".exe"))
+            if (!askhelp)
             {
-                mainAssemblies = new List<string>() { Path.GetFullPath(mainAssembliesPath) };
+                if (mainAssembliesPath.EndsWith(".dll") || mainAssembliesPath.EndsWith(".exe"))
+                {
+                    mainAssemblies = new List<string>() { Path.GetFullPath(mainAssembliesPath) };
+                }
+                else
+                {
+                    mainAssemblies = Utils.CollectAssemblies(mainAssembliesPath);
+                }
             }
-            else
-            {
-                mainAssemblies = Utils.CollectAssemblies(mainAssembliesPath);
-            }
-
             referenceAssembliesPath = refAssemblyPath;
             if (referenceAssembliesPath != null)
                 referenceAssemblies = Utils.CollectAssemblies(referenceAssembliesPath);
 
             outputPath = outPath;
             processorIdPath = prcIdPath;
-         
-            if (vrxPath != null)
+
+            if (!askhelp)
             {
-                vertexDefPath = vrxPath;
-            }
-            else
-            {
-                vertexDefPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.VERTEX_DEF_NAME;
+                if (vrxPath != null)
+                {
+                    vertexDefPath = vrxPath;
+                }
+                else
+                {
+                    vertexDefPath = Path.GetFullPath(Path.GetDirectoryName(mainAssembliesPath)) + "\\" + Utils.VERTEX_DEF_NAME;
+                }
             }
 
             Verbose = verbose;
             AskingForHelp = askhelp;
+            BreakIntoDebugger = breakIntoDebugger;
         }
 
         public static Options ParseCommandLineArguments(string[] args)
@@ -75,6 +83,7 @@ namespace ScopeAnalyzer.Misc
             string assembly = null, libs = null, output = null, processor = null, vertex = null;
             bool verbose = false;
             bool askhelp = false;
+            bool breakIntoDebugger = false;
             foreach(var arg in args)
             {
                 if (arg.StartsWith("/assembly:")) assembly = arg.Split(new string[] { "/assembly:" }, StringSplitOptions.None)[1];
@@ -84,12 +93,13 @@ namespace ScopeAnalyzer.Misc
                 else if (arg.StartsWith("/vertexDef:")) vertex = arg.Split(new string[] { "/vertexDef:" }, StringSplitOptions.None)[1];
                 else if (arg.Trim() == "/verbose") verbose = true;
                 else if (arg.Trim() == "/help") askhelp = true;
+                else if (arg.Trim() == "/break") breakIntoDebugger = true;
             }
 
-            if (assembly == null)
+            if (!askhelp && assembly == null)
                 throw new ParsingOptionsException("No given assembly to analyze!");
 
-            return new Options(assembly, libs, output, processor, vertex, verbose, askhelp);
+            return new Options(assembly, libs, output, processor, vertex, verbose, askhelp, breakIntoDebugger);
         }
 
 

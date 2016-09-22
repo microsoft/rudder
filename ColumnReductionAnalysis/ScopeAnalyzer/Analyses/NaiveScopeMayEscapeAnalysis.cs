@@ -72,7 +72,7 @@ namespace ScopeAnalyzer.Analyses
 
         public override string ToString()
         {
-            string summary = "May escape information about variables:\n";
+            string summary = "May escape information about variables:\r\n";
             foreach (var v in mapping.Keys)
             {
                 summary += String.Format("\t{0} ({1}): {2}\n", v.Name, v.Type, mapping[v]);
@@ -140,10 +140,10 @@ namespace ScopeAnalyzer.Analyses
 
         public override string ToString()
         {
-            string summary = "May escape information about fields:\n";
+            string summary = "May escape information about fields:\r\n";
             foreach (var f in mapping.Keys)
             {
-                summary += String.Format("\t{0} ({1}): {2}\n", f.ToExpression().ToString(), f.Type, mapping[f]);
+                summary += String.Format("\t{0} ({1}): {2}\r\n", f.ToExpression().ToString(), f.Type, mapping[f]);
             }
             return summary;
         }
@@ -260,7 +260,7 @@ namespace ScopeAnalyzer.Analyses
 
         public override string ToString()
         {
-            return fset.ToString() + "\n" + vset.ToString();
+            return fset.ToString() + "\r\n" + vset.ToString();
         }
 
         public override int GetHashCode()
@@ -395,6 +395,7 @@ namespace ScopeAnalyzer.Analyses
             // to closure field definitions and that can be potentialy unsafe.
             var frefs = cfg.FieldAccesses();
             fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Contains(f.Item2.Resolve(host))).AsEnumerable();
+            //fieldsToTrack = frefs.Where(f => f.Item2 != null && fieldDefinitions.Any(fd => fd.InternedKey == f.Item2.InternedKey));
 
             var vars = cfg.GetVariables();
             varsToTrack = vars.Where(v => PossiblyRow(v.Type)).ToList();

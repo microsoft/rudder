@@ -299,12 +299,12 @@ namespace ScopeAnalyzer.Analyses
             string summary = String.Empty;
             foreach(var v in varMapping.Keys)
             {
-                summary += String.Format("{0} ({1}): {2}\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
+                summary += String.Format("{0} ({1}): {2}\r\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
             }
-            summary += "\n";
+            summary += "\r\n";
             foreach (var f in fieldMapping.Keys)
             {
-                summary += String.Format("{0} ({1}): {2}\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
+                summary += String.Format("{0} ({1}): {2}\r\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
             }
             return summary;
         }
@@ -316,14 +316,14 @@ namespace ScopeAnalyzer.Analyses
             {
                 if (varMapping[v].IsBottom || varMapping[v].IsTop) continue;
 
-                summary += String.Format("{0} ({1}): {2}\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
+                summary += String.Format("{0} ({1}): {2}\r\n", v.Name, (v.Type == null ? "unknown" : v.Type.FullName()), varMapping[v].ToString());
             }
-            summary += "\n";
+            summary += "\r\n";
             foreach (var f in fieldMapping.Keys)
             {
                 if (fieldMapping[f].IsBottom || fieldMapping[f].IsTop) continue;
 
-                summary += String.Format("{0} ({1}): {2}\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
+                summary += String.Format("{0} ({1}): {2}\r\n", f.Name, (f.Type == null ? "unknown" : f.Type.FullName()), fieldMapping[f].ToString());
             }
             return summary;
         }
@@ -1003,7 +1003,7 @@ namespace ScopeAnalyzer.Analyses
             {
                 foreach(var fd in parent.ClosureFieldDefinitions)
                 {
-                    if (fd == fdef || fd.Equals(fdef))
+                    if (fd == fdef || fd.Equals(fdef) /*|| fd.InternedKey == fdef.InternedKey*/)
                         return true;
                 }
 

@@ -50,7 +50,7 @@ namespace ScopeAnalyzer.Analyses
             string summary = String.Empty;
             foreach(var el in elements)
             {
-                summary += el.ToString() + "\n";
+                summary += el.ToString() + "\r\n";
             }
             return summary;
         }

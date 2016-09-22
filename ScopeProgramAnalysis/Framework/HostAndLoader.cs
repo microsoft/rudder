@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace ScopeProgramAnalysis.Framework
 {
-    class MyLoader : Loader
+    public class MyLoader : Loader
     {
         private string assemblyFolder;
         private string assemblyParentFolder;
@@ -44,7 +44,7 @@ namespace ScopeProgramAnalysis.Framework
                 }
                 catch (Exception e)
                 {
-//                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
+                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
                     failedAssemblies.Add(reference);
                     throw;
                 }
@@ -141,7 +141,7 @@ namespace ScopeProgramAnalysis.Framework
 
     }
 
-    class MyHost : Host
+    public class MyHost : Host
     {
         public MyLoader Loader { get; set; }
 

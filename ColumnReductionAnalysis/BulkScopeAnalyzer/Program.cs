@@ -32,6 +32,12 @@ namespace BulkScopeAnalyzer
 
             if (options.TracePath != null) Utils.SetOutput(options.TracePath);
 
+            if (!File.Exists(options.ScopeAnalyzerPath))
+            {
+                Utils.WriteLine("Cannot find ScopeAnalyzer.exe.");
+                return;
+            }
+
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
             DoParallel(options);
@@ -46,7 +52,7 @@ namespace BulkScopeAnalyzer
         static void DoParallel(Options options)
         { 
             var subdirs = Utils.GetSubDirectoriesPaths(options.ScopeDirPath);
-            Utils.WriteLine(String.Format("Creating tasks for {0} Scope projects...\n", subdirs.Length));
+            Utils.WriteLine(String.Format("Creating tasks for {0} Scope projects...", subdirs.Length));
 
             Utils.IsVerbose = options.Verbose;
             var tasks = new List<Task>();
@@ -90,7 +96,7 @@ namespace BulkScopeAnalyzer
             Utils.WriteLine("Skipped projects: " + skippedProjects);
             Utils.WriteLine(String.Format("Running analysis for {0} dlls...", tasks.Count));
             Task.WaitAll(tasks.ToArray());
-            Utils.WriteLine("Done with analysis, computing summary of the results...\n");
+            Utils.WriteLine("Done with analysis, computing summary of the results...");
 
             // Compute summary stats by calling respective python scripts.
             // TODO: implement the script functionalities in C#.
@@ -116,12 +122,12 @@ namespace BulkScopeAnalyzer
             string text = String.Empty;
             while (!mapStatsProcess.StandardOutput.EndOfStream)
             {
-                text += mapStatsProcess.StandardOutput.ReadLine() + "\n";
+                text += mapStatsProcess.StandardOutput.ReadLine() + "\r\n";
             }
             string err = String.Empty;
             while (!mapStatsProcess.StandardError.EndOfStream)
             {
-                err += mapStatsProcess.StandardError.ReadLine() + "\n";
+                err += mapStatsProcess.StandardError.ReadLine() + "\r\n";
             }
             mapStatsProcess.WaitForExit();
             Utils.WriteLine(text);
@@ -141,12 +147,12 @@ namespace BulkScopeAnalyzer
             string text = String.Empty;
             while (!genStatsProcess.StandardOutput.EndOfStream)
             {
-                text += genStatsProcess.StandardOutput.ReadLine() + "\n";
+                text += genStatsProcess.StandardOutput.ReadLine() + "\r\n";
             }
             string err = String.Empty;
             while (!genStatsProcess.StandardError.EndOfStream)
             {
-                err += genStatsProcess.StandardError.ReadLine() + "\n";
+                err += genStatsProcess.StandardError.ReadLine() + "\r\n";
             }
 
             genStatsProcess.WaitForExit();
@@ -165,7 +171,14 @@ namespace BulkScopeAnalyzer
             }
 
             // delete existing processor id mapping file
-            File.Delete(outpath);
+            var directory = Path.GetDirectoryName(outpath);
+            if (Directory.Exists(directory))
+            {
+                File.Delete(outpath);
+            } else
+            {
+                Directory.CreateDirectory(directory);
+            }
             
             Assembly asm;
             try
@@ -180,7 +193,7 @@ namespace BulkScopeAnalyzer
                 var summary = String.Empty;
                 foreach(var k in results.Keys)
                 {
-                    summary += k + "\t" + results[k] + "\n";
+                    summary += k + "\t" + results[k] + "\r\n";
                 }
 
                 using (StreamWriter file = new StreamWriter(outpath))
@@ -189,9 +202,10 @@ namespace BulkScopeAnalyzer
                 }
                 Utils.WriteLine("Successfully extracted processor to id mapping for the main dll: " + subdir);
             }
-            catch
+            catch (Exception e)
             {
                 Utils.WriteLine("WARNING: failed to extract processor to id mapping the main dll: " + subdir);
+                Utils.WriteLine("Exception: " + e.Message);
                 return false;
             }
             return true;
@@ -225,7 +239,7 @@ namespace BulkScopeAnalyzer
             string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
             var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
-            Console.WriteLine(String.Format("Analyzing {0} Scope projects\n", subdirs.Length));
+            Console.WriteLine(String.Format("Analyzing {0} Scope projects", subdirs.Length));
             int dll_count = 0;
             for (int i = 0; i < subdirs.Length; i++)
             {
