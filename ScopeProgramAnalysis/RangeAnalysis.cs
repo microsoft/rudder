@@ -1,16 +1,13 @@
-﻿using Backend.Analyses;
-using Model.ThreeAddressCode.Values;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Backend.Model;
-using Model.ThreeAddressCode.Visitor;
-using Model.ThreeAddressCode.Instructions;
-using Model.Types;
-using Model.ThreeAddressCode.Expressions;
 using System.Globalization;
+using Backend.ThreeAddressCode.Expressions;
+using Backend.ThreeAddressCode.Values;
+using Backend.ThreeAddressCode.Instructions;
+using Backend.Visitors;
+using Backend.Analysis;
+using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis
 {
@@ -270,7 +267,8 @@ namespace ScopeProgramAnalysis
             private RangeDomain ExtractConstant(Constant K)
             {
                 int value = -1;
-                if (K.Type.Equals(PlatformTypes.Int32))
+                
+                if (TypeHelper.IsPrimitiveInteger(K.Type))
                 {
                     value = (int)K.Value;
                     return new RangeDomain(value, value);

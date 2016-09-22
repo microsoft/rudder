@@ -1,56 +1,58 @@
-﻿using Model;
-using Model.Types;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Microsoft.Cci;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Backend.Utils;
 
 namespace ScopeProgramAnalysis
 {
     public static class ScopeTypes
     {
         private const string scopeNameSpace = "ScopeRuntime";
-        private const string scopeAssembly = "ScopeRuntime"; // "CodeUnderTest"; 
+        private const string scopeAssemblyName = "ScopeRuntime"; // "CodeUnderTest"; 
 
-        private static readonly ICollection<BasicType> scopeTypes = new List<BasicType>();
-        public static readonly BasicType Producer = New(scopeAssembly, scopeNameSpace, "Producer", TypeKind.ReferenceType);
-        public static readonly BasicType Reducer = New(scopeAssembly, scopeNameSpace, "Reducer", TypeKind.ReferenceType);
+        // private static ICollection<INamedTypeReference> scopeTypes;
+        public static  INamedTypeReference Producer;
+        public static INamedTypeReference Processor;
+        public static  INamedTypeReference Reducer;
+        public static INamedTypeReference Combiner;
 
-        public static readonly BasicType Row = New(scopeAssembly, scopeNameSpace, "Row", TypeKind.ReferenceType);
-        public static readonly BasicType RowSet = New(scopeAssembly, scopeNameSpace, "RowSet", TypeKind.ReferenceType);
-        public static readonly BasicType RowList = New(scopeAssembly, scopeNameSpace, "RowList", TypeKind.ReferenceType);
-        public static readonly BasicType IEnumerable_Row = New(scopeAssembly, scopeNameSpace, "IEnumerable", TypeKind.ReferenceType, "Row");
-        public static readonly BasicType IEnumerator_Row = New(scopeAssembly, scopeNameSpace, "IEnumerator", TypeKind.ReferenceType, "Row");
-     
-        public static readonly BasicType ColumnData = New(scopeAssembly, scopeNameSpace, "ColumnData", TypeKind.ReferenceType);
-        public static readonly BasicType ColumnData_Generic = New(scopeAssembly, scopeNameSpace, "ColumnData", TypeKind.ReferenceType, "T");
+        public static  INamedTypeReference Row;
+        public static  INamedTypeReference RowSet;
+        public static  INamedTypeReference RowList;
+        public static  INamedTypeReference IEnumerable_Row;
+        public static  INamedTypeReference IEnumerator_Row;
 
-        public static void Resolve(Host host)
+        public static  INamedTypeReference ColumnData;
+        public static INamedTypeReference ColumnData_Generic;
+
+        public static INamedTypeReference Schema;
+
+        /// <summary>
+        /// This is "ugly" but I don't know how to query a type by name
+        /// </summary>
+        /// <param name="host"></param>
+        public static void InitializeScopeTypes(IMetadataHost host)
         {
-            foreach (var type in scopeTypes)
+            var scopeAssembly = host.LoadedUnits.Single(u => u.Name.Value == scopeAssemblyName) as IAssembly;
+            foreach (var type in scopeAssembly.GetAllTypes())
             {
-                type.Resolve(host);
+                if (type.FullName() == "ScopeRuntime.Reducer") Reducer = type;
+                else if (type.FullName() == "ScopeRuntime.Processor") Processor = type;
+                else if (type.FullName() == "ScopeRuntime.Producer") Producer = type;
+                else if (type.FullName() == "ScopeRuntime.Row")
+                {
+                    Row = type;
+                    IEnumerable_Row = TypeHelper.SpecializeTypeReference(type, host.PlatformType.SystemCollectionsGenericIEnumerable, host.InternFactory) as INamedTypeReference;
+                    IEnumerator_Row = TypeHelper.SpecializeTypeReference(type, host.PlatformType.SystemCollectionsGenericIEnumerator, host.InternFactory) as INamedTypeReference;
+
+                }
+                else if (type.FullName() == "ScopeRuntime.RowSet") RowSet = type;
+                else if (type.FullName() == "ScopeRuntime.RowList") RowList = type;
+                else if (type.FullName() == "ScopeRuntime.ColumnData") ColumnData = type;
+                else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
+                else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
+                else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
             }
-        }
-
-        private static BasicType New(string containingAssembly, string containingNamespace, string name, TypeKind kind, params string[] genericArguments)
-        {
-            var result = new BasicType(name, kind)
-            {
-                ContainingAssembly = new AssemblyReference(containingAssembly),
-                ContainingNamespace = containingNamespace
-            };
-
-            foreach (var arg in genericArguments)
-            {
-                var typevar = new TypeVariable(arg);
-                result.GenericArguments.Add(typevar);
-            }
-
-            scopeTypes.Add(result);
-            return result;
-        }
-
+        } 
     }
 }

@@ -54,10 +54,6 @@
       <Project>{45C7B613-E32D-43E8-8030-932D509602EB}</Project>
       <Name>Backend</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\analysis-net\Model\Model.csproj">
-      <Project>{f08216ad-e55c-44b1-a253-ab8b024b7597}</Project>
-      <Name>Model</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ScopeProgramAnalysis.csproj">
       <Project>{3F115C9F-E6D2-424D-8CF5-C023DD4B929A}</Project>
       <Name>ScopeProgramAnalysis</Name>

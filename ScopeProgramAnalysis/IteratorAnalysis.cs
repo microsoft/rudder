@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Backend.Model;
-using Model.ThreeAddressCode.Instructions;
-using Model.ThreeAddressCode.Visitor;
-using Model.ThreeAddressCode.Values;
-using Model.ThreeAddressCode.Expressions;
+using Backend.ThreeAddressCode;
 using Backend.Utils;
-using Model.Types;
-using Model;
 using System.Globalization;
 using ScopeProgramAnalysis;
 using static Backend.Analyses.IteratorPointsToAnalysis;
 using ScopeProgramAnalysis.Framework;
+using Backend.Analysis;
+using Backend.ThreeAddressCode.Values;
+using Microsoft.Cci;
+using Backend.ThreeAddressCode.Expressions;
+using Backend.ThreeAddressCode.Instructions;
+using Backend.Visitors;
 
 namespace Backend.Analyses
 {
@@ -409,7 +410,7 @@ namespace Backend.Analyses
             internal DependencyPTGDomain State { get; private set; }
             private SimplePointsToGraph currentPTG;
             private CFGNode cfgNode;
-            private MethodDefinition method;
+            private IMethodDefinition method;
             private PTAVisitor visitorPTA;
             private VariableRangeDomain variableRanges;
 
@@ -457,10 +458,10 @@ namespace Backend.Analyses
                 var isClousureField = this.iteratorDependencyAnalysis.iteratorClass.Equals(field.ContainingType);
 
                 bool instanceIsCompilerGeneratedSibblingClass = false;
-                var typeAsClass = (instance.Type as IBasicType);
+                var typeAsClass = (instance.Type as INamedTypeReference);
                 if (typeAsClass != null && typeAsClass.ResolvedType != null)
                 {
-                    var typeAsClassResolved = (typeAsClass.ResolvedType as ClassDefinition);
+                    var typeAsClassResolved = (typeAsClass.ResolvedType as INamedTypeDefinition);
                     instanceIsCompilerGeneratedSibblingClass = MyTypesHelper.IsCompiledGeneratedClass(typeAsClassResolved)
                                             && typeAsClassResolved.ContainingType != null 
                                             && this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
@@ -824,7 +825,7 @@ namespace Backend.Analyses
                     //    // TODO: I need to provide a BasicType. I need the base of the array 
                     //    // Currenly I use the method containing type
                     //    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
-                    //    //fakeField.ContainingType = PlatformTypes.Object;
+                    //    //fakeField.ContainingType = PlatformTypes.SystemObject;
                     //    var loc = new Location(ptgNode, fakeField);
                     //    this.State.Dependencies.A3_Fields[new Location(ptgNode, fakeField)] = traceables;
                     //}
@@ -953,7 +954,7 @@ namespace Backend.Analyses
                                     // or make the parameters escape
                                     foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
                                     {
-                                        var escapingField = new FieldReference("escape", PlatformTypes.Object, this.method.ContainingType);
+                                        var escapingField = new FieldReference("escape", PlatformTypes.SystemObject, this.method.ContainingType);
                                         currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
                                     }
                                 }
@@ -985,7 +986,7 @@ namespace Backend.Analyses
 
                         currentPTG.RemoveRootEdges(result);
                         currentPTG.PointsTo(result, returnNode);
-                        var returnField = new FieldReference("$return", PlatformTypes.Object, this.method.ContainingType);
+                        var returnField = new FieldReference("$return", PlatformTypes.SystemObject, this.method.ContainingType);
                         foreach (var ptgNode in allNodes)
                         {
                             if (TypeHelper.TypesAreAssignmentCompatible(ptgNode.Type, instruction.Result.Type))
@@ -1000,7 +1001,7 @@ namespace Backend.Analyses
                 }
             }
 
-            private void AnalyzeResolvedCallees(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt, IEnumerable<MethodDefinition> calles)
+            private void AnalyzeResolvedCallees(MethodCallInstruction instruction, MethodCallInstruction methodCallStmt, IEnumerable<IMethodDefinition> calles)
             {
                 if (calles.Any())
                 {
@@ -1586,7 +1587,7 @@ namespace Backend.Analyses
                 return methodInvoked.Name == "IndexOf" && methodInvoked.ContainingType.Name == "Schema";
             }
 
-            private bool IsMethodToInline(IMethodReference methodInvoked, IType clousureType)
+            private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType)
             {
                 if(methodInvoked.Name==".ctor")
                 {
@@ -1925,7 +1926,7 @@ namespace Backend.Analyses
         private ScopeInfo scopeData;
         // private IDictionary<string, IVariable> specialFields;
         private ITypeDefinition iteratorClass;
-        private MethodDefinition method;
+        private IMethodDefinition method;
 
         private InterproceduralManager interproceduralManager;
         public bool InterProceduralAnalysisEnabled { get; private set; }
@@ -1943,7 +1944,7 @@ namespace Backend.Analyses
         public ISet<TraceableColumn> OutputColumns { get; private set; }
 
 
-        public IteratorDependencyAnalysis(MethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(IMethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
@@ -1957,7 +1958,7 @@ namespace Backend.Analyses
             this.protectedNodes = protectedNodes;
             this.interproceduralManager = interprocManager;
             this.initValue = null;
-            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = PlatformTypes.Object };
+            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = PlatformTypes.SystemObject };
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
             this.rangeAnalysis = rangeAnalysis;
@@ -1965,7 +1966,7 @@ namespace Backend.Analyses
             this.InputColumns = new HashSet<TraceableColumn>();
             this.OutputColumns = new HashSet<TraceableColumn>();
         }
-        public IteratorDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,

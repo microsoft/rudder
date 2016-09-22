@@ -1,33 +1,31 @@
 ﻿using Backend.Utils;
-using Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Globalization;
-using Model.Types;
+using Backend.ThreeAddressCode.Instructions;
+using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis
 {
     public struct AnalysisReason
     {
-        public AnalysisReason(string methodName, IInstruction ins, string reason)
+        public AnalysisReason(string methodName, Instruction ins, string reason)
         {
             this.MethodName = methodName;
             this.Instruction = ins;
             this.Reason = reason;
         }
-        public AnalysisReason(MethodDefinition methodDef, IInstruction ins, string reason)
+        public AnalysisReason(IMethodDefinition methodDef, Instruction ins, string reason)
         {
-            this.MethodName = methodDef.ContainingType.ContainingAssembly.Name + " " + methodDef.ContainingType.ContainingType.Name +  methodDef.ToSignatureString();
+            this.MethodName = MemberHelper.GetMethodSignature(methodDef, NameFormattingOptions.Signature);
             this.Instruction = ins;
             this.Reason = reason;
         }
 
         public string MethodName { get; set; }
-        public IInstruction Instruction { get; set; }
+        public Instruction Instruction { get; set; }
         public string Reason { get; set; }
         public override string ToString()
         {

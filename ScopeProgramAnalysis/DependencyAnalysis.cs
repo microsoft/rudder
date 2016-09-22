@@ -1,14 +1,13 @@
 ﻿using System.Collections.Generic;
-using Model;
-using Model.Types;
 using Backend.Analyses;
-using Backend.Serialization;
 using Backend.Model;
 using Backend.Utils;
-using Model.ThreeAddressCode.Instructions;
-using Model.ThreeAddressCode.Values;
-using Model.ThreeAddressCode.Expressions;
 using System.Linq;
+using Backend.ThreeAddressCode.Instructions;
+using Backend.ThreeAddressCode.Values;
+using Backend.ThreeAddressCode.Expressions;
+using Backend.Analysis;
+using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis
 {
@@ -26,7 +25,7 @@ namespace ScopeProgramAnalysis
         {
             this.RowKind = kind;
         }
-        public static ProtectedRowKind GetKind(IType type)
+        public static ProtectedRowKind GetKind(ITypeReference type)
         {
             var result = ProtectedRowKind.Unknown;
             if(type.Equals(ScopeTypes.Row))
@@ -74,24 +73,24 @@ namespace ScopeProgramAnalysis
 
     class SongTaoDependencyAnalysis
     {
-        private Host host;
+        private IMetadataHost host;
         private IteratorPointsToAnalysis pointsToAnalyzer;
-        private MethodDefinition moveNextMethod;
+        private IMethodDefinition moveNextMethod;
         private IDictionary<IVariable, IExpression> equalities;
-        private MethodDefinition entryMethod;
+        private IMethodDefinition entryMethod;
         // private IDictionary<string,IVariable> specialFields;
-        private MethodDefinition getEnumMethod;
+        private IMethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
 
         public ISet<TraceableColumn> InputColumns { get; private set; }
         public ISet<TraceableColumn> OutputColumns { get; private set; }
 
 
-        public SongTaoDependencyAnalysis(Host host,
+        public SongTaoDependencyAnalysis(IMetadataHost host,
                                         InterproceduralManager interprocManager,
-                                        MethodDefinition method,
-                                        MethodDefinition entryMethod,
-                                        MethodDefinition getEnumMethod)
+                                        IMethodDefinition method,
+                                        IMethodDefinition entryMethod,
+                                        IMethodDefinition getEnumMethod)
         {
             this.interprocManager = interprocManager;
             this.host = host;
@@ -194,11 +193,11 @@ namespace ScopeProgramAnalysis
 
             return resultDepAnalysis[node.Id].Output;
         }
-        public static bool IsScopeType(IType type)
+        public static bool IsScopeType(ITypeReference type)
         {
             string[] scopeTypes = new[] { "RowList", "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
             string[] scopeUsageTypes = new[] { "ScopeMapUsage",  "IEnumerable<ScopeMapUsage>", "IEnumerator<ScopeMapUsage>" };
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if (basicType == null)
             {
                 return false;
@@ -235,7 +234,7 @@ namespace ScopeProgramAnalysis
             }
         }
 
-        private static void PropagateExpressions(IInstruction instruction, IDictionary<IVariable, IExpression> equalities)
+        private static void PropagateExpressions(Instruction instruction, IDictionary<IVariable, IExpression> equalities)
         {
             var definition = instruction as DefinitionInstruction;
 

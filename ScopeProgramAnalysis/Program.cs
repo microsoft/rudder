@@ -1,29 +1,26 @@
 ﻿using Backend.Utils;
-using CCIProvider;
 using Microsoft.CodeAnalysis.Sarif;
 using Microsoft.CodeAnalysis.Sarif.Readers;
-using Model;
-using Model.Types;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 using Backend.Analyses;
 using System.Globalization;
 using ScopeProgramAnalysis.Framework;
 using System.Text.RegularExpressions;
+using Microsoft.Cci;
+using Backend;
 
 namespace ScopeProgramAnalysis
 {
     public class ScopeProgramAnalysis
     {
-        private Host host;
-        private IDictionary<string, ClassDefinition> factoryReducerMap;
-        private Loader loader;
+        private IMetadataHost host;
+        private IDictionary<string, INamedTypeDefinition> factoryReducerMap;
+        private MyLoader loader;
         private InterproceduralManager interprocAnalysisManager;
         public static Schema InputSchema;
         public static Schema OutputSchema;
@@ -47,11 +44,11 @@ namespace ScopeProgramAnalysis
                     // ScopeRuntime.
             };
 
-        public ScopeProgramAnalysis(Host host, Loader loader)
+        public ScopeProgramAnalysis(IMetadataHost host, MyLoader loader)
         {
             this.host = host;
             this.loader = loader;
-            this.factoryReducerMap = new Dictionary<string, ClassDefinition>();
+            this.factoryReducerMap = new Dictionary<string, INamedTypeDefinition>();
             this.interprocAnalysisManager = new InterproceduralManager(host);
         }
 
@@ -231,9 +228,9 @@ namespace ScopeProgramAnalysis
 
                                        bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
-            MyHost host;
+            IMetadataHost host;
             ScopeProgramAnalysis program;
-            Assembly assembly;
+            IAssembly assembly;
             CreateHostAndProgram(inputPath, interProc, out host, out program, out assembly);
             AnalysisStats.TotalNumberFolders++;
             AnalysisStats.TotalDllsFound++;
@@ -261,8 +258,8 @@ namespace ScopeProgramAnalysis
 
             program.MethodUnderAnalysisName = "MoveNext";
 
-            IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodTuples;
-            List<Tuple<ClassDefinition, string>> errorMessages;
+            IEnumerable<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> scopeMethodTuples;
+            List<Tuple<INamedTypeDefinition, string>> errorMessages;
             if (useScopeFactory)
             {
                 scopeMethodTuples = program.ObtainScopeMethodsToAnalyze(assembly, out errorMessages);
@@ -279,7 +276,7 @@ namespace ScopeProgramAnalysis
             else
             {
                 scopeMethodTuples = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
-                errorMessages = new List<Tuple<ClassDefinition, string>>();
+                errorMessages = new List<Tuple<INamedTypeDefinition, string>>();
             }
 
             if (!scopeMethodTuples.Any() && errorMessages.Count == 0)
@@ -292,7 +289,7 @@ namespace ScopeProgramAnalysis
 
             foreach (var errorMessage in errorMessages)
             {
-                var r = CreateRun(inputPath, errorMessage.Item1.GetFullName(), errorMessage.Item2, new List<Result>());
+                var r = CreateRun(inputPath, errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
                 log.Runs.Add(r);
             }
 
@@ -314,12 +311,12 @@ namespace ScopeProgramAnalysis
                 var entryMethodDef = methodTuple.Item2;
                 var moveNextMethod = methodTuple.Item3;
                 var getEnumMethod = methodTuple.Item4;
-                System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
+                System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
 
                 Schema inputSchema = null;
                 Schema outputSchema = null;
                 Tuple<Schema, Schema> schemas;
-                if (allSchemas.TryGetValue(moveNextMethod.ContainingType.ContainingType.Name, out schemas))
+                if (allSchemas.TryGetValue((moveNextMethod.ContainingType as INestedTypeReference).ContainingType.GetName(), out schemas))
                 {
                     inputSchema = schemas.Item1;
                     outputSchema = schemas.Item2;
@@ -334,7 +331,7 @@ namespace ScopeProgramAnalysis
 
                     if (outputStream != null)
                     {
-                        outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullPathName(), moveNextMethod.ToSignatureString());
+                        outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullName(), moveNextMethod.ToString());
 
                         var resultSummary = run.Results.Where(r => r.Id == "Summary").FirstOrDefault();
                         if (resultSummary != null) // BUG? What to do if it is null?
@@ -362,9 +359,9 @@ namespace ScopeProgramAnalysis
         {
             var inputPath = processorType.Assembly.Location;
 
-            MyHost host;
+            IMetadataHost host;
             ScopeProgramAnalysis program;
-            Assembly assembly;
+            IAssembly assembly;
             CreateHostAndProgram(inputPath, false, out host, out program, out assembly);
             Run run;
             AnalysisReason errorReason;
@@ -372,10 +369,10 @@ namespace ScopeProgramAnalysis
             var processorName = processorType.Name;
 
             var processorClass = assembly
-                .RootNamespace
+                //.RootNamespace
                 .GetAllTypes()
-                .OfType<ClassDefinition>()
-                .Where(c => c.Name == processorName)
+                .OfType<INamedTypeDefinition>()
+                .Where(c => c.Name.Value == processorName)
                 .SingleOrDefault();
             if (processorClass == null)
             {
@@ -388,18 +385,18 @@ namespace ScopeProgramAnalysis
             }
 
             var closureName = "<" + entryMethod.Name + ">";
-            var containingType = entryMethod.ContainingType as ClassDefinition;
+            var containingType = entryMethod.ContainingType as INamedTypeDefinition;
             if (containingType == null)
             {
                 return CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
             }
-            var closureClass = containingType.Members.OfType<ClassDefinition>().Where(c => c.Name.StartsWith(closureName)).SingleOrDefault();
+            var closureClass = containingType.Members.OfType<INamedTypeDefinition>().Where(c => c.Name.Value.StartsWith(closureName)).SingleOrDefault();
             if (closureClass == null)
             {
                 return CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
             }
 
-            var moveNextMethod = closureClass.Methods.Where(m => m.Name == "MoveNext").SingleOrDefault();
+            var moveNextMethod = closureClass.Methods.Where(m => m.Name.Value == "MoveNext").SingleOrDefault();
             if (moveNextMethod == null) return null;
             if (moveNextMethod == null)
             {
@@ -408,7 +405,7 @@ namespace ScopeProgramAnalysis
 
             var getEnumMethod = closureClass
                 .Methods
-                .Where(m => m.Name.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.EndsWith(">.GetEnumerator"))
+                .Where(m => m.Name.Value.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.Value.EndsWith(">.GetEnumerator"))
                 .SingleOrDefault();
             if (getEnumMethod == null) return null;
             if (getEnumMethod == null)
@@ -438,55 +435,71 @@ namespace ScopeProgramAnalysis
         /// <param name="host">Used to resolve the base class references as the inheritance hierarchy is searched.</param>
         /// <param name="c">The initial class to begin the search at.</param>
         /// <returns>The processor's method, null if not found</returns>
-        private static MethodDefinition FindEntryMethod(Host host, ClassDefinition c)
+        private static IMethodDefinition FindEntryMethod(IMetadataHost host, INamedTypeDefinition c)
         {
             // First, walk up the inheritance hierarchy until we find out whether this is a processor or a reducer.
             string entryMethodName = null;
-            ClassDefinition baseClass = host.ResolveReference(c.Base) as ClassDefinition;
-            while (entryMethodName == null)
-            {
-                var fullName = baseClass.GetFullName();
-                if (fullName == "ScopeRuntime.Processor")
+            var baseType = c.BaseClasses.SingleOrDefault();
+            if (baseType != null)
+            { 
+                var baseClass = baseType.ResolvedType as INamedTypeDefinition;
+                if (baseClass != null)
                 {
-                    entryMethodName = "Process";
-                    break;
+                    while (entryMethodName == null)
+                    {
+                        var fullName = baseClass.FullName();
+                        if (fullName == "ScopeRuntime.Processor")
+                        {
+                            entryMethodName = "Process";
+                            break;
+                        }
+                        else if (fullName == "ScopeRuntime.Reducer")
+                        {
+                            entryMethodName = "Reduce";
+                            break;
+                        }
+                        else
+                        {
+                            if (baseClass.BaseClasses.SingleOrDefault() == null) break; // Object has no base class
+                            baseClass = baseClass.BaseClasses.SingleOrDefault().ResolvedType as INamedTypeDefinition;
+                            if (baseClass == null) break;
+                        }
+                    }
                 }
-                else if (fullName == "ScopeRuntime.Reducer")
-                {
-                    entryMethodName = "Reduce";
-                    break;
-                }
-                else
-                {
-                    if (baseClass.Base == null) break; // Object has no base class
-                    baseClass = host.ResolveReference(baseClass.Base) as ClassDefinition;
-                    if (baseClass == null) break;
-                }
-            }
-            if (entryMethodName == null) return null;
+                if (entryMethodName == null) return null;
 
-            // Now, find the entry method (potentially walking up the inheritance hierarchy again, stopping
-            // point is not necessarily the same as the class found in the walk above).
-            var entryMethod = c.Methods.Where(m => m.Name == entryMethodName).SingleOrDefault();
-            while (entryMethod == null)
-            {
-                c = host.ResolveReference(c.Base) as ClassDefinition;
-                if (c == null) break;
-                entryMethod = c.Methods.Where(m => m.Name == entryMethodName).SingleOrDefault();
+                // Now, find the entry method (potentially walking up the inheritance hierarchy again, stopping
+                // point is not necessarily the same as the class found in the walk above).
+                var entryMethod = c.Methods.Where(m => m.Name.Value == entryMethodName).SingleOrDefault();
+                while (entryMethod == null)
+                {
+                    var baseType2 = c.BaseClasses.SingleOrDefault();
+                    if (baseType2 != null)
+                    {
+                        var baseclass2 = baseType2.ResolvedType as INamedTypeDefinition;
+                        if (baseclass2 == null) break;
+                        entryMethod = baseclass2.Methods.Where(m => m.Name.Value == entryMethodName).SingleOrDefault();
+                    }
+                }
+                return entryMethod;
             }
-            return entryMethod;
+            return null;
         }
 
-        private static void CreateHostAndProgram(string inputPath, bool interProc, out MyHost host, out ScopeProgramAnalysis program, out Assembly loadedAssembly)
+        private static void CreateHostAndProgram(string inputPath, bool interProc, out IMetadataHost host, out ScopeProgramAnalysis program, out IAssembly loadedAssembly)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = interProc;
 
-            host = new MyHost();
-            PlatformTypes.Resolve(host);
+            var myHost = new PeReader.DefaultHost();
 
-            var loader = new MyLoader(host);
-            host.Loader = loader;
+            host = myHost;
+
+            var loader = new MyLoader(myHost);
+
+            Types.Initialize(myHost);
+            ScopeTypes.InitializeScopeTypes(host);
+
 
             loadedAssembly = loader.LoadMainAssembly(inputPath);
 
@@ -496,16 +509,16 @@ namespace ScopeProgramAnalysis
 
         }
 
-        private static Dictionary<MethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>> previousResults = new Dictionary<MethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>>();
+        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>>();
         private static bool AnalyzeProcessor(
             string inputPath,
-            MyHost host,
+            IMetadataHost host,
             InterproceduralManager interprocAnalysisManager,
-            IDictionary<string, ClassDefinition> factoryReducerMap,
-            ClassDefinition processorClass,
-            MethodDefinition entryMethodDef,
-            MethodDefinition moveNextMethod,
-            MethodDefinition getEnumMethod,
+            IDictionary<string, INamedTypeDefinition> factoryReducerMap,
+            INamedTypeDefinition processorClass,
+            IMethodDefinition entryMethodDef,
+            IMethodDefinition moveNextMethod,
+            IMethodDefinition getEnumMethod,
             Schema inputSchema,
             Schema outputSchema,
             out Run runResult,
@@ -565,8 +578,8 @@ namespace ScopeProgramAnalysis
         }
 
 
-        private static Run CreateResultsAndThenRun(string inputPath, ClassDefinition processorClass, MethodDefinition entryMethod, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
-            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ClassDefinition> processorMap)
+        private static Run CreateResultsAndThenRun(string inputPath, INamedTypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
+            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, INamedTypeDefinition> processorMap)
         {
             var results = new List<Result>();
 
@@ -717,7 +730,7 @@ namespace ScopeProgramAnalysis
 
             var actualProcessorClass = entryMethod.ContainingType;
 
-            var id = String.Format("[{0}] {1}", processorClass.ContainingAssembly.Name, processorClass.GetFullName());
+            var id = String.Format("[{0}] {1}", TypeHelper.GetDefiningUnit(processorClass).Name.Value, processorClass.FullName());
 
             // Very clumsy way to find the process number and the processor name from the MoveNext method.
             // But it is the process number and processor name that allow us to link these results to the information
@@ -728,7 +741,7 @@ namespace ScopeProgramAnalysis
             foreach (var kv in processorMap)
             {
                 if (done) break;
-                var c = moveNextMethod.ContainingType as ClassDefinition;
+                var c = moveNextMethod.ContainingType as INamedTypeDefinition;
                 while (c != null)
                 {
                     if (kv.Value == c)
@@ -737,19 +750,26 @@ namespace ScopeProgramAnalysis
                         done = true;
                         break;
                     }
-                    c = c.ContainingType as ClassDefinition;
+                    if (c is INestedTypeDefinition)
+                    {
+                        c = (c as INestedTypeDefinition).ContainingTypeDefinition as INamedTypeDefinition;
+                    }
+                    else
+                    {
+                        c = null;
+                    }
                 }
             }
 
             string actualClassContainingIterator = null;
             if (processorClass != actualProcessorClass)
-                actualClassContainingIterator = "Analyzed processsor: " + actualProcessorClass.GetFullName();
+                actualClassContainingIterator = "Analyzed processsor: " + actualProcessorClass.FullName();
 
             var r = CreateRun(inputPath, id, actualClassContainingIterator, results);
             return r;
         }
 
-        private static void LoadExternalReferences(IEnumerable<string> referenceFiles, Loader loader)
+        private static void LoadExternalReferences(IEnumerable<string> referenceFiles, MyLoader loader)
         {
             foreach (var referenceFileName in referenceFiles)
             {
@@ -772,41 +792,41 @@ namespace ScopeProgramAnalysis
         /// 4) the MoveNextMethod that contains the actual reducer/producer code
         /// </summary>
         /// <returns></returns>
-        private IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyze(Assembly assembly, out List<Tuple<ClassDefinition, string>> errorMessages)
+        private IEnumerable<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyze(IAssembly assembly, out List<Tuple<INamedTypeDefinition, string>> errorMessages)
         {
-            errorMessages = new List<Tuple<ClassDefinition, string>>();
+            errorMessages = new List<Tuple<INamedTypeDefinition, string>>();
 
-            var processorsToAnalyze = new HashSet<ClassDefinition>();
+            var processorsToAnalyze = new HashSet<INamedTypeDefinition>();
 
-            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>>();
+            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
-            var operationFactoryClass = assembly.RootNamespace.GetAllTypes().OfType<ClassDefinition>()
-                                        .Where(c => c.Name == "__OperatorFactory__" && c.ContainingType != null && c.ContainingType.Name == "___Scope_Generated_Classes___").SingleOrDefault();
+            var operationFactoryClass = assembly.GetAllTypes().OfType<INamedTypeDefinition>()
+                                        .Where(c => c.Name.Value == "__OperatorFactory__" && c is INestedTypeDefinition &&  (c as INestedTypeDefinition).ContainingType.GetName() == "___Scope_Generated_Classes___").SingleOrDefault();
 
             if (operationFactoryClass == null)
-                return new HashSet<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>>();
+                return new HashSet<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
             // Hack: use actual ScopeRuntime Types
-            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.StartsWith("Create_Process_", StringComparison.Ordinal)
+            var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.Value.StartsWith("Create_Process_", StringComparison.Ordinal)
                             /*&& m.ReturnType.ToString() == this.ClassFilter*/);
 
             // var referencesLoaded = false;
 
             foreach (var factoryMethod in factoryMethods)
             {
-                var ins = factoryMethod.Body.Instructions.OfType<Model.Bytecode.CreateObjectInstruction>().Single();
+                var ins = factoryMethod.Body.Operations.Where(op => op.OperationCode == OperationCode.Newobj).Single().Value as IMethodReference;
 
-                var reducerClass = ins.Constructor.ContainingType;
+                var reducerClass = ins.ContainingType;
 
-                var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClass.GetFullName()));
+                var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClass.FullName()));
 
                 if (isCompilerGenerated)
                     continue;
 
-                ClassDefinition reducerClassDefinition = null;
+                INamedTypeDefinition reducerClassDefinition = null;
                 try
                 {
-                    reducerClassDefinition = host.ResolveReference(reducerClass) as ClassDefinition;
+                    reducerClassDefinition = reducerClass.ResolvedType as INamedTypeDefinition;
 
                     if (reducerClassDefinition != null)
                     {
@@ -816,7 +836,7 @@ namespace ScopeProgramAnalysis
                             errorMessages.Add(Tuple.Create(reducerClassDefinition, "Entry method not found"));
                             continue;
                         }
-                        var containingType = entryMethod.ContainingType as ClassDefinition;
+                        var containingType = entryMethod.ContainingType as INamedTypeDefinition;
                         if (containingType == null)
                         {
                             continue;
@@ -827,8 +847,8 @@ namespace ScopeProgramAnalysis
 
                         processorsToAnalyze.Add(containingType);
 
-                        var candidateClosures = containingType.Types.OfType<ClassDefinition>()
-                                       .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
+                        var candidateClosures = containingType.NestedTypes.OfType<INamedTypeDefinition>()
+                                       .Where(c => this.ClousureFilters.Any(filter => c.Name.Value.StartsWith(filter)));
                         if (!candidateClosures.Any())
                         {
                             errorMessages.Add(Tuple.Create(reducerClassDefinition, "Iterator not found"));
@@ -837,7 +857,7 @@ namespace ScopeProgramAnalysis
                         foreach (var candidateClosure in candidateClosures)
                         {
                             var getEnumMethods = candidateClosure.Methods
-                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                                                        .Where(m => m.Name.Value == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
                             var getEnumeratorMethod = getEnumMethods.Single();
 
                             var moveNextMethods = candidateClosure.Methods
@@ -849,8 +869,8 @@ namespace ScopeProgramAnalysis
                                 // TODO: Hack for reuse. Needs refactor
                                 if (factoryMethod != null)
                                 {
-                                    var processID = factoryMethod.Name.Substring(factoryMethod.Name.IndexOf("Process_"));
-                                    this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                                    var processID = factoryMethod.Name.Value.Substring(factoryMethod.Name.Value.IndexOf("Process_"));
+                                    this.factoryReducerMap.Add(processID, entryMethod.ContainingType as INamedTypeDefinition);
                                 }
                             }
                         }
@@ -870,21 +890,20 @@ namespace ScopeProgramAnalysis
             return scopeMethodTuplesToAnalyze;
         }
 
-        public IEnumerable<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblies()
+        public IEnumerable<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblies()
         {
-            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ClassDefinition, MethodDefinition, MethodDefinition, MethodDefinition>>();
+            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<INamedTypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
-            var candidateClasses = host
-                .Assemblies
-                .Where(a => a.Name != "mscorlib")
-                .SelectMany(a => a.RootNamespace.GetAllTypes().OfType<ClassDefinition>())
+            var candidateClasses = host.LoadedUnits.OfType<IAssembly>()
+                .Where(a => a.Name.Value != "mscorlib")
+                .SelectMany(a => a.GetAllTypes().OfType<INamedTypeDefinition>())
                 ;
             if (candidateClasses.Any())
             {
                 var results = new List<Result>();
                 foreach (var candidateClass in candidateClasses)
                 {
-                    var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(candidateClass.GetFullName()));
+                    var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(candidateClass.FullName()));
 
                     if (isCompilerGenerated)
                         continue;
@@ -892,13 +911,13 @@ namespace ScopeProgramAnalysis
                     var entryMethod = FindEntryMethod(host, candidateClass);
                     if (entryMethod == null) continue;
 
-                    var containingType = entryMethod.ContainingType as ClassDefinition;
+                    var containingType = entryMethod.ContainingType as INamedTypeDefinition;
                     if (containingType == null) continue;
-                    var candidateClousures = containingType.Types.OfType<ClassDefinition>()
-                                    .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
+                    var candidateClousures = containingType.NestedTypes.OfType<INamedTypeDefinition>()
+                                    .Where(c => this.ClousureFilters.Any(filter => c.Name.Value.StartsWith(filter)));
                     foreach (var candidateClousure in candidateClousures)
                     {
-                        var methods = candidateClousure.Members.OfType<MethodDefinition>()
+                        var methods = candidateClousure.Members.OfType<IMethodDefinition>()
                                                 .Where(md => md.Body != null
                                                 && md.Name.Equals(this.MethodUnderAnalysisName));
 
@@ -909,7 +928,7 @@ namespace ScopeProgramAnalysis
                             // System.Collections.Generic.IEnumerable<FakeRuntime.Row>.GetEnumerator
                             // And really, this should be a type test anyway. The point is to find the explicit interface implementation of IEnumerable<T>.GetEnumerator.
                             var getEnumMethods = candidateClousure.Methods
-                                                        .Where(m => m.Name.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.EndsWith(">.GetEnumerator"));
+                                                        .Where(m => m.Name.Value.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.Value.EndsWith(">.GetEnumerator"));
                             var getEnumeratorMethod = getEnumMethods.First();
 
                             scopeMethodTuplesToAnalyze.Add(Tuple.Create(candidateClass, entryMethod, moveNextMethod, getEnumeratorMethod));
@@ -921,21 +940,21 @@ namespace ScopeProgramAnalysis
             return scopeMethodTuplesToAnalyze;
         }
 
-        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<MethodDefinition, MethodDefinition, MethodDefinition>> scopeMethodPairsToAnalyze,
-            MethodDefinition factoryMethdod, IBasicType reducerClass)
+        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<IMethodDefinition, IMethodDefinition, IMethodDefinition>> scopeMethodPairsToAnalyze,
+            IMethodDefinition factoryMethdod, INamedTypeReference reducerClass)
         {
         }
 
-        //private ClassDefinition ResolveClass(IBasicType classToResolve)
+        //private INamedTypeDefinition ResolveClass(INamedTypeReference classToResolve)
         //{
-        //    var resolvedClass = host.ResolveReference(classToResolve) as ClassDefinition;
+        //    var resolvedClass = host.ResolveReference(classToResolve) as INamedTypeDefinition;
         //    if(resolvedClass == null)
         //    {
         //        try
         //        {
         //            AnalysisStats.TotalDllsFound++;
         //            loader.TryToLoadReferencedAssembly(classToResolve.ContainingAssembly);
-        //            resolvedClass = host.ResolveReference(classToResolve) as ClassDefinition;
+        //            resolvedClass = host.ResolveReference(classToResolve) as INamedTypeDefinition;
         //        }
         //        catch (Exception e)
         //        {
@@ -960,7 +979,7 @@ namespace ScopeProgramAnalysis
                 foreach (var kv in this.factoryReducerMap)
                 {
                     var processId = kv.Key;
-                    var className = kv.Value.Name;
+                    var className = kv.Value.Name.Value;
                     var processors = operators.Where(op => op.Attribute("id") != null && op.Attribute("id").Value == processId);
                     var inputSchemas = processors.SelectMany(processor => processor.Descendants("input").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));
                     var outputSchemas = processors.SelectMany(processor => processor.Descendants("output").Select(i => i.Attribute("schema")), (processor, schema) => Tuple.Create(processor.Attribute("id"), schema));

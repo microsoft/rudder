@@ -1,16 +1,16 @@
 ﻿// Copyright (c) Edgardo Zoppi.  All Rights Reserved.  Licensed under the MIT License.  See License.txt in the project root for license information.
 
-using Model.ThreeAddressCode.Instructions;
-using Model.ThreeAddressCode.Values;
 using Backend.Utils;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Model.Types;
-using Model;
 using Backend.Model;
-using Model.ThreeAddressCode.Visitor;
+using Microsoft.Cci;
+using Backend.ThreeAddressCode.Values;
+using Backend.Analysis;
+using Backend.Visitors;
+using Backend.ThreeAddressCode.Instructions;
+using System;
+using ScopeProgramAnalysis.Framework;
 
 namespace Backend.Analyses
 {
@@ -185,7 +185,7 @@ namespace Backend.Analyses
             {
                 var methodCall = instruction as MethodCallInstruction;
                 // Hack for mapping delegates to nodes
-                if (methodCall.Method.Name == ".ctor" && this.analyzeNextDelegateCtor)
+                if (methodCall.Method.Name.Value == ".ctor" && this.analyzeNextDelegateCtor)
                 {
                     ProcessDelegateCtor(methodCall);
                     this.analyzeNextDelegateCtor = false;
@@ -236,25 +236,30 @@ namespace Backend.Analyses
         }
 
         private SimplePointsToGraph initialGraph;
-        private MethodDefinition method;
+        private IMethodDefinition method;
         public IVariable ReturnVariable { get; private set; }
-        public static IVariable GlobalVariable = new LocalVariable("$Global") { Type = PlatformTypes.Object };  //   { get; private set; }
+        public static IVariable GlobalVariable; 
+        
         public DataFlowAnalysisResult<SimplePointsToGraph>[] Result { get; private set; }
         public IVariable ThisVariable { get; private set; }
 
         // private IDictionary<string, IVariable> specialFields;
         protected SimplePointsToGraph initPTG;
 
-        public IteratorPointsToAnalysis(ControlFlowGraph cfg, MethodDefinition method) //  IDictionary<string, IVariable> specialFields)
+        public IteratorPointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method) //  IDictionary<string, IVariable> specialFields)
 			: base(cfg)
 		{
             this.method = method;
+
+            if (GlobalVariable==null)
+                GlobalVariable = new LocalVariable("$Global") { Type = method.Type.PlatformType.SystemObject };
+
             // this.specialFields = specialFields;
             this.CreateInitialGraph();
             
 		}
 
-        public IteratorPointsToAnalysis(ControlFlowGraph cfg, MethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
+        public IteratorPointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
         {
             this.method = method;
             this.CreateInitialGraph(false, initPTG);
@@ -327,16 +332,19 @@ namespace Backend.Analyses
 
 		private void CreateInitialGraph(bool createNodeForParams = true, SimplePointsToGraph initialGraph = null)
 		{
-            this.ReturnVariable = new LocalVariable(this.method.Name + "_" + "$RV") { Type = PlatformTypes.Object };
+            this.ReturnVariable = new LocalVariable(this.method.Name + "_" + "$RV") { Type = this.method.Type.PlatformType.SystemObject };
 
             //IteratorPointsToAnalysis.GlobalVariable= new LocalVariable("$Global");
-            //IteratorPointsToAnalysis.GlobalVariable.Type = PlatformTypes.Object;
+            //IteratorPointsToAnalysis.GlobalVariable.Type = MyLoader.PlatformTypes.SystemObject;
 
             var ptg = initialGraph==null ? new SimplePointsToGraph() : initialGraph.Clone();
 
 			var variables = cfg.GetVariables();
-            if(this.method.Body.Parameters!=null)
-                variables.AddRange(this.method.Body.Parameters);
+
+            var parameters = this.method.Body.Parameters;
+
+            if (parameters!=null)
+                variables.AddRange(parameters);
 
             int counter = -1;
             IVariable thisVariable = null;
@@ -471,8 +479,8 @@ namespace Backend.Analyses
                     if (!reachable)
                     {
                         System.Console.WriteLine("In {0}:{1:X4}.  Variable {2} field {3} has no object to load and {2} is not a parameter.", 
-                            this.method.ToSignatureString(), offset, instance, field);
-                        if(field.Name=="[]")
+                            this.method.ToString(), offset, instance, field);
+                        if(field.Name.Value=="[]")
                         {
                             targets.AddRange(nodes);
                         }
@@ -498,7 +506,7 @@ namespace Backend.Analyses
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
             var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
             //var itemNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
-            //var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            //var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             //ptg.PointsTo(collectionNode, itemsField, itemNode);
 
             return collectionNode;
@@ -506,14 +514,14 @@ namespace Backend.Analyses
 
         public IFieldReference AddItemforCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item)
         {
-            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             this.ProcessStore(ptg, offset, collectionVariable, itemsField, item);
             return itemsField;
         }
 
         public IFieldReference GetItemforCollection(SimplePointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result)
         {
-            var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+            var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             this.ProcessLoad(ptg, offset, result, collectionVariable, itemsField);
             return itemsField;
         }
@@ -522,7 +530,7 @@ namespace Backend.Analyses
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
 
-            var enumNode = this.NewNode(ptg, ptgId, PlatformTypes.IEnumerator);
+            var enumNode = this.NewNode(ptg, ptgId, MyLoader.PlatformTypes.SystemCollectionsIEnumerator);
             ptg.RemoveRootEdges(result);
             ptg.PointsTo(result, enumNode);
 
@@ -533,7 +541,7 @@ namespace Backend.Analyses
                 ptg.PointsTo(collectionVariable, collectionNode);
             }
 
-            var collecitonField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
+            var collecitonField = new FieldReference("$collection", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             this.ProcessStore(ptg, offset, result,  collecitonField, collectionVariable);
             //foreach (var colNode in ptg.GetTargets(collectionVariable))
             //{
@@ -547,12 +555,12 @@ namespace Backend.Analyses
             createdNodes = false;
             var targets = new HashSet<PTGNode>();
             // get Collection
-            var collectionField = new FieldReference("$collection", PlatformTypes.Object, this.method.ContainingType);
+            var collectionField = new FieldReference("$collection", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             var collectionNodes = ptg.GetTargets(enumVariable, collectionField);
 
             if (collectionNodes.Any())
             {
-                var itemsField = new FieldReference("$item", PlatformTypes.Object, this.method.ContainingType);
+                var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
                 targets.AddRange(collectionNodes.SelectMany(n => ptg.GetTargets(n, itemsField)));
                 if(!targets.Any())
                 {
@@ -621,12 +629,159 @@ namespace Backend.Analyses
         }
 
 
-        private PTGNode NewNode(SimplePointsToGraph ptg, PTGID ptgID, IType type, PTGNodeKind kind = PTGNodeKind.Object)
+        private PTGNode NewNode(SimplePointsToGraph ptg, PTGID ptgID, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Object)
 		{
 			PTGNode node;
             node = new PTGNode(ptgID, type, kind);
             //node = ptg.GetNode(ptgID, type, kind);
             return node;
 		}
+    }
+
+    internal class Name : IName
+    {
+        private string name;
+        public Name(string name)
+        {
+            this.name = name;
+        }
+        public int UniqueKey
+        {
+            get
+            {
+                return name.GetHashCode();
+            }
+        }
+
+        public int UniqueKeyIgnoringCase
+        {
+            get
+            {
+                return name.ToLower().GetHashCode();
+            }
+        }
+
+        public string Value
+        {
+            get
+            {
+                return name;
+            }
+        }
+    }
+
+
+    internal class FieldReference: IFieldReference
+    {
+        private ITypeReference containingType;
+        private ITypeReference type;
+        private Name name;
+        private bool isStatic;
+
+        public FieldReference(string name, ITypeReference type, ITypeReference containingType, bool isStatic = false)
+        {
+            this.name = new Name(name);
+            this.type = type;
+            this.containingType = containingType;
+            this.isStatic = isStatic;
+        }
+
+        public IEnumerable<ICustomAttribute> Attributes
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public ITypeReference ContainingType
+        {
+            get
+            {
+                return containingType;
+            }
+        }
+
+        public IEnumerable<ICustomModifier> CustomModifiers
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public uint InternedKey
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public bool IsModified
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public bool IsStatic
+        {
+            get
+            {
+                return isStatic;
+            }
+        }
+
+        public IEnumerable<ILocation> Locations
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public IName Name
+        {
+            get
+            {
+                return name;
+            }
+        }
+
+        public IFieldDefinition ResolvedField
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public ITypeDefinitionMember ResolvedTypeDefinitionMember
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public ITypeReference Type
+        {
+            get
+            {
+                return type;
+            }
+        }
+
+        public void Dispatch(IMetadataVisitor visitor)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DispatchAsReference(IMetadataVisitor visitor)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -228,13 +228,13 @@ namespace ScopeProgramAnalysis
         IDictionary<PTGNode, IDictionary<IFieldReference, ICollection<int>>>
             LastDefsPtg = new Dictionary<PTGNode, IDictionary<IFieldReference, ICollection<int>>>();
         private DataFlowAnalysisResult<PointsToGraph>[] ptAnalysisResult;
-        private MethodDefinition method;
+        private IMethodDefinition method;
 
         private IDictionary<IVariable, IExpression> equalities;
 
 
 
-        public AlternativeDependencyAnalysis(MethodDefinition method, ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptAnalysisResult)
+        public AlternativeDependencyAnalysis(IMethodDefinition method, ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptAnalysisResult)
         {
             this.method = method;
             this.cfg = cfg;

@@ -1,10 +1,10 @@
 ﻿using Backend.Utils;
-using Model.ThreeAddressCode.Values;
-using Model.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using Backend.ThreeAddressCode.Values;
+using Microsoft.Cci;
+using ScopeProgramAnalysis.Framework;
 
 namespace Backend.Model
 {
@@ -18,6 +18,274 @@ namespace Backend.Model
             this.Field = field;
         }
     }
+
+    // Unknown PTG nodes represent placeholders
+    // (external objects that can be null or
+    // stand for multiple objects).
+    // Useful to model parameter values.
+    public enum PTGNodeKind
+    {
+        Null,
+        Object,
+        Unknown,
+        Parameter,
+        Delegate,
+        Global
+    }
+
+
+    public interface PTGContext
+    {
+
+    }
+
+    public class MethodContex : PTGContext
+    {
+        public MethodContex(IMethodReference method)
+        {
+            this.Method = method;
+        }
+        public IMethodReference Method { get; set; }
+        public override string ToString()
+        {
+            if (Method != null)
+            {
+                return Method.Name.ToString();
+            }
+            else return "--";
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as MethodContex;
+            return oth.Method.Equals(Method);
+        }
+        public override int GetHashCode()
+        {
+            return this.Method.GetHashCode();
+        }
+    }
+
+    public class GlobalContext : PTGContext
+    {
+        public static GlobalContext NullNodeContext = new GlobalContext();
+        public static GlobalContext GlobalNodeContext = new GlobalContext();
+    }
+
+    public class PTGID
+    {
+        public PTGID(PTGContext context, int offset)
+        {
+            this.Context = context;
+            this.OffSet = offset;
+        }
+        PTGContext Context { get; set; }
+        public int OffSet { get; set; }
+        public override string ToString()
+        {
+            return String.Format("{0}:{1:X4}", Context, OffSet);
+        }
+        public override bool Equals(object obj)
+        {
+            var ptgID = obj as PTGID;
+            return ptgID != null && ptgID.OffSet == OffSet
+                && (ptgID.Context == Context || ptgID.Context.Equals(Context));
+        }
+        public override int GetHashCode()
+        {
+            if (Context == null) return OffSet.GetHashCode();
+            return Context.GetHashCode() + OffSet.GetHashCode();
+        }
+    }
+
+    public class PTGNode
+    {
+        public PTGID Id { get; private set; }
+        public PTGNodeKind Kind { get; private set; }
+        public uint Offset { get; set; }
+        public ITypeReference Type { get; set; }
+        public ISet<IVariable> Variables { get; private set; }
+        public MapSet<IFieldReference, PTGNode> Sources { get; private set; }
+        public MapSet<IFieldReference, PTGNode> Targets { get; private set; }
+
+        //public PTGNode(PTGID id, PTGNodeKind kind = PTGNodeKind.Null)
+        //      {
+        //	this.Id = id;
+        //          this.Kind = kind;
+        //          this.Variables = new HashSet<IVariable>();
+        //          this.Sources = new MapSet<IFieldReference, PTGNode>();
+        //          this.Targets = new MapSet<IFieldReference, PTGNode>();
+        //      }
+
+        public PTGNode(PTGID id, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Object)
+        //	: this(id, kind)
+        {
+            this.Id = id;
+            this.Type = type;
+            this.Kind = kind;
+            this.Variables = new HashSet<IVariable>();
+            this.Sources = new MapSet<IFieldReference, PTGNode>();
+            this.Targets = new MapSet<IFieldReference, PTGNode>();
+        }
+
+        public bool SameEdges(PTGNode node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return this.Variables.SetEquals(node.Variables) &&
+                this.Sources.MapEquals(node.Sources) &&
+                this.Targets.MapEquals(node.Targets);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (object.ReferenceEquals(this, obj)) return true;
+            var other = obj as PTGNode;
+
+            return other != null &&
+                this.Id.Equals(other.Id) &&
+                this.Kind == other.Kind &&
+                //this.Offset == other.Offset &&
+                this.Type.Equals(other.Type);
+        }
+
+        public override int GetHashCode()
+        {
+            //return this.Id.GetHashCode();
+            return this.Id.GetHashCode() + this.Type.GetHashCode() + this.Kind.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            string result;
+
+            switch (this.Kind)
+            {
+                case PTGNodeKind.Null:
+                    result = "null";
+                    break;
+
+                default:
+                    result = string.Format("{0:X$}: {1}", this.Id, this.Type);
+                    break;
+            }
+
+            return result;
+        }
+        public virtual PTGNode Clone()
+        {
+            var clone = new PTGNode(this.Id, this.Type, this.Kind);
+            return clone;
+        }
+    }
+
+    public class NullNode : PTGNode
+    {
+        public static PTGID nullID = new PTGID(GlobalContext.NullNodeContext, 0);
+
+        public NullNode() : base(nullID, MyLoader.PlatformTypes.SystemObject, PTGNodeKind.Null)
+        {
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as NullNode;
+            return oth != null;
+        }
+        public override int GetHashCode()
+        {
+            return 0;
+        }
+        public override string ToString()
+        {
+            return "Null";
+        }
+        public override PTGNode Clone()
+        {
+            return this;
+        }
+    }
+
+    public class GlobalNode : PTGNode
+    {
+        public static PTGID globalID = new PTGID(GlobalContext.GlobalNodeContext, -1);
+
+        public GlobalNode() : base(globalID, MyLoader.PlatformTypes.SystemObject, PTGNodeKind.Global)
+        {
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as GlobalNode;
+            return oth != null;
+        }
+        public override int GetHashCode()
+        {
+            return 0;
+        }
+        public override string ToString()
+        {
+            return "Global";
+        }
+        public override PTGNode Clone()
+        {
+            return this;
+        }
+
+    }
+
+    public class ParameterNode : PTGNode
+    {
+        public string Parameter { get; private set; }
+        public ParameterNode(PTGID id, string parameter, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Null) : base(id, type, PTGNodeKind.Parameter)
+        {
+            this.Parameter = parameter;
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as ParameterNode;
+            return oth != null && oth.Parameter.Equals(Parameter) && base.Equals(oth);
+        }
+        public override int GetHashCode()
+        {
+            return this.Parameter.GetHashCode() + base.GetHashCode();
+        }
+        public override PTGNode Clone()
+        {
+            var clone = new ParameterNode(this.Id, this.Parameter, this.Type);
+            return clone;
+        }
+
+    }
+
+    public class DelegateNode : PTGNode
+    {
+        public IMethodReference Method { get; private set; }
+        public IVariable Instance { get; set; }
+        public bool IsStatic { get; private set; }
+
+        public DelegateNode(PTGID id, IMethodReference method, IVariable instance) : base(id, method.ReturnType, PTGNodeKind.Delegate)
+        {
+            this.Method = method;
+            this.Instance = instance;
+            this.IsStatic = instance == null;
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as DelegateNode;
+            return oth != null && oth.Method.Equals(Method)
+                && oth.Instance == this.Instance
+                && base.Equals(oth);
+        }
+        public override int GetHashCode()
+        {
+            return this.Method.GetHashCode() + (this.IsStatic ? 1 : this.Instance.GetHashCode())
+                + base.GetHashCode();
+        }
+        public override PTGNode Clone()
+        {
+            var node = new DelegateNode(this.Id, this.Method, this.Instance);
+            return node;
+        }
+    }
+
     public class SimplePointsToGraph 
     {
         private Stack<MapSet<IVariable, PTGNode>> stackFrame;
@@ -323,7 +591,7 @@ namespace Backend.Model
         {
             ISet<PTGNode> nodes = null;
 
-            var validReturn = (dest.Type != null && dest.Type.TypeKind == TypeKind.ReferenceType); //(retVariable.Type != null && retVariable.Type.TypeKind == TypeKind.ReferenceType)  &&
+            var validReturn = (dest.Type != null && dest.Type.IsClassOrStruct()); //(retVariable.Type != null && retVariable.Type.TypeKind == TypeKind.ReferenceType)  &&
 
             if (validReturn)
                 nodes = GetTargets(retVariable);

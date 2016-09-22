@@ -245,12 +245,12 @@ namespace ScopeAnalysisBulkScripts
                 outputStream.Flush();
 
                 System.Console.WriteLine("=========================================================================");
-                PointsToGraph.NullNode.Variables.Clear();
-                PointsToGraph.NullNode.Targets.Clear();
-                PointsToGraph.NullNode.Sources.Clear();
-                PointsToGraph.GlobalNode.Variables.Clear();
-                PointsToGraph.GlobalNode.Targets.Clear();
-                PointsToGraph.GlobalNode.Sources.Clear();
+                //PointsToGraph.NullNode.Variables.Clear();
+                //PointsToGraph.NullNode.Targets.Clear();
+                //PointsToGraph.NullNode.Sources.Clear();
+                //PointsToGraph.GlobalNode.Variables.Clear();
+                //PointsToGraph.GlobalNode.Targets.Clear();
+                //PointsToGraph.GlobalNode.Sources.Clear();
                 AnalysisStats.AnalysisReasons.Clear();
             }
 

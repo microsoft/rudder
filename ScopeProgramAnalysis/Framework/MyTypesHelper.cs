@@ -1,23 +1,20 @@
-﻿using Model.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
+using Backend;
+using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis.Framework
 {
     public static class MyTypesHelper
     {
-        public static bool IsCompiledGeneratedClass(this ClassDefinition typeAsClassResolved)
+        public static bool IsCompiledGeneratedClass(this INamedTypeDefinition typeAsClassResolved)
         {
             var result = typeAsClassResolved!=null && typeAsClassResolved.Attributes.Any(attrib => attrib.Type.ToString() == "CompilerGeneratedAttribute");
             return result;
         }
 
-        public static bool IsCompilerGenerated(this IBasicType type)
+        public static bool IsCompilerGenerated(this INamedTypeReference type)
         {
-            var resolvedClass = type.ResolvedType as ClassDefinition;
+            var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
             {
                 return resolvedClass.IsCompiledGeneratedClass();
@@ -25,93 +22,94 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        public static bool IsCollection(this IBasicType type)
+        public static bool IsCollection(this INamedTypeReference type)
         {
             var result = type.ResolvedType != null
-                && TypeHelper.Type1ImplementsType2(type.ResolvedType, PlatformTypes.ICollection);
+                && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsICollection);
             return result;
         }
-        public static bool IsEnumerable(this IBasicType type)
+        public static bool IsEnumerable(this INamedTypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Contains("Enumerable");
+            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("Enumerable");
             return result;
         }
-        public static bool IsIEnumerable(this IBasicType type)
+        public static bool IsIEnumerable(this INamedTypeReference type)
         {
             var result = type.ResolvedType != null 
-            && TypeHelper.Type1ImplementsType2(type.ResolvedType, PlatformTypes.IEnumerable);
+            && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable);
             // && type.Name.Contains("IEnumerable")
             return result;
         }
-        public static bool IsIEnumerator(this IBasicType type)
+        public static bool IsIEnumerator(this INamedTypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Contains("IEnumerator");
+            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("IEnumerator");
             return result;
         }
-        public static bool IsEnumerator(this IBasicType type)
+        public static bool IsEnumerator(this INamedTypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Contains("Enumerator");
+            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("Enumerator");
             return result;
         }
 
 
         public static bool IsContainerMethod(this IMethodReference method)
         {
-            var result = method.ContainingType!= null && TypeHelper.IsContainer(method.ContainingType);
+            var result = method.ContainingType!= null && Types.Instance.IsContainer(method.ContainingType);
             return result;
         }
 
-        public static bool IsDictionary(this IBasicType type)
+        public static bool IsDictionary(this INamedTypeReference type)
         {
             var result = type != null
-                && (type.Name.Contains("SortedDictionary")
-                    || type.Name.Contains("Dictionary")
-                    || type.Name.Contains("IDictionary"));
+                && (type.Name.Value.Contains("SortedDictionary")
+                    || type.Name.Value.Contains("Dictionary")
+                    || type.Name.Value.Contains("IDictionary"));
 
             return result;
         }
 
-        public static bool IsSet(this IBasicType type)
+        public static bool IsSet(this INamedTypeReference type)
         {
             var result = type != null
-                && (type.Name.Contains("Set"));
+                && (type.Name.Value.Contains("Set"));
             return result;
         }
 
-        public static bool IsSubClass(this ClassDefinition class1, IType class2)
+        public static bool IsSubClass(this INamedTypeDefinition class1, ITypeReference class2)
         {
+            
             var result = false;
             if (class1.Equals(class2))
                 return true;
-            if(class1.Base!=null && class1.Base is ITypeDefinition)
+            if(class1.BaseClasses!=null && class1.BaseClasses.SingleOrDefault() is ITypeDefinition)
             {
-                var baseClass = class1.Base as ITypeDefinition;
+                var baseClass = class1.BaseClasses.SingleOrDefault() as ITypeDefinition;
                 if (TypeHelper.TypesAreEquivalent(baseClass, class2))
                     return true;
                 else
                 {
                     if(baseClass.ResolvedType!=null)
-                        (baseClass.ResolvedType as ClassDefinition).IsSubClass(class2);
+                        (baseClass.ResolvedType as INamedTypeDefinition).IsSubClass(class2);
                 }
             }
             return result;
         }
 
-        public  static bool IsRowSetType(this IBasicType type)
+        public  static bool IsRowSetType(this INamedTypeReference type)
         {
-            var resolvedClass = type.ResolvedType as ClassDefinition;
+            var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if(resolvedClass!=null)
             {
                 return resolvedClass.IsSubClass(ScopeTypes.RowSet);
             }
             return false;
         }
-        public static bool IsRowType(this IType type)
+        public static bool IsRowType(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if(basicType!=null)
             {
-                var resolvedClass = basicType.ResolvedType as ClassDefinition;
+                var resolvedClass = basicType.ResolvedType as INamedTypeDefinition;
                 if (resolvedClass != null)
                 {
                     return resolvedClass.IsSubClass(ScopeTypes.Row);
@@ -125,29 +123,26 @@ namespace ScopeProgramAnalysis.Framework
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public static bool IsScopeMapUsage(this IType type)
+        public static bool IsScopeMapUsage(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
-            return basicType != null && basicType.Name == "ScopeMapUsage";
+            var basicType = type as INamedTypeReference;
+            return basicType != null && basicType.Name.Value == "ScopeMapUsage";
         }
 
 
-        public static bool IsIEnumerableRow(this IType type)
+        public static bool IsIEnumerableRow(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
-                if (basicType.GenericArguments != null && basicType.GenericArguments.Count == 1)
-                {
-                    return basicType.GenericArguments[0].IsRowType() && basicType.IsIEnumerable();
-                }
+                return basicType.Equals(ScopeTypes.IEnumerable_Row);
             }
             return false;
         }
 
-        public static bool IsIEnumeratorRow(this IType type)
+        public static bool IsIEnumeratorRow(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
                 if (basicType.GenericArguments != null && basicType.GenericArguments.Count == 1)
@@ -157,9 +152,9 @@ namespace ScopeProgramAnalysis.Framework
             }
             return false;
         }
-        public static bool IsIEnumerableScopeMapUsage(this IType type)
+        public static bool IsIEnumerableScopeMapUsage(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
                 return basicType.GenericName == "IEnumerable<ScopeMapUsage>";
@@ -167,9 +162,9 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        public static bool IsScopeRuntime(this IType type)
+        public static bool IsScopeRuntime(this ITypeReference type)
         {
-            var basicType = type as IBasicType;
+            var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
                 return basicType.ContainingNamespace == "ScopeRuntime";
@@ -177,11 +172,11 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        public static bool IsIEnumeratorScopeMapUsage(this IType type)
+        public static bool IsIEnumeratorScopeMapUsage(this ITypeReference type)
         {
             return type.ToString().Contains("ScopeMapUsage");
 
-            //var basicType = type as IBasicType;
+            //var basicType = type as INamedTypeReference;
             //if (basicType != null)
             //{
             //    return basicType.GenericName == "IEnumerator<ScopeMapUsage>";
@@ -190,9 +185,9 @@ namespace ScopeProgramAnalysis.Framework
         }
 
 
-        public static bool IsRowListType(this IBasicType type)
+        public static bool IsRowListType(this INamedTypeReference type)
         {
-            var resolvedClass = type.ResolvedType as ClassDefinition;
+            var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
             {
                 return resolvedClass.IsSubClass(ScopeTypes.RowList);
@@ -201,21 +196,21 @@ namespace ScopeProgramAnalysis.Framework
         }
 
 
-        public static bool IsColumnDataType(this IBasicType type)
+        public static bool IsColumnDataType(this INamedTypeReference type)
         {
-            var resolvedClass = type.ResolvedType as ClassDefinition;
+            var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
             {
                 return resolvedClass.IsSubClass(ScopeTypes.ColumnData);
             }
             return false;
         }
-        public static bool IsInteger(this IType type)
+        public static bool IsInteger(this ITypeReference type)
         {
-            var basictype = (type as IBasicType);
+            var basictype = (type as INamedTypeReference);
             if (basictype != null)
             {
-                var resolvedClass = basictype.ResolvedType as ITypeDefinition;
+                var resolvedClass = basictype.ResolvedType as ITypeReferenceDefinition;
                 if (resolvedClass != null)
                 {
                     return resolvedClass.TypeEquals(PlatformTypes.Int32)
@@ -228,28 +223,28 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        public static bool TypeEquals(this IType type1, IType type2)
+        public static bool TypeEquals(this ITypeReference type1, ITypeReference type2)
         {
             return Model.Types.TypeHelper.TypesAreEquivalent(type1, type2);
         }
 
-        public static bool SameType(this IBasicType containingType, ITypeDefinition iteratorClass)
+        public static bool SameType(this INamedTypeReference containingType, ITypeDefinition iteratorClass)
         {
             return containingType.Equals(iteratorClass);
         }
-        public static bool IsString(this IBasicType containingType)
+        public static bool IsString(this INamedTypeReference containingType)
         {
-            return containingType.Name == "String";
+            return containingType.Name.Value == "String";
         }
 
-        public static bool IsTuple(this IBasicType containingType)
+        public static bool IsTuple(this INamedTypeReference containingType)
         {
-            return containingType.Name == "Tuple";
+            return containingType.Name.Value == "Tuple";
         }
 
-        internal static bool IsValueType(this IBasicType containingType)
+        internal static bool IsValueType(this INamedTypeReference containingType)
         {
-            return containingType.TypeKind == TypeKind.ValueType;
+            return containingType.IsValueType;
         }
     }
 }

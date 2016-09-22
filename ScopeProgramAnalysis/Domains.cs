@@ -1,14 +1,12 @@
 ﻿using Backend.Analyses;
 using Backend.Model;
 using Backend.Utils;
-using Model.ThreeAddressCode.Values;
-using Model.Types;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Backend.ThreeAddressCode.Values;
+using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis
 {
