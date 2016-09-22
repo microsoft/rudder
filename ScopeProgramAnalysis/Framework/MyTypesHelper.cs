@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Backend;
+using Backend.Utils;
 using Microsoft.Cci;
 
 namespace ScopeProgramAnalysis.Framework
@@ -145,9 +146,9 @@ namespace ScopeProgramAnalysis.Framework
             var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
-                if (basicType.GenericArguments != null && basicType.GenericArguments.Count == 1)
+                if (basicType != null)
                 {
-                    return basicType.GenericArguments[0].IsRowType() && basicType.IsIEnumerator();
+                    return basicType.Equals(ScopeTypes.IEnumerator_Row);
                 }
             }
             return false;
@@ -155,9 +156,9 @@ namespace ScopeProgramAnalysis.Framework
         public static bool IsIEnumerableScopeMapUsage(this ITypeReference type)
         {
             var basicType = type as INamedTypeReference;
-            if (basicType != null)
+            if (basicType != null && basicType.Equals(basicType.PlatformType.SystemCollectionsGenericIEnumerable))
             {
-                return basicType.GenericName == "IEnumerable<ScopeMapUsage>";
+                return basicType.FullName() == "System.Collections.IEnumerable<ScopeMapUsage>";
             }
             return false;
         }
@@ -213,10 +214,8 @@ namespace ScopeProgramAnalysis.Framework
                 var resolvedClass = basictype.ResolvedType as ITypeReferenceDefinition;
                 if (resolvedClass != null)
                 {
-                    return resolvedClass.TypeEquals(PlatformTypes.Int32)
-                        || resolvedClass.TypeEquals(PlatformTypes.Int16)
-                        || resolvedClass.TypeEquals(PlatformTypes.Int64);
-                }
+                    return TypeHelper.IsPrimitiveInteger(resolvedClass);
+                } 
             }
             else
             { }
@@ -225,7 +224,7 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool TypeEquals(this ITypeReference type1, ITypeReference type2)
         {
-            return Model.Types.TypeHelper.TypesAreEquivalent(type1, type2);
+            return TypeHelper.TypesAreEquivalent(type1, type2);
         }
 
         public static bool SameType(this INamedTypeReference containingType, ITypeDefinition iteratorClass)

@@ -1,33 +1,28 @@
 ﻿using Backend.Analyses;
 using Backend.Model;
-using Backend.Serialization;
-using Backend.Utils;
-using Model;
-using Model.ThreeAddressCode.Expressions;
-using Model.ThreeAddressCode.Instructions;
-using Model.ThreeAddressCode.Values;
-using Model.Types;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Backend.Analysis;
+using Microsoft.Cci;
+using Backend.ThreeAddressCode.Values;
+using Backend.ThreeAddressCode.Instructions;
 
 namespace ScopeProgramAnalysis
 {
     public class MethodCFGCache
     {
-        private IDictionary<MethodDefinition, ControlFlowGraph> methodCFGMap;
-        private Host host;
+        private IDictionary<IMethodDefinition, ControlFlowGraph> methodCFGMap;
+        private IMetadataHost host;
 
-        public MethodCFGCache(Host host)
+        public MethodCFGCache(IMetadataHost host)
         {
             this.host = host;
-            this.methodCFGMap = new Dictionary<MethodDefinition, ControlFlowGraph>();
+            this.methodCFGMap = new Dictionary<IMethodDefinition, ControlFlowGraph>();
         }
 
-        public ControlFlowGraph GetCFG(MethodDefinition method)
+        public ControlFlowGraph GetCFG(IMethodDefinition method)
         {
             ControlFlowGraph methodCFG = null;
             if (!this.methodCFGMap.ContainsKey(method))
@@ -45,7 +40,7 @@ namespace ScopeProgramAnalysis
 
     public struct InterProceduralCallInfo
     {
-        public MethodDefinition Caller { get; set; }
+        public IMethodDefinition Caller { get; set; }
         public DependencyPTGDomain CallerState { get; set; }
         public SimplePointsToGraph CallerPTG { get; set; }
 
@@ -53,10 +48,10 @@ namespace ScopeProgramAnalysis
 
         public IList<IVariable> CallArguments { get; set; }
         public IVariable CallLHS { get; set; }
-        public MethodDefinition Callee { get; set; }
+        public IMethodDefinition Callee { get; set; }
 
         public IEnumerable<ProtectedRowNode> ProtectedNodes { get; set; }
-        public IInstruction Instruction { get; internal set; }
+        public Instruction Instruction { get; internal set; }
     }
     public struct InterProceduralReturnInfo
     {
@@ -74,27 +69,27 @@ namespace ScopeProgramAnalysis
     public class InterproceduralManager
     {
         private int stackDepth;
-        private Host host;
+        private IMetadataHost host;
         private const int MaxStackDepth = 100;
-        private Stack<MethodDefinition> callStack;
+        private Stack<IMethodDefinition> callStack;
 
         public MethodCFGCache CFGCache { get; set; }
 
-        private IDictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
-        private IDictionary<IInstruction, DependencyPTGDomain> previousResult;
+        private IDictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
+        private IDictionary<Instruction, DependencyPTGDomain> previousResult;
 
-        public InterproceduralManager(Host host)
+        public InterproceduralManager(IMetadataHost host)
         {
             this.host = host;
             this.CFGCache = new MethodCFGCache(host);
             this.stackDepth = 0;
-            this.callStack = new Stack<MethodDefinition>();
-            this.dataflowCache = new Dictionary<MethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
-            this.previousResult = new Dictionary<IInstruction, DependencyPTGDomain>();
+            this.callStack = new Stack<IMethodDefinition>();
+            this.dataflowCache = new Dictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
+            this.previousResult = new Dictionary<Instruction, DependencyPTGDomain>();
         }
     
 
-    public ControlFlowGraph GetCFG(MethodDefinition method)
+    public ControlFlowGraph GetCFG(IMethodDefinition method)
         {
             return CFGCache.GetCFG(method);
         }
@@ -343,7 +338,7 @@ namespace ScopeProgramAnalysis
         /// <param name="instruction"></param>
         /// <param name="resolvedCallee"></param>
         /// <param name="calleeCFG"></param>
-        public SimplePointsToGraph PTAInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IVariable result, MethodDefinition resolvedCallee)
+        public SimplePointsToGraph PTAInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IVariable result, IMethodDefinition resolvedCallee)
         {
             if (resolvedCallee.Body.Instructions.Any())
             {
@@ -387,7 +382,7 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
+        public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
         {
             var bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
 
@@ -397,7 +392,7 @@ namespace ScopeProgramAnalysis
             return pta;
         }
 
-        public static SimplePointsToGraph PTABindCallerCallee(SimplePointsToGraph ptg, IList<IVariable> arguments, MethodDefinition resolvedCallee)
+        public static SimplePointsToGraph PTABindCallerCallee(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee)
         {
             var bindPtg = ptg.Clone();
             var argParamMap = new Dictionary<IVariable, IVariable>();
@@ -413,7 +408,7 @@ namespace ScopeProgramAnalysis
         #endregion
 
 
-        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, SimplePointsToGraph ptg)
+        public Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, SimplePointsToGraph ptg)
         {
             var resolvedCallees = new HashSet<MethodDefinition>();
             var unresolvedCallees = new HashSet<IMethodReference>();
@@ -425,16 +420,16 @@ namespace ScopeProgramAnalysis
             return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
         }
 
-        public Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, SimplePointsToGraph ptg)
+        public Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, SimplePointsToGraph ptg)
         {
-            var resolvedCallees = new HashSet<MethodDefinition>();
+            var resolvedCallees = new HashSet<IMethodDefinition>();
             var unresolvedCallees = new HashSet<IMethodReference>();
             var potentalDelegateCall = instruction.Method;
 
             // If it is a delegate
-            if (potentalDelegateCall.Name == "Invoke")
+            if (potentalDelegateCall.Name.Value == "Invoke")
             {
-                var classDef = (potentalDelegateCall.ContainingType.ResolvedType) as ClassDefinition;
+                var classDef = (potentalDelegateCall.ContainingType.ResolvedType) as INamedTypeDefinition;
                 if (classDef != null && classDef.IsDelegate)
                 {
                     var delegateVar = instruction.Arguments[0];

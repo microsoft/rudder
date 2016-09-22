@@ -1,18 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Backend.Model;
-using Model.ThreeAddressCode.Instructions;
-using Model.ThreeAddressCode.Visitor;
-using Model.ThreeAddressCode.Values;
-using Model.ThreeAddressCode.Expressions;
+﻿using System.Collections.Generic;
 using Backend.Utils;
-using Model.Types;
-using Model;
 using System.Globalization;
-using ScopeProgramAnalysis;
-using Backend.Analyses;
+using Backend.Analysis;
+using Backend.Visitors;
+using Backend.ThreeAddressCode.Expressions;
+using Backend.ThreeAddressCode.Values;
+using Backend.ThreeAddressCode.Instructions;
 
 namespace ScopeProgramAnalysis
 {
@@ -110,7 +103,7 @@ namespace ScopeProgramAnalysis
                 if (storeStmt.Result is InstanceFieldAccess)
                 {
                     var access = storeStmt.Result as InstanceFieldAccess;
-                    if (access.Field.Name == "<>1__state")
+                    if (access.Field.Name.Value == "<>1__state")
                     {
                         State.IntState = (IteratorState.IteratorInternalState)int.Parse(this.equalities.GetValue(storeStmt.Operand).ToString(), CultureInfo.InvariantCulture);
                     }
