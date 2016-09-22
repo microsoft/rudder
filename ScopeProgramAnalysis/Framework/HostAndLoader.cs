@@ -44,9 +44,9 @@ namespace ScopeProgramAnalysis.Framework
                 }
                 catch (Exception e)
                 {
-                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
+//                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
                     failedAssemblies.Add(reference);
-                    throw e;
+                    throw;
                 }
             }
             return assembly;

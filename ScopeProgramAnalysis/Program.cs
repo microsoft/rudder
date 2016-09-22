@@ -203,16 +203,16 @@ namespace ScopeProgramAnalysis
             Console.Write("Processor: {0}. ", processor.Attribute("className").Value);
 
             var inputSchema = ParseColumns(processor.Descendants("input").FirstOrDefault().Attribute("schema").Value);
-            
+
         }
 
         private static IEnumerable<Column> ParseColumns(string schema)
         {
             // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
             var schemaList = schema.Split(',');
-            for(int i=0;i<schemaList.Count(); i++)
+            for (int i = 0; i < schemaList.Count(); i++)
             {
-                if(schemaList[i].Contains("<") && i<schemaList.Count() && schemaList[i+1].Contains(">"))
+                if (schemaList[i].Contains("<") && i < schemaList.Count()-1 && schemaList[i + 1].Contains(">"))
                 {
                     schemaList[i] += schemaList[i + 1];
                     schemaList[i + 1] = "";
@@ -564,6 +564,112 @@ namespace ScopeProgramAnalysis
             WriteSarifOutput(log, outputPath);
         }
 
+        public class DependencyStats
+        {
+            public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
+            public List<string> UnreadInputs = new List<string>();
+            public bool TopHappened;
+            public bool OutputHasTop;
+            public bool InputHasTop;
+            public int ColumnsSchemaInput;
+            public int ColumnsSchemaOutput;
+
+
+        }
+
+        public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
+        {
+            foreach (var run in log.Runs)
+            {
+                var tool = run.Tool.Name;
+                if (tool != "ScopeProgramAnalysis") continue;
+                var splitId = run.Id.Split('|');
+
+                var processNumber = "0";
+                var processorName = "";
+                if (splitId.Length == 2)
+                {
+                    processorName = splitId[0];
+                    processNumber = splitId[1];
+                }
+                else
+                {
+                    processorName = run.Id;
+                }
+
+                var ret = new DependencyStats();
+
+                var visitedColumns = new HashSet<string>();
+                var inputColumnsRead = new HashSet<string>();
+                foreach (var result in run.Results)
+                {
+                    if (result.Id == "SingleColumn")
+                    {
+                        var columnProperty = result.GetProperty("column");
+                        if (!columnProperty.StartsWith("Col(")) continue;
+                        var columnName = columnProperty.Split(',')[1].Trim('"', ')');
+                        if (columnName == "_All_")
+                        {
+                            // ignore this for now because it is more complicated
+                            continue;
+                        }
+                        if (columnName == "_TOP_")
+                        {
+                            ret.TopHappened = true;
+                        }
+                        if (visitedColumns.Contains(columnName))
+                            continue;
+
+                        visitedColumns.Add(columnName);
+
+                        var dataDependencies = result.GetProperty<List<string>>("data depends");
+                        if (dataDependencies.Count == 1)
+                        {
+                            var inputColumn = dataDependencies[0];
+                            if (!inputColumn.StartsWith("Col(Input"))
+                            {
+                                // then it is dependent on only one thing, but that thing is not a column.
+                                continue;
+                            }
+                            if (inputColumn.Contains("TOP"))
+                            {
+                                // a pass through column cannot depend on TOP
+                                continue;
+                            }
+                            // then it is a pass-through column
+                            var inputColumnName = inputColumn.Split(',')[1].Trim('"', ')');
+                            ret.PassThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
+                        }
+                    }
+                    else if (result.Id == "Summary")
+                    {
+                        // Do nothing
+                        var columnProperty = result.GetProperty<List<string>>("Inputs");
+                        var totalInputColumns = columnProperty.Count;
+                        ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)");
+                        var inputColumns = columnProperty.Select(x => x.Split(',')[1].Trim('"', ')'));
+
+                        columnProperty = result.GetProperty<List<string>>("Outputs");
+                        var totalOutputColumns = columnProperty.Count;
+                        ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)");
+
+                        columnProperty = result.GetProperty<List<string>>("SchemaInputs");
+                        ret.ColumnsSchemaInput = columnProperty.Count;
+                        if (!ret.InputHasTop)
+                        {
+                            ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
+                        }
+
+                        columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
+                        ret.ColumnsSchemaOutput = columnProperty.Count;
+
+                        yield return Tuple.Create(processorName, ret);
+                        ret = new DependencyStats();
+                    }
+                }
+            }
+        }
+
 
         private static Run CreateResultsAndThenRun(string inputPath, ClassDefinition processorClass, MethodDefinition entryMethod, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
             ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ClassDefinition> processorMap)
@@ -708,10 +814,10 @@ namespace ScopeProgramAnalysis
                 results.Add(result);
                 var resultEmpty = new Result();
                 resultEmpty.Id = "Summary";
-                resultEmpty.SetProperty("Inputs", "_TOP_");
-                resultEmpty.SetProperty("Outputs", "_TOP_");
-                resultEmpty.SetProperty("SchemaInputs", "_TOP_");
-                resultEmpty.SetProperty("SchemaOutputs", "_TOP_");
+                resultEmpty.SetProperty("Inputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
                 results.Add(resultEmpty);
             }
 
@@ -759,7 +865,8 @@ namespace ScopeProgramAnalysis
                 }
                 catch (Exception e)
                 {
-                    System.Console.WriteLine("Cannot load {0}:{1}", referenceFileName, e.Message);
+                    AnalysisStats.DllThatFailedToLoad.Add(referenceFileName);
+                    AnalysisStats.TotalDllsFailedToLoad++;
                 }
             }
         }
@@ -854,10 +961,6 @@ namespace ScopeProgramAnalysis
                                 }
                             }
                         }
-                    }
-                    else
-                    {
-                        AnalysisStats.TotalMethodsNotFound++;
                     }
                 }
                 catch (Exception e)
@@ -1023,7 +1126,7 @@ namespace ScopeProgramAnalysis
             run.Tool.Name = "ScopeProgramAnalysis";
             run.Files = new Dictionary<string, FileData>();
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
-            var fileData = FileData.Create(new Uri(fileDataKey), false);
+            var fileData = FileData.Create(new Uri(fileDataKey, UriKind.Relative), false);
             run.Files.Add(fileDataKey, fileData);
             if (!String.IsNullOrWhiteSpace(notification))
                 run.ToolNotifications = new List<Notification>() { new Notification { Message = notification, }, };
