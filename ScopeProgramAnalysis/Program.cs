@@ -151,7 +151,7 @@ namespace ScopeProgramAnalysis
             input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\02c4581e-781a-4798-8875-162b4d740b5f\__ScopeCodeGen__.dll";
 
             // Can not find methods in the factory
-            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
+            //            input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
 
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
@@ -195,23 +195,23 @@ namespace ScopeProgramAnalysis
             Console.Write("Processor: {0}. ", processor.Attribute("className").Value);
 
             var inputSchema = ParseColumns(processor.Descendants("input").FirstOrDefault().Attribute("schema").Value);
-            
+
         }
 
         private static IEnumerable<Column> ParseColumns(string schema)
         {
             // schema looks like: "JobGUID:string,SubmitTime:DateTime?,NewColumn:string"
             var schemaList = schema.Split(',');
-            for(int i=0;i<schemaList.Count(); i++)
+            for (int i = 0; i < schemaList.Count(); i++)
             {
-                if(schemaList[i].Contains("<") && i<schemaList.Count() && schemaList[i+1].Contains(">"))
+                if (schemaList[i].Contains("<") && i < schemaList.Count()-1 && schemaList[i + 1].Contains(">"))
                 {
                     schemaList[i] += schemaList[i + 1];
                     schemaList[i + 1] = "";
                     i++;
                 }
             }
-            return schemaList.Where( elem => !String.IsNullOrEmpty(elem)).Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
+            return schemaList.Where(elem => !String.IsNullOrEmpty(elem)).Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
 
             //return schema
             //    .Split(',')
@@ -219,9 +219,9 @@ namespace ScopeProgramAnalysis
         }
 
 
-       public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
 
-                                      bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = interProc;
@@ -274,7 +274,7 @@ namespace ScopeProgramAnalysis
                 scopeMethodPairs = program.ObtainScopeMethodsToAnalyze();
                 if (!scopeMethodPairs.Any())
                 {
-                    if(outputStream!=null)
+                    if (outputStream != null)
                         outputStream.WriteLine("Failed to obtain methods from the ScopeFactory. ");
                     System.Console.WriteLine("Failed to obtain methods from the ScopeFactory.");
 
@@ -296,7 +296,8 @@ namespace ScopeProgramAnalysis
                 if (useScopeFactory)
                 {
                     allSchemas = program.ReadSchemasFromXML(inputPath);
-                } else
+                }
+                else
                 {
                     allSchemas = program.ReadSchemasFromXML2(inputPath);
                 }
@@ -308,7 +309,7 @@ namespace ScopeProgramAnalysis
                     var entryMethodDef = methodPair.Item1;
                     var moveNextMethod = methodPair.Item2;
                     var getEnumMethod = methodPair.Item3;
-                    System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
+                    //System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullPathName());
 
                     Schema inputSchema = null;
                     Schema outputSchema = null;
@@ -327,7 +328,7 @@ namespace ScopeProgramAnalysis
                         var dependencyAnalysis = new SongTaoDependencyAnalysis(host, program.interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                         var depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
 
-                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, dependencyAnalysis,  program.factoryReducerMap);
+                        WriteResultToSarifLog(inputPath, outputStream, log, moveNextMethod, depAnalysisResult, dependencyAnalysis, program.factoryReducerMap);
 
                         InputSchema = null;
                         OutputSchema = null;
@@ -358,9 +359,115 @@ namespace ScopeProgramAnalysis
             WriteSarifOutput(log, outputPath);
         }
 
+        public class DependencyStats
+        {
+            public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
+            public List<string> UnreadInputs = new List<string>();
+            public bool TopHappened;
+            public bool OutputHasTop;
+            public bool InputHasTop;
+            public int ColumnsSchemaInput;
+            public int ColumnsSchemaOutput;
 
-        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult, 
-            SongTaoDependencyAnalysis dependencyAnalysis, IDictionary<string, ClassDefinition> processorMap)
+
+        }
+
+        public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
+        {
+            foreach (var run in log.Runs)
+            {
+                var tool = run.Tool.Name;
+                if (tool != "ScopeProgramAnalysis") continue;
+                var splitId = run.Id.Split('|');
+
+                var processNumber = "0";
+                var processorName = "";
+                if (splitId.Length == 2)
+                {
+                    processorName = splitId[0];
+                    processNumber = splitId[1];
+                }
+                else
+                {
+                    processorName = run.Id;
+                }
+
+                var ret = new DependencyStats();
+
+                var visitedColumns = new HashSet<string>();
+                var inputColumnsRead = new HashSet<string>();
+                foreach (var result in run.Results)
+                {
+                    if (result.Id == "SingleColumn")
+                    {
+                        var columnProperty = result.GetProperty("column");
+                        if (!columnProperty.StartsWith("Col(")) continue;
+                        var columnName = columnProperty.Split(',')[1].Trim('"', ')');
+                        if (columnName == "_All_")
+                        {
+                            // ignore this for now because it is more complicated
+                            continue;
+                        }
+                        if (columnName == "_TOP_")
+                        {
+                            ret.TopHappened = true;
+                        }
+                        if (visitedColumns.Contains(columnName))
+                            continue;
+
+                        visitedColumns.Add(columnName);
+
+                        var dataDependencies = result.GetProperty<List<string>>("data depends");
+                        if (dataDependencies.Count == 1)
+                        {
+                            var inputColumn = dataDependencies[0];
+                            if (!inputColumn.StartsWith("Col(Input"))
+                            {
+                                // then it is dependent on only one thing, but that thing is not a column.
+                                continue;
+                            }
+                            if (inputColumn.Contains("TOP"))
+                            {
+                                // a pass through column cannot depend on TOP
+                                continue;
+                            }
+                            // then it is a pass-through column
+                            var inputColumnName = inputColumn.Split(',')[1].Trim('"', ')');
+                            ret.PassThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
+                        }
+                    }
+                    else if (result.Id == "Summary")
+                    {
+                        // Do nothing
+                        var columnProperty = result.GetProperty<List<string>>("Inputs");
+                        var totalInputColumns = columnProperty.Count;
+                        ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)");
+                        var inputColumns = columnProperty.Select(x => x.Split(',')[1].Trim('"', ')'));
+
+                        columnProperty = result.GetProperty<List<string>>("Outputs");
+                        var totalOutputColumns = columnProperty.Count;
+                        ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)");
+
+                        columnProperty = result.GetProperty<List<string>>("SchemaInputs");
+                        ret.ColumnsSchemaInput = columnProperty.Count;
+                        if (!ret.InputHasTop)
+                        {
+                            ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
+                        }
+
+                        columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
+                        ret.ColumnsSchemaOutput = columnProperty.Count;
+
+                        yield return Tuple.Create(processorName, ret);
+                        ret = new DependencyStats();
+                    }
+                }
+            }
+        }
+
+
+        private static void WriteResultToSarifLog(string inputPath, StreamWriter outputStream, SarifLog log, MethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
+                SongTaoDependencyAnalysis dependencyAnalysis, IDictionary<string, ClassDefinition> processorMap)
         {
             var results = new List<Result>();
 
@@ -515,10 +622,10 @@ namespace ScopeProgramAnalysis
                 results.Add(result);
                 var resultEmpty = new Result();
                 resultEmpty.Id = "Summary";
-                resultEmpty.SetProperty("Inputs", "_TOP_");
-                resultEmpty.SetProperty("Outputs", "_TOP_");
-                resultEmpty.SetProperty("SchemaInputs", "_TOP_");
-                resultEmpty.SetProperty("SchemaOutputs", "_TOP_");
+                resultEmpty.SetProperty("Inputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
                 results.Add(resultEmpty);
             }
 
@@ -560,7 +667,8 @@ namespace ScopeProgramAnalysis
                 }
                 catch (Exception e)
                 {
-                    System.Console.WriteLine("Cannot load {0}:{1}", referenceFileName, e.Message);
+                    AnalysisStats.DllThatFailedToLoad.Add(referenceFileName);
+                    AnalysisStats.TotalDllsFailedToLoad++;
                 }
             }
         }
@@ -600,44 +708,60 @@ namespace ScopeProgramAnalysis
                 if (isCompilerGenerated)
                     continue;
 
+                AnalysisStats.NumUDOs++;
+
                 ClassDefinition resolvedEntryClass = null;
                 try
                 {
                     resolvedEntryClass = host.ResolveReference(reducerClass) as ClassDefinition;
 
-                    if (resolvedEntryClass != null)
+                    if (resolvedEntryClass == null)
                     {
-                        if (processorsToAnalyze.Contains(resolvedEntryClass))
-                            continue;
+                        AnalysisStats.MethodsNotFound.Add(reducerClass.Name);
+                        continue;
 
-                        processorsToAnalyze.Add(resolvedEntryClass);
-
-                        var candidateClousures = resolvedEntryClass.Types.OfType<ClassDefinition>()
-                                       .Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
-                        foreach (var candidateClousure in candidateClousures)
-                        {
-                            var moveNextMethods = candidateClousure.Methods
-                                                        .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));
-                            var getEnumMethods = candidateClousure.Methods
-                                                        .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
-                            foreach (var moveNextMethod in moveNextMethods)
-                            {
-                                var entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
-                                var getEnumeratorMethod = getEnumMethods.Single();
-                                scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
-
-                                // TODO: Hack for reuse. Needs refactor
-                                if (factoryMethod != null)
-                                {
-                                    var processID = factoryMethod.Name.Substring(factoryMethod.Name.IndexOf("Process_"));
-                                    this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
-                                }
-                            }
-                        }
                     }
-                    else
+
+                    if (processorsToAnalyze.Contains(resolvedEntryClass))
+                        continue;
+                    processorsToAnalyze.Add(resolvedEntryClass);
+
+                    var typeDefs = resolvedEntryClass.Types.OfType<ClassDefinition>();
+
+                    if(!typeDefs.Any())
                     {
-                        AnalysisStats.TotalMethodsNotFound++;
+                        AnalysisStats.EmptyClasses.Add(resolvedEntryClass.Name);
+                        continue;
+                    }
+
+                    var candidateClousures = typeDefs.Where(c => this.ClousureFilters.Any(filter => c.Name.StartsWith(filter)));
+
+                    if (!candidateClousures.Any())
+                    {
+                        AnalysisStats.EmptyCandidateClosures.Add(resolvedEntryClass.Name);
+                        continue;
+                    }
+
+                    foreach (var candidateClousure in candidateClousures)
+                    {
+                        var moveNextMethods = candidateClousure.Methods
+                                                    .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));
+                        var getEnumMethods = candidateClousure.Methods
+                                                    .Where(m => m.Name == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                        foreach (var moveNextMethod in moveNextMethods)
+                        {
+                            var entryMethod = resolvedEntryClass.Methods.Where(m => this.EntryMethods.Contains(m.Name)).Single();
+                            var getEnumeratorMethod = getEnumMethods.Single();
+                            scopeMethodPairsToAnalyze.Add(new Tuple<MethodDefinition, MethodDefinition, MethodDefinition>(entryMethod, moveNextMethod, getEnumeratorMethod));
+
+                            // madanm: factoryMethod is guaranteed to be non nullp
+                            //// TODO: Hack for reuse. Needs refactor
+                            //if (factoryMethod != null)
+                            //{
+                                var processID = factoryMethod.Name.Substring(factoryMethod.Name.IndexOf("Process_"));
+                                this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ClassDefinition);
+                            //}
+                        }
                     }
                 }
                 catch (Exception e)
