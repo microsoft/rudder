@@ -353,9 +353,8 @@ namespace ScopeProgramAnalysis
         /// <param name="calleeCFG"></param>
         public SimplePointsToGraph PTAInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IVariable result, IMethodDefinition resolvedCallee)
         {
-            var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
-
-            if (body.Instructions.Any())
+           
+            if (resolvedCallee.ResolvedMethod.Body.Operations.Any())
             {
                 ControlFlowGraph calleeCFG = this.GetCFG(resolvedCallee);
                 //DGMLSerializer.Serialize(calleeCFG);
