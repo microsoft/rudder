@@ -6,7 +6,6 @@ using System.Linq;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Expressions;
-using Backend.Analyses;
 using Microsoft.Cci;
 using ScopeProgramAnalysis.Framework;
 
