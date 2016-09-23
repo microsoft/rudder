@@ -253,3 +253,4 @@ paket-files/
 /analysis-net/
 /Tainting-Example/References
 /ScopeProgramAnalysis.zip
+/analysis-net-cci-decoupled/

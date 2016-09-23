@@ -13,7 +13,7 @@ namespace ScopeProgramAnalysis.Framework
             return result;
         }
 
-        public static bool IsCompilerGenerated(this INamedTypeReference type)
+        public static bool IsCompilerGenerated(this ITypeReference type)
         {
             var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
@@ -23,32 +23,35 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        public static bool IsCollection(this INamedTypeReference type)
+        public static bool IsCollection(this ITypeReference type)
         {
             var result = type.ResolvedType != null
                 && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsICollection);
             return result;
         }
-        public static bool IsEnumerable(this INamedTypeReference type)
+        public static bool IsEnumerable(this ITypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("Enumerable");
+            var namedType = type as INamedTypeReference;
+            var result = namedType != null && namedType.Name.Value.Contains("Enumerable");
             return result;
         }
-        public static bool IsIEnumerable(this INamedTypeReference type)
+        public static bool IsIEnumerable(this ITypeReference type)
         {
             var result = type.ResolvedType != null 
             && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable);
             // && type.Name.Contains("IEnumerable")
             return result;
         }
-        public static bool IsIEnumerator(this INamedTypeReference type)
+        public static bool IsIEnumerator(this ITypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("IEnumerator");
+            var namedType = type as INamedTypeReference;
+            var result = namedType!=null && namedType.Name.Value.Contains("IEnumerator");
             return result;
         }
-        public static bool IsEnumerator(this INamedTypeReference type)
+        public static bool IsEnumerator(this ITypeReference type)
         {
-            var result = /*type.ResolvedType != null &&*/ type.Name.Value.Contains("Enumerator");
+            var namedType = type as INamedTypeReference;
+            var result = namedType != null && namedType.Name.Value.Contains("Enumerator");
             return result;
         }
 
@@ -59,20 +62,21 @@ namespace ScopeProgramAnalysis.Framework
             return result;
         }
 
-        public static bool IsDictionary(this INamedTypeReference type)
+        public static bool IsDictionary(this ITypeReference type)
         {
-            var result = type != null
-                && (type.Name.Value.Contains("SortedDictionary")
-                    || type.Name.Value.Contains("Dictionary")
-                    || type.Name.Value.Contains("IDictionary"));
+            var namedType = type as INamedTypeReference;
+            var result = namedType != null && 
+                (namedType.Name.Value.Contains("SortedDictionary")
+                    || namedType.Name.Value.Contains("Dictionary")
+                    || namedType.Name.Value.Contains("IDictionary"));
 
             return result;
         }
 
-        public static bool IsSet(this INamedTypeReference type)
+        public static bool IsSet(this ITypeReference type)
         {
-            var result = type != null
-                && (type.Name.Value.Contains("Set"));
+            var namedType = type as INamedTypeReference;
+            var result = namedType != null && namedType.Name.Value.Contains("Set");
             return result;
         }
 
@@ -96,7 +100,7 @@ namespace ScopeProgramAnalysis.Framework
             return result;
         }
 
-        public  static bool IsRowSetType(this INamedTypeReference type)
+        public  static bool IsRowSetType(this ITypeReference type)
         {
             var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if(resolvedClass!=null)
@@ -186,7 +190,7 @@ namespace ScopeProgramAnalysis.Framework
         }
 
 
-        public static bool IsRowListType(this INamedTypeReference type)
+        public static bool IsRowListType(this ITypeReference type)
         {
             var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
@@ -197,7 +201,7 @@ namespace ScopeProgramAnalysis.Framework
         }
 
 
-        public static bool IsColumnDataType(this INamedTypeReference type)
+        public static bool IsColumnDataType(this ITypeReference type)
         {
             var resolvedClass = type.ResolvedType as INamedTypeDefinition;
             if (resolvedClass != null)
@@ -211,7 +215,7 @@ namespace ScopeProgramAnalysis.Framework
             var basictype = (type as INamedTypeReference);
             if (basictype != null)
             {
-                var resolvedClass = basictype.ResolvedType as ITypeReferenceDefinition;
+                var resolvedClass = basictype.ResolvedType;
                 if (resolvedClass != null)
                 {
                     return TypeHelper.IsPrimitiveInteger(resolvedClass);

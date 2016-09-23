@@ -459,16 +459,18 @@ namespace Backend.Analyses
 
                 bool instanceIsCompilerGeneratedSibblingClass = false;
                 var typeAsClass = (instance.Type as INamedTypeReference);
+                var iteratorClass = this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition;
+
                 if (typeAsClass != null && typeAsClass.ResolvedType != null)
                 {
-                    var typeAsClassResolved = (typeAsClass.ResolvedType as INamedTypeDefinition);
+                    var typeAsClassResolved = (typeAsClass.ResolvedType as INestedTypeDefinition);
                     instanceIsCompilerGeneratedSibblingClass = MyTypesHelper.IsCompiledGeneratedClass(typeAsClassResolved)
                                             && typeAsClassResolved.ContainingType != null 
-                                            && this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
-                                            && typeAsClassResolved.ContainingType.Equals(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
+                                            && iteratorClass!= null
+                                            && typeAsClassResolved.ContainingType.Equals(iteratorClass.ContainingType);
                 }
-                var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType != null
-                    && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Equals(field.ContainingType);
+                var isReducerField = iteratorClass != null
+                    && iteratorClass.ContainingType.Equals(field.ContainingType);
 
                 if(isClousureField || isReducerField || instanceIsCompilerGeneratedSibblingClass)
                 {
@@ -688,10 +690,12 @@ namespace Backend.Analyses
 
             private void ProcessStaticLoad(LoadInstruction loadStmt, StaticFieldAccess fieldAccess)
             {
+                var iteratorClass = this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition;
+
                 // TODO: Move to IsClousureField()
-                var isClousureField =  this.iteratorDependencyAnalysis.iteratorClass.Name == fieldAccess.Field.ContainingType.Name;
-                var isReducerField = this.iteratorDependencyAnalysis.iteratorClass.ContainingType!=null 
-                                        && this.iteratorDependencyAnalysis.iteratorClass.ContainingType.Name == fieldAccess.Field.ContainingType.Name;
+                var isClousureField =  iteratorClass.Equals(fieldAccess.Field.ContainingType);
+                var isReducerField = iteratorClass!=null 
+                                        && iteratorClass.ContainingType.Equals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
                 if (ISClousureField(IteratorPointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
@@ -905,13 +909,13 @@ namespace Backend.Analyses
 
                                 // If it is a method within the same class it will be able to acesss all the fields 
                                 // I also see that compiler generated methods (like lambbas should also access)
-                                var isInternalClassInvocation = methodInvoked.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass);
+                                var isInternalClassInvocation = TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, this.iteratorDependencyAnalysis.iteratorClass);
                                 var isCompiledGeneratedLambda = this.method.ContainingType.IsCompilerGenerated() 
-                                                                  && this.method.ContainingType.ContainingType!=null &&
-                                                                  methodInvoked.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass.ContainingType);
+                                                                  && (this.method.ContainingType as INestedTypeDefinition).ContainingType!=null &&
+                                                                  TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
 
                                 Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
-                                                    || !nodeField.Item2.ContainingType.SameType(this.iteratorDependencyAnalysis.iteratorClass));
+                                                    || !TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass));
                                 var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
 
                                 var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
@@ -954,7 +958,7 @@ namespace Backend.Analyses
                                     // or make the parameters escape
                                     foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
                                     {
-                                        var escapingField = new FieldReference("escape", PlatformTypes.SystemObject, this.method.ContainingType);
+                                        var escapingField = new FieldReference("escape", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
                                         currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
                                     }
                                 }
@@ -986,10 +990,10 @@ namespace Backend.Analyses
 
                         currentPTG.RemoveRootEdges(result);
                         currentPTG.PointsTo(result, returnNode);
-                        var returnField = new FieldReference("$return", PlatformTypes.SystemObject, this.method.ContainingType);
+                        var returnField = new FieldReference("$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
                         foreach (var ptgNode in allNodes)
                         {
-                            if (TypeHelper.TypesAreAssignmentCompatible(ptgNode.Type, instruction.Result.Type))
+                            if (TypeHelper.TypesAreAssignmentCompatible(ptgNode.Type.ResolvedType, instruction.Result.Type.ResolvedType))
                             {
                                 currentPTG.PointsTo(returnNode, returnField, ptgNode);
                             }
@@ -1034,10 +1038,10 @@ namespace Backend.Analyses
                         }
                         catch (Exception e)
                         {
-                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToSignatureString());
+                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToString());
                             System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                             AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
-                                        String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
+                                        String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToString())));
                             AnalysisStats.TotalofFrameworkErrors++;
                             HandleNoAnalyzableMethod(methodCallStmt);
                         }
@@ -1153,7 +1157,7 @@ namespace Backend.Analyses
 
                 }
                 // For GetEnum we need to create an object iterator that points-to the colecction
-                if (methodInvoked.Name == "GetEnumerator"
+                if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
                      var arg = methodCallStmt.Arguments[0];
@@ -1164,7 +1168,7 @@ namespace Backend.Analyses
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 // For Current we need to obtain one item from the collection
-                else if (methodInvoked.Name == "get_Current"  
+                else if (methodInvoked.Name.Value == "get_Current"  
                     && (methodInvoked.ContainingType.IsIEnumerator() || methodInvoked.ContainingType.IsEnumerator()))
                 {
                     var arg = methodCallStmt.Arguments[0];
@@ -1178,7 +1182,7 @@ namespace Backend.Analyses
                     }
                 }
                 // set_Item add an element to the colecction using a fake field "$item"
-                else if (methodInvoked.Name == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                else if (methodInvoked.Name.Value == "set_Item" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     var traceables = this.State.GetTraceables(methodCallStmt.Arguments[2]);
 
@@ -1189,7 +1193,8 @@ namespace Backend.Analyses
                     this.State.AddTraceables(methodCallStmt.Arguments[0], traceables);
                 }
                 // for Add we need to add an element the collection using a fake field "$item"
-                else if (methodInvoked.Name == "Add" && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                else if (methodInvoked.Name.Value == "Add" 
+                    && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
                     if (methodInvoked.ContainingType.IsDictionary())
@@ -1208,7 +1213,7 @@ namespace Backend.Analyses
                     }
                 }
                 // get_Item recover an element to the colecction using a fake field "$item"
-                else if (methodInvoked.Name == "get_Item"  && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
+                else if (methodInvoked.Name.Value == "get_Item"  && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     if (methodInvoked.ContainingType.IsDictionary())
                     {
@@ -1223,7 +1228,7 @@ namespace Backend.Analyses
                     }
                 }
                 // For movenext we treated as an unknowm call (but pure, even it modified the it)
-                else if (methodInvoked.Name == "MoveNext" && (methodInvoked.ContainingType.IsIEnumerator()) || methodInvoked.ContainingType.IsEnumerator())
+                else if (methodInvoked.Name.Value == "MoveNext" && (methodInvoked.ContainingType.IsIEnumerator()) || methodInvoked.ContainingType.IsEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
@@ -1244,28 +1249,33 @@ namespace Backend.Analyses
                 //    this.State.CopyTraceables(methodCallStmt.Result, arg);
                 //    UpdatePTAForPure(methodCallStmt);
                 //}
-                else if (methodInvoked.Name == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
+                else if (methodInvoked.Name.Value == "Any") //  && methodInvoked.ContainingType.FullName == "Enumerable")
                 {
                     UpdateCall(methodCallStmt);
                 }
                 // Check for a predefined set of pure methods and we just propagate the arguments to the return value (and update the PT graph)
-                else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsCollection())
+                else if(pureCollectionMethods.Contains(methodInvoked.Name.Value) 
+                    && methodInvoked.ContainingType.IsCollection())
                 {
                     UpdateCall(methodCallStmt);
                 }
-                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsEnumerable())
+                else if(methodInvoked.IsPure() || pureEnumerationMethods.Contains(methodInvoked.Name.Value) 
+                    && methodInvoked.ContainingType.IsEnumerable())
                 {
                     UpdateCall(methodCallStmt);
                 }
-                else if(pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.IsContainerMethod())
+                else if(pureCollectionMethods.Contains(methodInvoked.Name.Value) 
+                    && methodInvoked.IsContainerMethod())
                 {
                     UpdateCall(methodCallStmt);
                 }
-                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsSet())
+                else if (pureCollectionMethods.Contains(methodInvoked.Name.Value) 
+                    && methodInvoked.ContainingType.IsSet())
                 {
                     UpdateCall(methodCallStmt);
                 }
-                else if (pureCollectionMethods.Contains(methodInvoked.Name) && methodInvoked.ContainingType.IsDictionary())
+                else if (pureCollectionMethods.Contains(methodInvoked.Name.Value) 
+                    && methodInvoked.ContainingType.IsDictionary())
                 {
                     UpdateCall(methodCallStmt);
                 }
@@ -1294,7 +1304,7 @@ namespace Backend.Analyses
             private bool  HandleScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
             {
                 var result = true;
-                if(methodInvoked.Name=="Clone" && methodInvoked.ContainingType.IsRowType())
+                if(methodInvoked.Name.Value=="Clone" && methodInvoked.ContainingType.IsRowType())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
@@ -1304,7 +1314,7 @@ namespace Backend.Analyses
                 }
                 // This is when you get rows
                 // a2 = a2[v<- a[arg_0]] 
-                if (methodInvoked.Name == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
+                if (methodInvoked.Name.Value == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1319,7 +1329,7 @@ namespace Backend.Analyses
                 }
                 // This is when you get enumerator (same as get rows)
                 // a2 = a2[v <- a[arg_0]] 
-                else if (methodInvoked.Name == "GetEnumerator"
+                else if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerableRow()
                        || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
                 {
@@ -1332,7 +1342,7 @@ namespace Backend.Analyses
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "get_Current"
+                else if (methodInvoked.Name.Value == "get_Current"
                     && (methodInvoked.ContainingType.IsIEnumeratorRow()
                          || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
                 {
@@ -1345,7 +1355,7 @@ namespace Backend.Analyses
                 }
                 // v = arg.Current
                 // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "MoveNext" && methodInvoked.ContainingType.IsIEnumerator())
+                else if (methodInvoked.Name.Value == "MoveNext" && methodInvoked.ContainingType.IsIEnumerator())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
@@ -1357,7 +1367,7 @@ namespace Backend.Analyses
                 }
                 // v = arg.getItem(col)
                 // a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name == "get_Item" && methodInvoked.ContainingType.IsRowType())
+                else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.IsRowType())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var col = methodCallStmt.Arguments[1];
@@ -1389,7 +1399,7 @@ namespace Backend.Analyses
                 }
                 // arg.Set(arg1)
                 // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
-                else if (methodInvoked.Name == "Set" && methodInvoked.ContainingType.IsColumnDataType())
+                else if (methodInvoked.Name.Value == "Set" && methodInvoked.ContainingType.IsColumnDataType())
                 //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg0 = methodCallStmt.Arguments[0];
@@ -1404,7 +1414,7 @@ namespace Backend.Analyses
 
                     //CheckFailure(methodCallStmt, traceables);
                 }
-                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
+                else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
                 //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg0 = methodCallStmt.Arguments[0];
@@ -1422,7 +1432,7 @@ namespace Backend.Analyses
                 }
                 // arg.Copy(arg1)
                 // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
-                else if (methodInvoked.Name == "CopyTo" && methodInvoked.ContainingType.IsRowType())
+                else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsRowType())
                 {
                     // TODO: This is a pass-through!
                     var arg0 = methodCallStmt.Arguments[0];
@@ -1448,7 +1458,7 @@ namespace Backend.Analyses
                             var traceableInputColumn = new TraceableColumn(inputTable, column);
                             var traceableOutputColumn = new TraceableColumn(outputTable, column);
 
-                            var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = PlatformTypes.Void };
+                            var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = Types.Instance.PlatformType.SystemVoid };
                             this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
 
                             this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
@@ -1471,7 +1481,8 @@ namespace Backend.Analyses
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
                     }
                 }
-                else if ((methodInvoked.Name.Contains("get_") || methodInvoked.Name=="Get") && methodInvoked.ContainingType.IsColumnDataType())
+                else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value=="Get") 
+                    && methodInvoked.ContainingType.IsColumnDataType())
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1482,7 +1493,7 @@ namespace Backend.Analyses
                     CheckFailure(methodCallStmt, traceables);
 
                 }
-                else if (methodInvoked.Name == "Load" && methodInvoked.ContainingType.IsRowListType()) 
+                else if (methodInvoked.Name.Value == "Load" && methodInvoked.ContainingType.IsRowListType()) 
                 {
                     var receiver = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
@@ -1518,7 +1529,7 @@ namespace Backend.Analyses
             {
                 Column result = result = Column.TOP; 
                 var columnLiteral = "";
-                if (col.Type.Equals(PlatformTypes.String))
+                if (col.Type.Equals(Types.Instance.PlatformType.SystemString))
                 {
                     var columnValue = this.equalities.GetValue(col);
                     if (columnValue is Constant)
@@ -1563,18 +1574,15 @@ namespace Backend.Analyses
                 {
                     return false;
                 }
-                return methodInvoked.Name == "get_Schema"
-                    && (methodInvoked.ContainingType.Name == "RowSet" || methodInvoked.ContainingType.Name == "Row");
+                return methodInvoked.Name.Value == "get_Schema"
+                    && (methodInvoked.ContainingType.GetName() == "RowSet" 
+                    || methodInvoked.ContainingType.GetName() == "Row");
             }
 
             private bool IsSchemaItemMethod(IMethodReference methodInvoked)
             {
-                if (methodInvoked.ContainingType.ContainingAssembly.Name != "ScopeRuntime")
-                {
-                    return false;
-                }
-                return methodInvoked.Name == "get_Item"
-                    && (methodInvoked.ContainingType.Name == "Schema");
+                return methodInvoked.Name.Value == "get_Item"
+                    && (methodInvoked.ContainingType.Equals(ScopeTypes.Schema));
             }
 
             private bool IsIndexOfMethod(IMethodReference methodInvoked)
@@ -1584,12 +1592,12 @@ namespace Backend.Analyses
                     return false;
                 }
 
-                return methodInvoked.Name == "IndexOf" && methodInvoked.ContainingType.Name == "Schema";
+                return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.Equals(Schema);
             }
 
             private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType)
             {
-                if(methodInvoked.Name==".ctor")
+                if(methodInvoked.Name.Value==".ctor")
                 {
                     return true;
                 }
@@ -1906,10 +1914,10 @@ namespace Backend.Analyses
                     }
                     catch (Exception e)
                     {
-                        System.Console.WriteLine("Could not analyze delegate {0}", resolvedCallee.ToSignatureString());
+                        System.Console.WriteLine("Could not analyze delegate {0}", resolvedCallee.ToString());
                         System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCall,
-                                    String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToSignatureString())));
+                                    String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToString())));
                         AnalysisStats.TotalofFrameworkErrors++;
                         this.State.SetTOP();
                     }
@@ -1958,7 +1966,7 @@ namespace Backend.Analyses
             this.protectedNodes = protectedNodes;
             this.interproceduralManager = interprocManager;
             this.initValue = null;
-            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = PlatformTypes.SystemObject };
+            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = Types.Instance.PlatformType.SystemObject };
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
             this.rangeAnalysis = rangeAnalysis;

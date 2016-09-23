@@ -8,6 +8,7 @@ using Backend.Analysis;
 using Microsoft.Cci;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
+using Backend.ThreeAddressCode.Expressions;
 
 namespace ScopeProgramAnalysis
 {
@@ -151,7 +152,7 @@ namespace ScopeProgramAnalysis
             }
 
             this.callStack.Push(callInfo.Callee);   
-            System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToSignatureString(), stackDepth);
+            System.Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToString(), stackDepth);
             // 1) Bind PTG and create a Poinst-to Analysis for the  callee. In pta.Result[node.Exit] is the PTG at exit of the callee
             var calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
             IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
@@ -410,14 +411,14 @@ namespace ScopeProgramAnalysis
 
         public Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>> ComputeDelegate(IVariable delegateArgument, SimplePointsToGraph ptg)
         {
-            var resolvedCallees = new HashSet<MethodDefinition>();
+            var resolvedCallees = new HashSet<IMethodDefinition>();
             var unresolvedCallees = new HashSet<IMethodReference>();
             var potentialDelegates = ptg.GetTargets(delegateArgument);
             var resolvedInvocations = potentialDelegates.OfType<DelegateNode>()
                 .Select(d => this.host.FindMethodImplementation(d.Instance.Type as BasicType, d.Method) as IMethodReference);
-            resolvedCallees.UnionWith(resolvedInvocations.OfType<MethodDefinition>());
+            resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
             unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !resolvedCallees.Contains(c)));
-            return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
+            return new Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
         }
 
         public Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>> ComputePotentialCallees(MethodCallInstruction instruction, SimplePointsToGraph ptg)
@@ -449,7 +450,7 @@ namespace ScopeProgramAnalysis
                     var types = ptg.GetTargets(receiver, false).Where(n => n.Kind != PTGNodeKind.Null && n.Type != null).Select(n => n.Type);
                     var candidateCalless = types.Select(t => host.FindMethodImplementation(t as IBasicType, instruction.Method));
                     var resolvedInvocations = candidateCalless.Select(c => (host.ResolveReference(c) as IMethodReference));
-                    resolvedCallees.UnionWith(resolvedInvocations.OfType<MethodDefinition>());
+                    resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
                     unresolvedCallees.UnionWith(candidateCalless.Where(c => !resolvedInvocations.Contains(c) 
                                                                         && (c.Name!="Dispose" && c.ContainingType.ContainingAssembly.Name=="mscorlib")));
                     //unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !(c is MethodDefinition)));
