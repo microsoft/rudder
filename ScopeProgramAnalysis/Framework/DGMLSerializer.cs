@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using System.Threading.Tasks;
+using Microsoft.Cci;
 
 namespace Backend.Serialization
 {
@@ -127,6 +128,18 @@ namespace Backend.Serialization
                 xmlWriter.Flush();
                 return stringWriter.ToString();
             }
+        }
+        private static string Serialize(PTGNode node)
+        {
+            string result;
+
+            switch (node.Kind)
+            {
+                case PTGNodeKind.Null: result = "null"; break;
+                default: result = TypeHelper.GetTypeName(node.Type); break;
+            }
+
+            return result;
         }
 
     }
