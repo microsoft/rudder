@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Linq;
 using Backend.ThreeAddressCode.Values;
 using Microsoft.Cci;
+using ScopeProgramAnalysis.Framework;
 
 namespace ScopeProgramAnalysis
 {
@@ -132,10 +133,10 @@ namespace ScopeProgramAnalysis
             if (nodes.Any())
             {
                 // This should be only for scalars
-                foreach (var ptgNode in nodes)
+                foreach (var SimplePTGNode in nodes)
                 {
-                    if (ptgNode != SimplePointsToGraph.NullNode)
-                        AddHeapTraceables(ptgNode, field, traceables);
+                    if (SimplePTGNode != SimplePointsToGraph.NullNode)
+                        AddHeapTraceables(SimplePTGNode, field, traceables);
                 }
             }
             else
@@ -145,23 +146,23 @@ namespace ScopeProgramAnalysis
             return true;
         }
 
-        public void AddHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
+        public void AddHeapTraceables(SimplePTGNode SimplePTGNode, IFieldReference field, IEnumerable<Traceable> traceables)
         {
 
             // If it is a scalar field we modify A3_Field
             if (!field.Type.IsClassOrStruct())
             {
-                var location = new Location(ptgNode, field);
+                var location = new Location(SimplePTGNode, field);
                 //this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
                 // TODO:  a weak update
                 this.Dependencies.A3_Fields.AddRange(location, traceables);
             }
 
             // This should be only for references
-            // we modify A2_Refs(n) where n \in PT(ptgNode, field)
+            // we modify A2_Refs(n) where n \in PT(SimplePTGNode, field)
             if (field.Type.IsClassOrStruct())
             {
-                var targets = PTG.GetTargets(ptgNode, field);// .Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
+                var targets = PTG.GetTargets(SimplePTGNode, field);// .Except(new HashSet<SimplePTGNode>() { SimplePointsToGraph.NullNode } );
                 if (targets.Any())
                 {
                     foreach (var targetNode in targets)
@@ -193,10 +194,10 @@ namespace ScopeProgramAnalysis
             if (nodes.Any())
             {
                 // This should be only for scalars
-                foreach (var ptgNode in nodes)
+                foreach (var SimplePTGNode in nodes)
                 {
-                    if (ptgNode != SimplePointsToGraph.NullNode)
-                        AssignHeapTraceables(ptgNode, field, traceables);
+                    if (SimplePTGNode != SimplePointsToGraph.NullNode)
+                        AssignHeapTraceables(SimplePTGNode, field, traceables);
                 }
             }
             else
@@ -206,24 +207,24 @@ namespace ScopeProgramAnalysis
             return true;
         }
 
-        public void AssignHeapTraceables(PTGNode ptgNode, IFieldReference field, IEnumerable<Traceable> traceables)
+        public void AssignHeapTraceables(SimplePTGNode SimplePTGNode, IFieldReference field, IEnumerable<Traceable> traceables)
         {
 
             var newTraceables = new HashSet<Traceable>(traceables);
             // If it is a scalar field we modify A3_Field
             if (!field.Type.IsClassOrStruct())
             {
-                var location = new Location(ptgNode, field);
+                var location = new Location(SimplePTGNode, field);
                 //this.Dependencies.A3_Fields[location] = new HashSet<Traceable>(traceables);
                 // TODO:  a weak update
                 this.Dependencies.A3_Fields[location]= newTraceables;
             }
 
             // This should be only for references
-            // we modify A2_Refs(n) where n \in PT(ptgNode, field)
+            // we modify A2_Refs(n) where n \in PT(SimplePTGNode, field)
             if (field.Type.IsClassOrStruct())
             {
-                var targets = PTG.GetTargets(ptgNode, field);// .Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode } );
+                var targets = PTG.GetTargets(SimplePTGNode, field);// .Except(new HashSet<SimplePTGNode>() { SimplePointsToGraph.NullNode } );
                 if (targets.Any())
                 {
                     foreach (var targetNode in targets)
@@ -256,7 +257,7 @@ namespace ScopeProgramAnalysis
             return result;
         }
 
-        public IEnumerable<Traceable> GetHeapTraceables(PTGNode node, IFieldReference field)
+        public IEnumerable<Traceable> GetHeapTraceables(SimplePTGNode node, IFieldReference field)
         {
             var location = new Location(node, field);
             var originalTraceables = GetLocationTraceables(location);
@@ -361,11 +362,11 @@ namespace ScopeProgramAnalysis
 
             if (arg.Type.IsClassOrStruct())
             {
-                foreach (var ptgNode in PTG.GetTargets(arg))
+                foreach (var SimplePTGNode in PTG.GetTargets(arg))
                 {
-                    if (ptgNode!=SimplePointsToGraph.NullNode && Dependencies.A2_References.ContainsKey(ptgNode))
+                    if (SimplePTGNode!=SimplePointsToGraph.NullNode && Dependencies.A2_References.ContainsKey(SimplePTGNode))
                     {
-                        traceables.UnionWith(Dependencies.A2_References[ptgNode]);
+                        traceables.UnionWith(Dependencies.A2_References[SimplePTGNode]);
                     }
                 }
             }
@@ -450,7 +451,7 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public MapSet<PTGNode, Traceable> A2_References { get; set; }
+        public MapSet<SimplePTGNode, Traceable> A2_References { get; set; }
 
         public MapSet<IVariable, Traceable> A2_Variables { get; private set; }
         public MapSet<Location, Traceable> A3_Fields { get; set; }
@@ -466,7 +467,7 @@ namespace ScopeProgramAnalysis
 
         public DependencyDomain()
         {
-            A2_References = new MapSet<PTGNode, Traceable>();
+            A2_References = new MapSet<SimplePTGNode, Traceable>();
 
             A2_Variables = new MapSet<IVariable, Traceable>();
             A3_Fields = new MapSet<Location, Traceable>();
@@ -561,7 +562,7 @@ namespace ScopeProgramAnalysis
         {
             var result = new DependencyDomain();
             result.IsTop = this.IsTop;
-            result.A2_References = new MapSet<PTGNode, Traceable>(this.A2_References);
+            result.A2_References = new MapSet<SimplePTGNode, Traceable>(this.A2_References);
 
             result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
             result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);
@@ -590,7 +591,7 @@ namespace ScopeProgramAnalysis
             else
             {
                 result.IsTop = this.IsTop;
-                result.A2_References = new MapSet<PTGNode, Traceable>(this.A2_References);
+                result.A2_References = new MapSet<SimplePTGNode, Traceable>(this.A2_References);
 
                 result.A1_Escaping = new HashSet<Traceable>(this.A1_Escaping);
                 result.A2_Variables = new MapSet<IVariable, Traceable>(this.A2_Variables);

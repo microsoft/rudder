@@ -36,26 +36,26 @@ namespace Backend.Serialization
                 foreach (var node in ptg.Nodes)
                 {
                     var nodeId = Convert.ToString(node.Id);
-                    var label = DGMLSerializer.Serialize(node);
+                    var label = Serialize(node);
 
                     xmlWriter.WriteStartElement("Node");
                     xmlWriter.WriteAttributeString("Id", nodeId);
                     xmlWriter.WriteAttributeString("Label", label);
 
-                    if (node.Kind == PTGNodeKind.Null)
+                    if (node.Kind == SimplePTGNodeKind.Null)
                     {
                         xmlWriter.WriteAttributeString("Background", "Yellow");
                     }
-                    else if (node.Kind == PTGNodeKind.Delegate)
+                    else if (node.Kind == SimplePTGNodeKind.Delegate)
                     {
                         xmlWriter.WriteAttributeString("Background", "Cyan");
                     }
-                    else if (node.Kind == PTGNodeKind.Parameter)
+                    else if (node.Kind == SimplePTGNodeKind.Parameter)
                     {
                         xmlWriter.WriteAttributeString("Background", "Red");
                         xmlWriter.WriteAttributeString("StrokeDashArray", "6,6");
                     }
-                    else if (node.Kind == PTGNodeKind.Unknown)
+                    else if (node.Kind == SimplePTGNodeKind.Unknown)
                     {
                         xmlWriter.WriteAttributeString("Background", "#FFB445");
                         xmlWriter.WriteAttributeString("StrokeDashArray", "6,6");
@@ -129,13 +129,13 @@ namespace Backend.Serialization
                 return stringWriter.ToString();
             }
         }
-        private static string Serialize(PTGNode node)
+        private static string Serialize(SimplePTGNode node)
         {
             string result;
 
             switch (node.Kind)
             {
-                case PTGNodeKind.Null: result = "null"; break;
+                case SimplePTGNodeKind.Null: result = "null"; break;
                 default: result = TypeHelper.GetTypeName(node.Type); break;
             }
 

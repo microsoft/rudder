@@ -9,7 +9,7 @@ using System.Globalization;
 using ScopeProgramAnalysis;
 using static Backend.Analyses.IteratorPointsToAnalysis;
 using ScopeProgramAnalysis.Framework;
-using Backend.Analysis;
+using Backend.Analyses;
 using Backend.ThreeAddressCode.Values;
 using Microsoft.Cci;
 using Backend.ThreeAddressCode.Expressions;
@@ -233,35 +233,35 @@ namespace Backend.Analyses
     }
 
 
-    public class Location // : PTGNode
+    public class Location // : SimplePTGNode
     {
-        PTGNode ptgNode = null;
+        SimplePTGNode SimplePTGNode = null;
         public IFieldReference Field { get; set; }
 
-        public Location(PTGNode node, IFieldReference f) 
+        public Location(SimplePTGNode node, IFieldReference f) 
         {
-            this.ptgNode = node;
+            this.SimplePTGNode = node;
             this.Field = f;
         }
 
         public Location(IFieldReference f) 
         {
-            this.ptgNode = SimplePointsToGraph.GlobalNode;
+            this.SimplePTGNode = SimplePointsToGraph.GlobalNode;
             this.Field = f;
         }
         public override bool Equals(object obj)
         {
             var oth = obj as Location;
-            return oth!=null && oth.ptgNode.Equals(this.ptgNode)
+            return oth!=null && oth.SimplePTGNode.Equals(this.SimplePTGNode)
                 && oth.Field.Equals(this.Field);
         }
         public override int GetHashCode()
         {
-            return ptgNode.GetHashCode() + Field.GetHashCode();
+            return SimplePTGNode.GetHashCode() + Field.GetHashCode();
         }
         public override string ToString()
         {
-            return "[" + ptgNode.ToString() +"."+  Field.ToString() + "]";
+            return "[" + SimplePTGNode.ToString() +"."+  Field.ToString() + "]";
         }
     }
 
@@ -300,8 +300,8 @@ namespace Backend.Analyses
     public class AbstractObject : ISymbolicValue
     {
         // private IVariable variable;
-        private PTGNode ptgNode = null;
-        public AbstractObject(PTGNode ptgNode)
+        private SimplePTGNode SimplePTGNode = null;
+        public AbstractObject(SimplePTGNode SimplePTGNode)
         {
             //this.variable = variable;
 
@@ -310,18 +310,18 @@ namespace Backend.Analyses
         {
             get
             {
-                return String.Join(",", ptgNode.Variables);
+                return String.Join(",", SimplePTGNode.Variables);
 
             }
         }
         public override bool Equals(object obj)
         {
             var oth = obj as AbstractObject;
-            return oth!=null && oth.ptgNode.Equals(this.ptgNode);
+            return oth!=null && oth.SimplePTGNode.Equals(this.SimplePTGNode);
         }
         public override int GetHashCode()
         {
-            return ptgNode.GetHashCode();
+            return SimplePTGNode.GetHashCode();
         }
     }
 
@@ -446,9 +446,9 @@ namespace Backend.Analyses
                 //}
 
                 var instanceType = instance.Type;
-                if(instanceType is PointerType)
+                if(instanceType is IPointerType)
                 {
-                    instanceType= (instanceType as PointerType).TargetType;
+                    instanceType= (instanceType as IPointerType).TargetType;
                 }
 
                 if ( instanceType.Equals(this.iteratorDependencyAnalysis.iteratorClass)) 
@@ -493,9 +493,9 @@ namespace Backend.Analyses
             //    }
             //    return res;
             //}
-            //private ISet<PTGNode> GetPtgNodes(IVariable v)
+            //private ISet<SimplePTGNode> GetSimplePTGNodes(IVariable v)
             //{
-            //    var res = new HashSet<PTGNode>();
+            //    var res = new HashSet<SimplePTGNode>();
             //    if (currentPTG.Contains(v))
             //    {
             //        res.UnionWith(currentPTG.GetTargets(v));
@@ -601,12 +601,12 @@ namespace Backend.Analyses
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to access index array with no objects associated"));
                     }
 
-                    //foreach (var ptgNode in currentPTG.GetTargets(baseArray))
+                    //foreach (var SimplePTGNode in currentPTG.GetTargets(baseArray))
                     //{
                     //    // TODO: I need to provide a BasicType. I need the base of the array 
                     //    // Currenly I use the method containing type
                     //    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
-                    //    var loc = new Location(ptgNode, fakeField);
+                    //    var loc = new Location(SimplePTGNode, fakeField);
                     //    if (this.State.Dependencies.A3_Fields.ContainsKey(loc))
                     //    {
                     //        traceables.UnionWith(this.State.Dependencies.A3_Fields[loc]);
@@ -678,7 +678,7 @@ namespace Backend.Analyses
                 this.State.AssignTraceables(loadStmt.Result, traceables);
             }
 
-            private bool MaybeProctectedNode(PTGNode node)
+            private bool MaybeProctectedNode(SimplePTGNode node)
             {
                 return this.iteratorDependencyAnalysis.protectedNodes.Contains(node);
             }
@@ -791,9 +791,9 @@ namespace Backend.Analyses
                         //var nodes = currentPTG.GetTargets(o);
                         //if (nodes.Any())
                         //{
-                        //    foreach (var ptgNode in nodes)
+                        //    foreach (var SimplePTGNode in nodes)
                         //    {
-                        //        var location = new Location(ptgNode, field);
+                        //        var location = new Location(SimplePTGNode, field);
                         //        //this.State.Dependencies.A3_Fields[location] = traceables;
                         //        // Now I do a weak update
                         //        this.State.Dependencies.A3_Fields.AddRange(location, traceables);
@@ -824,14 +824,14 @@ namespace Backend.Analyses
                     var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                     var OK = this.State.AddHeapTraceables(baseArray, fakeField, instruction.Operand);
 
-                    //foreach (var ptgNode in currentPTG.GetTargets(baseArray))
+                    //foreach (var SimplePTGNode in currentPTG.GetTargets(baseArray))
                     //{
                     //    // TODO: I need to provide a BasicType. I need the base of the array 
                     //    // Currenly I use the method containing type
                     //    var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                     //    //fakeField.ContainingType = PlatformTypes.SystemObject;
-                    //    var loc = new Location(ptgNode, fakeField);
-                    //    this.State.Dependencies.A3_Fields[new Location(ptgNode, fakeField)] = traceables;
+                    //    var loc = new Location(SimplePTGNode, fakeField);
+                    //    this.State.Dependencies.A3_Fields[new Location(SimplePTGNode, fakeField)] = traceables;
                     //}
                 }
                 else if (instructionResult is StaticFieldAccess)
@@ -914,7 +914,7 @@ namespace Backend.Analyses
                                                                   && (this.method.ContainingType as INestedTypeDefinition).ContainingType!=null &&
                                                                   TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
 
-                                Predicate<Tuple<PTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
+                                Predicate<Tuple<SimplePTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
                                                     || !TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass));
                                 var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
 
@@ -956,7 +956,7 @@ namespace Backend.Analyses
 
                                     // I should at least update the Poinst-to graph
                                     // or make the parameters escape
-                                    foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=PTGNodeKind.Null))
+                                    foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=SimplePTGNodeKind.Null))
                                     {
                                         var escapingField = new FieldReference("escape", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
                                         currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
@@ -977,11 +977,11 @@ namespace Backend.Analyses
             {
                 if (instruction.HasResult && instruction.Result.Type.IsClassOrStruct())
                 {
-                    var returnNode = new PTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type, PTGNodeKind.Object);
+                    var returnNode = new SimplePTGNode(new PTGID(new MethodContex(this.method), (int)instruction.Offset), instruction.Result.Type, SimplePTGNodeKind.Object);
 
                     foreach (var result in instruction.ModifiedVariables)
                     {
-                        var allNodes = new HashSet<PTGNode>();
+                        var allNodes = new HashSet<SimplePTGNode>();
                         foreach (var arg in instruction.UsedVariables)
                         {
                             var nodes = this.currentPTG.GetTargets(arg, false);
@@ -991,11 +991,11 @@ namespace Backend.Analyses
                         currentPTG.RemoveRootEdges(result);
                         currentPTG.PointsTo(result, returnNode);
                         var returnField = new FieldReference("$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
-                        foreach (var ptgNode in allNodes)
+                        foreach (var SimplePTGNode in allNodes)
                         {
-                            if (TypeHelper.TypesAreAssignmentCompatible(ptgNode.Type.ResolvedType, instruction.Result.Type.ResolvedType))
+                            if (TypeHelper.TypesAreAssignmentCompatible(SimplePTGNode.Type.ResolvedType, instruction.Result.Type.ResolvedType))
                             {
-                                currentPTG.PointsTo(returnNode, returnField, ptgNode);
+                                currentPTG.PointsTo(returnNode, returnField, SimplePTGNode);
                             }
                             else
                             { }
@@ -1086,7 +1086,7 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                if (containingType.IsValueType())
+                if (    containingType.IsValueType())
                 {
                     return true;
                 }
@@ -1570,7 +1570,7 @@ namespace Backend.Analyses
 
             private bool IsSchemaMethod(IMethodReference methodInvoked)
             {
-                if (methodInvoked.ContainingType.ContainingAssembly.Name != "ScopeRuntime")
+                if (methodInvoked.ContainingType.ContainingAssembly() != "ScopeRuntime")
                 {
                     return false;
                 }
@@ -1587,7 +1587,7 @@ namespace Backend.Analyses
 
             private bool IsIndexOfMethod(IMethodReference methodInvoked)
             {
-                if (methodInvoked.ContainingType.ContainingAssembly.Name != "ScopeRuntime")
+                if (methodInvoked.ContainingType.ContainingAssembly() != "ScopeRuntime")
                 {
                     return false;
                 }
@@ -1884,7 +1884,10 @@ namespace Backend.Analyses
                         //for(int i=0; i<resolvedCallee.Body.Parameters.Count;i++)
                         //{
                         var instance = this.currentPTG.GetTargets(delegateArgument).OfType<DelegateNode>().First().Instance;
-                        var parametersCount = resolvedCallee.Body.Parameters.Count;
+
+                        var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
+
+                        var parametersCount = body.Parameters.Count;
                         if (!resolvedCallee.IsStatic)
                         {
                             arguments.Add(instance);
@@ -2012,21 +2015,23 @@ namespace Backend.Analyses
                 IVariable thisVar = null;
                 if (!this.method.IsStatic && this.method.Body != null)
                 {
-                    thisVar = this.method.Body.Parameters[0];
+                    var body = MethodBodyProvider.Instance.GetBody(method);
+
+                    thisVar = body.Parameters[0];
                     System.Diagnostics.Debug.Assert(thisVar.Name == "this");
                     // currentPTG.Variables.Single(v => v.Name == "this");
-                    foreach (var ptgNode in currentPTG.GetTargets(thisVar))
+                    foreach (var SimplePTGNode in currentPTG.GetTargets(thisVar))
                     {
-                        foreach (var target in currentPTG.GetTargets(ptgNode))
+                        foreach (var target in currentPTG.GetTargets(SimplePTGNode))
                         {
                             var potentialRowNode = target.Value.First() as ParameterNode;
                             //if (target.Key.Type.ToString() == "RowSet" || target.Key.Type.ToString() == "Row")
                             if (protectedNodes.Contains(potentialRowNode))
                             {
                                 var traceable = new TraceableTable(new ProtectedRowNode(potentialRowNode, ProtectedRowNode.GetKind(potentialRowNode.Type)));
-                                depValues.AddHeapTraceables(ptgNode, target.Key, new HashSet<Traceable>() { traceable } );
+                                depValues.AddHeapTraceables(SimplePTGNode, target.Key, new HashSet<Traceable>() { traceable } );
                                 
-                                // depValues.Dependencies.A3_Fields.Add(new Location(ptgNode, target.Key), traceable));
+                                // depValues.Dependencies.A3_Fields.Add(new Location(SimplePTGNode, target.Key), traceable));
                             }
                         }
                     }

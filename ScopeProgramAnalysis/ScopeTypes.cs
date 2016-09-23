@@ -2,6 +2,7 @@
 using Microsoft.Cci;
 using System.Linq;
 using Backend.Utils;
+using ScopeProgramAnalysis.Framework;
 
 namespace ScopeProgramAnalysis
 {
@@ -10,7 +11,7 @@ namespace ScopeProgramAnalysis
         private const string scopeNameSpace = "ScopeRuntime";
         private const string scopeAssemblyName = "ScopeRuntime"; // "CodeUnderTest"; 
 
-        private static ICollection<INamedTypeReference> scopeTypes;
+        private static ICollection<INamedTypeReference> scopeTypes = new List<INamedTypeReference>();
         public static  INamedTypeReference Producer;
         public static INamedTypeReference Processor;
         public static  INamedTypeReference Reducer;

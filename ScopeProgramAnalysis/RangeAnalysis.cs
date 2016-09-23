@@ -6,8 +6,9 @@ using Backend.ThreeAddressCode.Expressions;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.Visitors;
-using Backend.Analysis;
+using Backend.Analyses;
 using Microsoft.Cci;
+using Backend.Model;
 
 namespace ScopeProgramAnalysis
 {

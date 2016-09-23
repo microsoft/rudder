@@ -51,6 +51,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\analysis-net\Dependencies\Microsoft.Cci.PeReader.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Cci.SourceModel">
+      <HintPath>..\analysis-net\Dependencies\Microsoft.Cci.SourceModel.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.6.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -78,6 +81,7 @@
     <Compile Include="Domains.cs" />
     <Compile Include="Framework\AnalysisNetException.cs" />
     <Compile Include="Framework\DGMLSerializer.cs" />
+    <Compile Include="Framework\Extensions.cs" />
     <Compile Include="Framework\HostAndLoader.cs" />
     <Compile Include="Framework\MyTypesHelper.cs" />
     <Compile Include="Framework\SimplePointsToGraph.cs" />

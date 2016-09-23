@@ -4,11 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Backend.Analysis;
 using Microsoft.Cci;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.ThreeAddressCode.Expressions;
+using ScopeProgramAnalysis.Framework;
 
 namespace ScopeProgramAnalysis
 {
@@ -16,10 +16,12 @@ namespace ScopeProgramAnalysis
     {
         private IDictionary<IMethodDefinition, ControlFlowGraph> methodCFGMap;
         private IMetadataHost host;
+        private MyLoader loader;
 
-        public MethodCFGCache(IMetadataHost host)
+        public MethodCFGCache(MyLoader loader)
         {
-            this.host = host;
+            this.host = loader.Host;
+            this.loader = loader;
             this.methodCFGMap = new Dictionary<IMethodDefinition, ControlFlowGraph>();
         }
 
@@ -28,7 +30,9 @@ namespace ScopeProgramAnalysis
             ControlFlowGraph methodCFG = null;
             if (!this.methodCFGMap.ContainsKey(method))
             {
-                methodCFG = method.DoAnalysisPhases(this.host);
+                var assembly = TypeHelper.GetDefiningUnit(method.ContainingType.ResolvedType) as IAssembly;
+                var sourceLocationProvider = loader.GetSourceLocationProvider(assembly);
+                methodCFG = method.DoAnalysisPhases(this.host, sourceLocationProvider);
                 this.methodCFGMap[method] = methodCFG;
             }
             else
@@ -78,11 +82,13 @@ namespace ScopeProgramAnalysis
 
         private IDictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
         private IDictionary<Instruction, DependencyPTGDomain> previousResult;
+        private MyLoader loader;
 
-        public InterproceduralManager(IMetadataHost host)
+        public InterproceduralManager(MyLoader loader)
         {
-            this.host = host;
-            this.CFGCache = new MethodCFGCache(host);
+            this.loader = loader;
+            this.host = loader.Host;
+            this.CFGCache = new MethodCFGCache(loader);
             this.stackDepth = 0;
             this.callStack = new Stack<IMethodDefinition>();
             this.dataflowCache = new Dictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
@@ -102,7 +108,9 @@ namespace ScopeProgramAnalysis
 
         public InterProceduralReturnInfo DoInterProcWithCallee(InterProceduralCallInfo callInfo)
         {
-            if (callInfo.Callee.Body.Instructions.Any())
+            var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
+
+            if (body.Instructions.Any())
             {
                 //if(previousResult.ContainsKey(callInfo.Instruction))
                 //{
@@ -213,10 +221,12 @@ namespace ScopeProgramAnalysis
             var calleeDepDomain = new DependencyPTGDomain();
             calleeDepDomain.Dependencies.IsTop = callInfo.CallerState.Dependencies.IsTop;
             // Bind parameters with arguments 
+            var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
             for (int i = 0; i < callInfo.CallArguments.Count(); i++)
             {
                 var arg = callInfo.CallArguments[i];
-                var param = callInfo.Callee.Body.Parameters[i];
+
+                var param = body.Parameters[i];
 
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
@@ -262,10 +272,12 @@ namespace ScopeProgramAnalysis
         private DependencyPTGDomain BindCalleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, IteratorDependencyAnalysis depAnalysis)
         {
             var exitResult = depAnalysis.Result[calleeCFG.Exit.Id].Output;
+            var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
+
             for (int i = 0; i < callInfo.CallArguments.Count(); i++)
             {
                 var arg = callInfo.CallArguments[i];
-                var param = callInfo.Callee.Body.Parameters[i];
+                var param = body.Parameters[i];
 
                 arg = AdaptIsReference(arg);
                 param = AdaptIsReference(param);
@@ -341,7 +353,9 @@ namespace ScopeProgramAnalysis
         /// <param name="calleeCFG"></param>
         public SimplePointsToGraph PTAInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IVariable result, IMethodDefinition resolvedCallee)
         {
-            if (resolvedCallee.Body.Instructions.Any())
+            var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
+
+            if (body.Instructions.Any())
             {
                 ControlFlowGraph calleeCFG = this.GetCFG(resolvedCallee);
                 //DGMLSerializer.Serialize(calleeCFG);
@@ -398,9 +412,11 @@ namespace ScopeProgramAnalysis
             var bindPtg = ptg.Clone();
             var argParamMap = new Dictionary<IVariable, IVariable>();
             // Bind parameters with arguments in PTA
+            var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
+
             for (int i = 0; i < arguments.Count(); i++)
             {
-                argParamMap[arguments[i]] = resolvedCallee.Body.Parameters[i];
+                argParamMap[arguments[i]] = body.Parameters[i];
             }
             bindPtg.NewFrame(argParamMap);
             bindPtg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
@@ -415,7 +431,7 @@ namespace ScopeProgramAnalysis
             var unresolvedCallees = new HashSet<IMethodReference>();
             var potentialDelegates = ptg.GetTargets(delegateArgument);
             var resolvedInvocations = potentialDelegates.OfType<DelegateNode>()
-                .Select(d => this.host.FindMethodImplementation(d.Instance.Type, d.Method) as IMethodReference);
+                .Select(d => d.Instance.Type.FindMethodImplementation(d.Method));
             resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
             unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !resolvedCallees.Contains(c)));
             return new Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
@@ -447,18 +463,18 @@ namespace ScopeProgramAnalysis
                 if (!instruction.Method.IsStatic && instruction.Method.Name.Value != ".ctor")
                 {
                     var receiver = instruction.Arguments[0];
-                    var types = ptg.GetTargets(receiver, false).Where(n => n.Kind != PTGNodeKind.Null && n.Type != null).Select(n => n.Type);
-                    var candidateCalless = types.Select(t => host.FindMethodImplementation(t, instruction.Method));
-                    var resolvedInvocations = candidateCalless.Select(c => (host.ResolveReference(c) as IMethodReference));
+                    var types = ptg.GetTargets(receiver, false).Where(n => n.Kind != SimplePTGNodeKind.Null && n.Type != null).Select(n => n.Type);
+                    var candidateCalless = types.Select(t => t.FindMethodImplementation(instruction.Method));
+                    var resolvedInvocations = candidateCalless.Select(c => c.ResolvedMethod as IMethodReference);
                     resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
                     unresolvedCallees.UnionWith(candidateCalless.Where(c => !resolvedInvocations.Contains(c) 
-                                                                        && (c.Name!="Dispose" && c.ContainingType.ContainingAssembly.Name=="mscorlib")));
+                                                                        && (c.Name.Value!="Dispose" && c.ContainingType.ContainingAssembly()=="mscorlib")));
                     //unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !(c is MethodDefinition)));
                 }
                 else
                 {
-                    var candidateCalee = host.FindMethodImplementation(instruction.Method.ContainingType, instruction.Method);
-                    var resolvedCalle = host.ResolveReference(candidateCalee) as IMethodDefinition;
+                    var candidateCalee = instruction.Method.ContainingType.FindMethodImplementation(instruction.Method);
+                    var resolvedCalle = candidateCalee.ResolvedMethod;
                     if (resolvedCalle != null)
                     {
                         resolvedCallees.Add(resolvedCalle);

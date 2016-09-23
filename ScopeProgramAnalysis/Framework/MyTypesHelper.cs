@@ -172,7 +172,7 @@ namespace ScopeProgramAnalysis.Framework
             var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
-                return basicType.ContainingNamespace == "ScopeRuntime";
+                return basicType.ContainingNamespace() == "ScopeRuntime";
             }
             return false;
         }
@@ -235,17 +235,19 @@ namespace ScopeProgramAnalysis.Framework
         {
             return containingType.Equals(iteratorClass);
         }
-        public static bool IsString(this INamedTypeReference containingType)
+        public static bool IsString(this ITypeReference containingType)
         {
-            return containingType.Name.Value == "String";
+            var namedType = containingType as INamedTypeReference;
+            return namedType!=null &&  namedType.Name.Value == "String";
         }
 
-        public static bool IsTuple(this INamedTypeReference containingType)
+        public static bool IsTuple(this ITypeReference containingType)
         {
-            return containingType.Name.Value == "Tuple";
+            var namedType = containingType as INamedTypeReference;
+            return namedType != null && namedType.Name.Value == "Tuple";
         }
 
-        internal static bool IsValueType(this INamedTypeReference containingType)
+        internal static bool IsValueType(this ITypeReference containingType)
         {
             return containingType.IsValueType;
         }

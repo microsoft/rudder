@@ -6,8 +6,9 @@ using System.Linq;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Expressions;
-using Backend.Analysis;
+using Backend.Analyses;
 using Microsoft.Cci;
+using ScopeProgramAnalysis.Framework;
 
 namespace ScopeProgramAnalysis
 {
@@ -81,19 +82,22 @@ namespace ScopeProgramAnalysis
         // private IDictionary<string,IVariable> specialFields;
         private IMethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
+        private ISourceLocationProvider sourceLocationProvider;
+        private MyLoader loader;
 
         public ISet<TraceableColumn> InputColumns { get; private set; }
         public ISet<TraceableColumn> OutputColumns { get; private set; }
 
 
-        public SongTaoDependencyAnalysis(IMetadataHost host,
+        public SongTaoDependencyAnalysis(MyLoader loader,
                                         InterproceduralManager interprocManager,
                                         IMethodDefinition method,
                                         IMethodDefinition entryMethod,
                                         IMethodDefinition getEnumMethod)
         {
             this.interprocManager = interprocManager;
-            this.host = host;
+            this.host = loader.Host;
+            this.loader = loader;
             this.moveNextMethod = method;
             this.entryMethod = entryMethod;
             this.getEnumMethod = getEnumMethod;
@@ -103,13 +107,13 @@ namespace ScopeProgramAnalysis
         public DependencyPTGDomain AnalyzeMoveNextMethod()
         {
             // 1) Analyze the entry method that creates, populates  and return the clousure 
-            var cfgEntry = entryMethod.DoAnalysisPhases(host);
+            var cfgEntry = entryMethod.DoAnalysisPhases(host, sourceLocationProvider);
             var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, this.entryMethod); // , this.specialFields);
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
             // 2) Call the GetEnumerator that may create a new clousure and polulate it
-            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.ReturnType };
+            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.Type };
             ptgOfEntry.Add(myGetEnumResult);
             var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
 
@@ -152,7 +156,7 @@ namespace ScopeProgramAnalysis
         {
             var pattern = "<>m__Finally";
             var methodRefs = this.moveNextMethod.GetMethodsInvoked();
-            return methodRefs.Where(m => m.Name.StartsWith(pattern));
+            return methodRefs.Where(m => m.Name.Value.StartsWith(pattern));
         }
         /// <summary>
         /// Analize the MoveNext method

@@ -10,9 +10,9 @@ namespace Backend.Model
 {
     public struct NodeField
     {
-        public PTGNode Source { get; set; }
+        public SimplePTGNode Source { get; set; }
         public IFieldReference Field { get; set; }
-        public NodeField(PTGNode source, IFieldReference field)
+        public NodeField(SimplePTGNode source, IFieldReference field)
         {
             this.Source = source;
             this.Field = field;
@@ -23,7 +23,7 @@ namespace Backend.Model
     // (external objects that can be null or
     // stand for multiple objects).
     // Useful to model parameter values.
-    public enum PTGNodeKind
+    public enum SimplePTGNodeKind
     {
         Null,
         Object,
@@ -97,37 +97,37 @@ namespace Backend.Model
         }
     }
 
-    public class PTGNode
+    public class SimplePTGNode
     {
         public PTGID Id { get; private set; }
-        public PTGNodeKind Kind { get; private set; }
+        public SimplePTGNodeKind Kind { get; private set; }
         public uint Offset { get; set; }
         public ITypeReference Type { get; set; }
         public ISet<IVariable> Variables { get; private set; }
-        public MapSet<IFieldReference, PTGNode> Sources { get; private set; }
-        public MapSet<IFieldReference, PTGNode> Targets { get; private set; }
+        public MapSet<IFieldReference, SimplePTGNode> Sources { get; private set; }
+        public MapSet<IFieldReference, SimplePTGNode> Targets { get; private set; }
 
-        //public PTGNode(PTGID id, PTGNodeKind kind = PTGNodeKind.Null)
+        //public SimplePTGNode(PTGID id, SimplePTGNodeKind kind = SimplePTGNodeKind.Null)
         //      {
         //	this.Id = id;
         //          this.Kind = kind;
         //          this.Variables = new HashSet<IVariable>();
-        //          this.Sources = new MapSet<IFieldReference, PTGNode>();
-        //          this.Targets = new MapSet<IFieldReference, PTGNode>();
+        //          this.Sources = new MapSet<IFieldReference, SimplePTGNode>();
+        //          this.Targets = new MapSet<IFieldReference, SimplePTGNode>();
         //      }
 
-        public PTGNode(PTGID id, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Object)
+        public SimplePTGNode(PTGID id, ITypeReference type, SimplePTGNodeKind kind = SimplePTGNodeKind.Object)
         //	: this(id, kind)
         {
             this.Id = id;
             this.Type = type;
             this.Kind = kind;
             this.Variables = new HashSet<IVariable>();
-            this.Sources = new MapSet<IFieldReference, PTGNode>();
-            this.Targets = new MapSet<IFieldReference, PTGNode>();
+            this.Sources = new MapSet<IFieldReference, SimplePTGNode>();
+            this.Targets = new MapSet<IFieldReference, SimplePTGNode>();
         }
 
-        public bool SameEdges(PTGNode node)
+        public bool SameEdges(SimplePTGNode node)
         {
             if (node == null) throw new ArgumentNullException("node");
 
@@ -139,7 +139,7 @@ namespace Backend.Model
         public override bool Equals(object obj)
         {
             if (object.ReferenceEquals(this, obj)) return true;
-            var other = obj as PTGNode;
+            var other = obj as SimplePTGNode;
 
             return other != null &&
                 this.Id.Equals(other.Id) &&
@@ -160,7 +160,7 @@ namespace Backend.Model
 
             switch (this.Kind)
             {
-                case PTGNodeKind.Null:
+                case SimplePTGNodeKind.Null:
                     result = "null";
                     break;
 
@@ -171,18 +171,18 @@ namespace Backend.Model
 
             return result;
         }
-        public virtual PTGNode Clone()
+        public virtual SimplePTGNode Clone()
         {
-            var clone = new PTGNode(this.Id, this.Type, this.Kind);
+            var clone = new SimplePTGNode(this.Id, this.Type, this.Kind);
             return clone;
         }
     }
 
-    public class NullNode : PTGNode
+    public class NullNode : SimplePTGNode
     {
         public static PTGID nullID = new PTGID(GlobalContext.NullNodeContext, 0);
 
-        public NullNode() : base(nullID, MyLoader.PlatformTypes.SystemObject, PTGNodeKind.Null)
+        public NullNode() : base(nullID, MyLoader.PlatformTypes.SystemObject, SimplePTGNodeKind.Null)
         {
         }
         public override bool Equals(object obj)
@@ -198,17 +198,17 @@ namespace Backend.Model
         {
             return "Null";
         }
-        public override PTGNode Clone()
+        public override SimplePTGNode Clone()
         {
             return this;
         }
     }
 
-    public class GlobalNode : PTGNode
+    public class GlobalNode : SimplePTGNode
     {
         public static PTGID globalID = new PTGID(GlobalContext.GlobalNodeContext, -1);
 
-        public GlobalNode() : base(globalID, MyLoader.PlatformTypes.SystemObject, PTGNodeKind.Global)
+        public GlobalNode() : base(globalID, MyLoader.PlatformTypes.SystemObject, SimplePTGNodeKind.Global)
         {
         }
         public override bool Equals(object obj)
@@ -224,17 +224,17 @@ namespace Backend.Model
         {
             return "Global";
         }
-        public override PTGNode Clone()
+        public override SimplePTGNode Clone()
         {
             return this;
         }
 
     }
 
-    public class ParameterNode : PTGNode
+    public class ParameterNode : SimplePTGNode
     {
         public string Parameter { get; private set; }
-        public ParameterNode(PTGID id, string parameter, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Null) : base(id, type, PTGNodeKind.Parameter)
+        public ParameterNode(PTGID id, string parameter, ITypeReference type, SimplePTGNodeKind kind = SimplePTGNodeKind.Null) : base(id, type, SimplePTGNodeKind.Parameter)
         {
             this.Parameter = parameter;
         }
@@ -247,7 +247,7 @@ namespace Backend.Model
         {
             return this.Parameter.GetHashCode() + base.GetHashCode();
         }
-        public override PTGNode Clone()
+        public override SimplePTGNode Clone()
         {
             var clone = new ParameterNode(this.Id, this.Parameter, this.Type);
             return clone;
@@ -255,13 +255,13 @@ namespace Backend.Model
 
     }
 
-    public class DelegateNode : PTGNode
+    public class DelegateNode : SimplePTGNode
     {
         public IMethodReference Method { get; private set; }
         public IVariable Instance { get; set; }
         public bool IsStatic { get; private set; }
 
-        public DelegateNode(PTGID id, IMethodReference method, IVariable instance) : base(id, method.ReturnType, PTGNodeKind.Delegate)
+        public DelegateNode(PTGID id, IMethodReference method, IVariable instance) : base(id, method.Type, SimplePTGNodeKind.Delegate)
         {
             this.Method = method;
             this.Instance = instance;
@@ -279,7 +279,7 @@ namespace Backend.Model
             return this.Method.GetHashCode() + (this.IsStatic ? 1 : this.Instance.GetHashCode())
                 + base.GetHashCode();
         }
-        public override PTGNode Clone()
+        public override SimplePTGNode Clone()
         {
             var node = new DelegateNode(this.Id, this.Method, this.Instance);
             return node;
@@ -288,21 +288,21 @@ namespace Backend.Model
 
     public class SimplePointsToGraph 
     {
-        private Stack<MapSet<IVariable, PTGNode>> stackFrame;
-        private MapSet<IVariable, PTGNode> roots;
-        private MapSet<NodeField,PTGNode> edges;
-        private ISet<PTGNode> nodes;
+        private Stack<MapSet<IVariable, SimplePTGNode>> stackFrame;
+        private MapSet<IVariable, SimplePTGNode> roots;
+        private MapSet<NodeField,SimplePTGNode> edges;
+        private ISet<SimplePTGNode> nodes;
 
-        public static PTGNode NullNode = new NullNode(); // { get; private set; }
-        public static PTGNode GlobalNode = new GlobalNode();
+        public static SimplePTGNode NullNode = new NullNode(); // { get; private set; }
+        public static SimplePTGNode GlobalNode = new GlobalNode();
 
 
         public SimplePointsToGraph()
         {
-            this.stackFrame = new Stack<MapSet<IVariable, PTGNode>>();
-            this.roots = new MapSet<IVariable, PTGNode>();
-            this.nodes = new HashSet<PTGNode>();
-            this.edges = new MapSet<NodeField, PTGNode>();
+            this.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>();
+            this.roots = new MapSet<IVariable, SimplePTGNode>();
+            this.nodes = new HashSet<SimplePTGNode>();
+            this.edges = new MapSet<NodeField, SimplePTGNode>();
             this.Add(SimplePointsToGraph.NullNode);
         }
 
@@ -311,7 +311,7 @@ namespace Backend.Model
             get { return this.roots.Keys; }
         }
 
-        public IEnumerable<PTGNode> Nodes
+        public IEnumerable<SimplePTGNode> Nodes
         {
             get { return nodes; }
         }
@@ -340,10 +340,10 @@ namespace Backend.Model
         public SimplePointsToGraph Clone()
         {
             var ptg = new SimplePointsToGraph();
-            ptg.stackFrame = new Stack<MapSet<IVariable, PTGNode>>(this.stackFrame.Reverse());
-            ptg.roots = new MapSet<IVariable, PTGNode>(this.roots);
-            ptg.nodes = new HashSet<PTGNode>(this.nodes);
-            ptg.edges = new MapSet<NodeField, PTGNode>(this.edges);
+            ptg.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>(this.stackFrame.Reverse());
+            ptg.roots = new MapSet<IVariable, SimplePTGNode>(this.roots);
+            ptg.nodes = new HashSet<SimplePTGNode>(this.nodes);
+            ptg.edges = new MapSet<NodeField, SimplePTGNode>(this.edges);
             return ptg;
         }
 
@@ -370,7 +370,7 @@ namespace Backend.Model
             // We assume they have the same stack frame
             if (this.stackFrame == null && ptg.stackFrame != null)
             {
-                this.stackFrame = new Stack<MapSet<IVariable, PTGNode>>(ptg.stackFrame.Reverse());
+                this.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>(ptg.stackFrame.Reverse());
             }
 
             this.nodes.UnionWith(ptg.nodes);
@@ -388,7 +388,7 @@ namespace Backend.Model
             }
         }
 
-        public void Add(PTGNode node)
+        public void Add(SimplePTGNode node)
         {
             nodes.Add(node);
         }
@@ -398,7 +398,7 @@ namespace Backend.Model
             return this.roots.ContainsKey(variable);
         }
 
-        public bool Contains(PTGNode node)
+        public bool Contains(SimplePTGNode node)
         {
             return nodes.Contains(node);
         }
@@ -408,14 +408,14 @@ namespace Backend.Model
             roots.Add(variable);
         }
 
-        public void PointsTo(IVariable variable, PTGNode target)
+        public void PointsTo(IVariable variable, SimplePTGNode target)
         {
            this.Add(target);
            this.roots.Add(variable, target);
 
             target.Variables.Add(variable);
         }
-        public void PointsTo(IVariable variable, IEnumerable<PTGNode> targets)
+        public void PointsTo(IVariable variable, IEnumerable<SimplePTGNode> targets)
         {
             foreach (var n in targets)
             {
@@ -423,7 +423,7 @@ namespace Backend.Model
             }
         }
 
-        public void PointsTo(PTGNode source, IFieldReference field, PTGNode target)
+        public void PointsTo(SimplePTGNode source, IFieldReference field, SimplePTGNode target)
         {
             if (source.Equals(SimplePointsToGraph.NullNode))
                 return;
@@ -439,24 +439,24 @@ namespace Backend.Model
             this.AddEdge(source, field, target);
         }
 
-        public void AddEdge(PTGNode source, IFieldReference field, PTGNode target)
+        public void AddEdge(SimplePTGNode source, IFieldReference field, SimplePTGNode target)
         {
             var nodeField = new NodeField(source, field);
             this.edges.Add(nodeField, target);
         }
 
 
-        public ISet<PTGNode> GetTargets(IVariable variable, bool failIfNotExists = false)
+        public ISet<SimplePTGNode> GetTargets(IVariable variable, bool failIfNotExists = false)
         {
             if (failIfNotExists) return roots[variable];
 
             if (roots.ContainsKey(variable))
                 return roots[variable];
-            return new HashSet<PTGNode>();
+            return new HashSet<SimplePTGNode>();
         }
-        public ISet<PTGNode> GetTargets(IVariable variable, IFieldReference field)
+        public ISet<SimplePTGNode> GetTargets(IVariable variable, IFieldReference field)
         {
-            var result = new HashSet<PTGNode>();
+            var result = new HashSet<SimplePTGNode>();
             //foreach (var ptg in variables[variable])
             foreach (var node in GetTargets(variable, false))
             {
@@ -464,9 +464,9 @@ namespace Backend.Model
             }
             return result;
         }
-        public ISet<PTGNode> GetTargets(PTGNode source, IFieldReference field)
+        public ISet<SimplePTGNode> GetTargets(SimplePTGNode source, IFieldReference field)
         {
-            var result = new HashSet<PTGNode>();
+            var result = new HashSet<SimplePTGNode>();
             var nodeField = new NodeField(source, field);
             if (this.edges.ContainsKey(nodeField))
             { 
@@ -474,19 +474,19 @@ namespace Backend.Model
             }
             return result;
         }
-        public MapSet<IFieldReference, PTGNode> GetTargets(PTGNode ptgNode)
+        public MapSet<IFieldReference, SimplePTGNode> GetTargets(SimplePTGNode SimplePTGNode)
         {
-            //var result = this.edges.Where(kv => kv.Key.Source.Equals(ptgNode)).GroupBy(kv => kv.Key.Field, kv=> kv.Value);
+            //var result = this.edges.Where(kv => kv.Key.Source.Equals(SimplePTGNode)).GroupBy(kv => kv.Key.Field, kv=> kv.Value);
             //return result.ToDictionary( kv => kv.Key, kv => kv.SelectMany(kv => kv.));
-            var result = new MapSet<IFieldReference, PTGNode>();
-            foreach (var edge in this.edges.Where(kv => kv.Key.Source.Equals(ptgNode)))
+            var result = new MapSet<IFieldReference, SimplePTGNode>();
+            foreach (var edge in this.edges.Where(kv => kv.Key.Source.Equals(SimplePTGNode)))
             {
                 result.AddRange(edge.Key.Field, edge.Value);
             }
             return result;
         }
 
-        public void RemoveTargets(PTGNode source, IFieldReference field)
+        public void RemoveTargets(SimplePTGNode source, IFieldReference field)
         {
             var nodeField = new NodeField(source, field);
             this.edges.Remove(nodeField);
@@ -502,11 +502,11 @@ namespace Backend.Model
 
         #region Handling of method scopes
 
-        public MapSet<IVariable, PTGNode> NewFrame()
+        public MapSet<IVariable, SimplePTGNode> NewFrame()
         {
             if (this.stackFrame == null)
             {
-                this.stackFrame = new Stack<MapSet<IVariable, PTGNode>>();
+                this.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>();
             }
             var result = roots;
             foreach (var entry in roots)
@@ -518,7 +518,7 @@ namespace Backend.Model
                 }
             }
 
-            var frame = new MapSet<IVariable, PTGNode>();
+            var frame = new MapSet<IVariable, SimplePTGNode>();
             stackFrame.Push(roots);
             roots = frame;
             return result;
@@ -542,11 +542,11 @@ namespace Backend.Model
                 this.edges.Remove(entry);
             }
             //this.nodes.ExceptWith(unreacheableNodes);
-            this.nodes = new HashSet<PTGNode>(this.nodes.Except(unreacheableNodes));
+            this.nodes = new HashSet<SimplePTGNode>(this.nodes.Except(unreacheableNodes));
         }
 
 
-        public MapSet<IVariable, PTGNode> NewFrame(IEnumerable<KeyValuePair<IVariable, IVariable>> binding)
+        public MapSet<IVariable, SimplePTGNode> NewFrame(IEnumerable<KeyValuePair<IVariable, IVariable>> binding)
         {
             var oldFrame = NewFrame();
             foreach (var entry in binding)
@@ -589,7 +589,7 @@ namespace Backend.Model
 
         public void RestoreFrame(IVariable retVariable, IVariable dest, bool cleanUnreachable = true)
         {
-            ISet<PTGNode> nodes = null;
+            ISet<SimplePTGNode> nodes = null;
 
             var validReturn = (dest.Type != null && dest.Type.IsClassOrStruct()); //(retVariable.Type != null && retVariable.Type.TypeKind == TypeKind.ReferenceType)  &&
 
@@ -608,38 +608,38 @@ namespace Backend.Model
         #endregion
 
         #region Reacheability, aliasing
-        public IEnumerable<PTGNode> ReachableNodesFromVariables()
+        public IEnumerable<SimplePTGNode> ReachableNodesFromVariables()
         {
             var ptg = this;
-            var roots = new HashSet<PTGNode>(ptg.Roots.SelectMany(v => ptg.GetTargets(v, false)));
+            var roots = new HashSet<SimplePTGNode>(ptg.Roots.SelectMany(v => ptg.GetTargets(v, false)));
             roots.Add(SimplePointsToGraph.NullNode);
             return ptg.ReachableNodes(roots);
         }
-        public IEnumerable<PTGNode> ReachableNodes(IEnumerable<PTGNode> roots,
-                                                          Predicate<Tuple<PTGNode, IFieldReference>> filter = null)
+        public IEnumerable<SimplePTGNode> ReachableNodes(IEnumerable<SimplePTGNode> roots,
+                                                          Predicate<Tuple<SimplePTGNode, IFieldReference>> filter = null)
         {
             var ptg = this;
-            // var result = new HashSet<PTGNode>();
-            ISet<PTGNode> visitedNodes = new HashSet<PTGNode>();
-            Queue<PTGNode> workList = new Queue<PTGNode>();
+            // var result = new HashSet<SimplePTGNode>();
+            ISet<SimplePTGNode> visitedNodes = new HashSet<SimplePTGNode>();
+            Queue<SimplePTGNode> workList = new Queue<SimplePTGNode>();
 
-            foreach (var ptgNode in roots)
+            foreach (var SimplePTGNode in roots)
             {
-                workList.Enqueue(ptgNode);
+                workList.Enqueue(SimplePTGNode);
             }
             while (workList.Any())
             {
-                var ptgNode = workList.Dequeue();
-                visitedNodes.Add(ptgNode);
-                if (ptgNode.Equals(SimplePointsToGraph.NullNode))
+                var SimplePTGNode = workList.Dequeue();
+                visitedNodes.Add(SimplePTGNode);
+                if (SimplePTGNode.Equals(SimplePointsToGraph.NullNode))
                 {
                     continue;
                 }
-                foreach (var adjacents in ptg.GetTargets(ptgNode))
+                foreach (var adjacents in ptg.GetTargets(SimplePTGNode))
                 {
                     if (filter != null)
                     {
-                        var node_filter = Tuple.Create(ptgNode, adjacents.Key);
+                        var node_filter = Tuple.Create(SimplePTGNode, adjacents.Key);
                         if (!filter(node_filter))
                             continue;
                     }
@@ -664,31 +664,31 @@ namespace Backend.Model
             return result;
         }
 
-        public bool Reachable(IVariable v1, PTGNode n)
+        public bool Reachable(IVariable v1, SimplePTGNode n)
         {
             var ptg = this;
             var result = false;
-            ISet<PTGNode> visitedNodes = new HashSet<PTGNode>();
-            Queue<PTGNode> workList = new Queue<PTGNode>();
+            ISet<SimplePTGNode> visitedNodes = new HashSet<SimplePTGNode>();
+            Queue<SimplePTGNode> workList = new Queue<SimplePTGNode>();
             var nodes = ptg.GetTargets(v1, false);
 
             if (nodes.Contains(n) && !n.Equals(SimplePointsToGraph.NullNode))
                 return true;
 
-            foreach (var ptgNode in nodes)
+            foreach (var SimplePTGNode in nodes)
             {
-                workList.Enqueue(ptgNode);
+                workList.Enqueue(SimplePTGNode);
             }
             while (workList.Any())
             {
-                var ptgNode = workList.Dequeue();
-                visitedNodes.Add(ptgNode);
-                if (ptgNode.Equals(SimplePointsToGraph.NullNode))
+                var SimplePTGNode = workList.Dequeue();
+                visitedNodes.Add(SimplePTGNode);
+                if (SimplePTGNode.Equals(SimplePointsToGraph.NullNode))
                 {
                     continue;
                 }
-                if (ptgNode.Equals(n)) return true;
-                foreach (var adjacents in ptg.GetTargets(ptgNode).Values)
+                if (SimplePTGNode.Equals(n)) return true;
+                foreach (var adjacents in ptg.GetTargets(SimplePTGNode).Values)
                 {
                     foreach (var adjacent in adjacents)
                     {
@@ -706,11 +706,11 @@ namespace Backend.Model
         {
             var ptg = this;
             var res = new HashSet<IVariable>() { v };
-            foreach (var ptgNode in ptg.GetTargets(v, false)) // GetPtgNodes(v))
+            foreach (var SimplePTGNode in ptg.GetTargets(v, false)) // GetSimplePTGNodes(v))
             {
-                if (ptgNode != SimplePointsToGraph.NullNode)
+                if (SimplePTGNode != SimplePointsToGraph.NullNode)
                 {
-                    res.UnionWith(ptgNode.Variables);
+                    res.UnionWith(SimplePTGNode.Variables);
                 }
             }
             return res;

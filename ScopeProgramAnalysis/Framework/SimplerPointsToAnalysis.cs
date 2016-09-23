@@ -6,7 +6,7 @@ using System.Linq;
 using Backend.Model;
 using Microsoft.Cci;
 using Backend.ThreeAddressCode.Values;
-using Backend.Analysis;
+using Backend.Analyses;
 using Backend.Visitors;
 using Backend.ThreeAddressCode.Instructions;
 using System;
@@ -140,7 +140,7 @@ namespace Backend.Analyses
                 {
                     var allocation = instruction as CreateObjectInstruction;
                     // hack for handling delegates
-                    if (allocation.AllocationType.IsDelegateType())
+                    if (allocation.AllocationType.ResolvedType.IsDelegate)
                     {
                         this.analyzeNextDelegateCtor = true;
                     }
@@ -197,7 +197,7 @@ namespace Backend.Analyses
                 if (methodCall.Arguments.Any())
                 {
                     var arg0Type = methodCall.Arguments[0].Type;
-                    if (arg0Type.IsDelegateType())
+                    if (arg0Type.ResolvedType.IsDelegate)
                     {
                         State.RemoveRootEdges(methodCall.Arguments[0]);
                         if (methodCall.Arguments.Count == 3)
@@ -341,14 +341,16 @@ namespace Backend.Analyses
 
 			var variables = cfg.GetVariables();
 
-            var parameters = this.method.Body.Parameters;
+            var body = MethodBodyProvider.Instance.GetBody(this.method);
+
+            var parameters = body.Parameters;
 
             if (parameters!=null)
                 variables.AddRange(parameters);
 
             int counter = -1;
             IVariable thisVariable = null;
-            PTGNode thisNode = null;
+            SimplePTGNode thisNode = null;
 			foreach (var variable in variables)
 			{
                 // TODO: replace when Egdardo fixes type inferece
@@ -358,7 +360,7 @@ namespace Backend.Analyses
 				if (variable.IsParameter)
 				{
 					var isThisParameter = variable.Name == "this";
-					var kind = isThisParameter ? PTGNodeKind.Object : PTGNodeKind.Unknown;
+					var kind = isThisParameter ? SimplePTGNodeKind.Object : SimplePTGNodeKind.Unknown;
                     if (createNodeForParams)
                     {
                         var ptgId = new PTGID(new MethodContex(this.method), counter--);
@@ -390,7 +392,7 @@ namespace Backend.Analyses
             //    var variable = specialField.Value;
             //    var fieldName =  specialField.Key;
             //    var ptgId = new PTGID(new MethodContex(this.method), counter--);
-            //    var node = new PTGNode(ptgId, variable.Type);
+            //    var node = new SimplePTGNode(ptgId, variable.Type);
             //    ptg.Add(node);
             //    ptg.PointsTo(thisNode, new FieldReference(fieldName, variable.Type, method.ContainingType), node);
             //}
@@ -491,7 +493,7 @@ namespace Backend.Analyses
                         var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
                         // TODO: Should be a LOAD NODE
                         // Preventive assignement of a new Node unknown (should be only for parameters)
-                        var target = this.NewNode(ptg, ptgId, dst.Type, PTGNodeKind.Unknown);
+                        var target = this.NewNode(ptg, ptgId, dst.Type, SimplePTGNodeKind.Unknown);
                         ptg.PointsTo(node, field, target);
                     }
                 }
@@ -501,7 +503,7 @@ namespace Backend.Analyses
             }
         }
 
-        public PTGNode CreateSummaryForCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable)
+        public SimplePTGNode CreateSummaryForCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable)
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
             var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
@@ -526,7 +528,7 @@ namespace Backend.Analyses
             return itemsField;
         }
 
-        public PTGNode ProcessGetEnum(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable result)
+        public SimplePTGNode ProcessGetEnum(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable result)
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
 
@@ -537,7 +539,7 @@ namespace Backend.Analyses
             var nodes = ptg.GetTargets(collectionVariable);
             if(nodes.Count==1 && nodes.Single()==SimplePointsToGraph.NullNode)
             {
-                var collectionNode = new PTGNode(ptgId, collectionVariable.Type);
+                var collectionNode = new SimplePTGNode(ptgId, collectionVariable.Type);
                 ptg.PointsTo(collectionVariable, collectionNode);
             }
 
@@ -550,10 +552,10 @@ namespace Backend.Analyses
             return enumNode;
         }
 
-        public IEnumerable<PTGNode> ProcessGetCurrent(SimplePointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result, out bool createdNodes)
+        public IEnumerable<SimplePTGNode> ProcessGetCurrent(SimplePointsToGraph ptg, uint offset, IVariable enumVariable, IVariable result, out bool createdNodes)
         {
             createdNodes = false;
-            var targets = new HashSet<PTGNode>();
+            var targets = new HashSet<SimplePTGNode>();
             // get Collection
             var collectionField = new FieldReference("$collection", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             var collectionNodes = ptg.GetTargets(enumVariable, collectionField);
@@ -580,9 +582,10 @@ namespace Backend.Analyses
         }
 
 
-        private bool MayReacheableFromParameter(SimplePointsToGraph ptg, PTGNode n)
+        private bool MayReacheableFromParameter(SimplePointsToGraph ptg, SimplePTGNode n)
         {
-            var rootNodes = method.Body.Parameters.SelectMany(p => ptg.GetTargets(p)).Union(new HashSet<PTGNode>() { SimplePointsToGraph.GlobalNode });
+            var body = MethodBodyProvider.Instance.GetBody(method);
+            var rootNodes = body.Parameters.SelectMany(p => ptg.GetTargets(p)).Union(new HashSet<SimplePTGNode>() { SimplePointsToGraph.GlobalNode });
             var reachable = ptg.ReachableNodes(rootNodes).Contains(n);
             // This version does not need the inverted mapping of nodes-> variables (which may be expensive to maintain)
             // var result = method.Body.Parameters.Any(p =>ptg.GetTargets(p).Contains(n));
@@ -595,7 +598,7 @@ namespace Backend.Analyses
 			if (!field.Type.IsClassOrStruct() || !src.Type.IsClassOrStruct()) return;
 
 			var nodes = ptg.GetTargets(instance, false);
-            var targets = ptg.GetTargets(src).Except(new HashSet<PTGNode>() { SimplePointsToGraph.NullNode });
+            var targets = ptg.GetTargets(src).Except(new HashSet<SimplePTGNode>() { SimplePointsToGraph.NullNode });
 
             if (targets.Any())
             {
@@ -611,7 +614,7 @@ namespace Backend.Analyses
             {
                 // Create a fake node for the target 
                 var ptgID = new PTGID(new MethodContex(this.method), (int)offset);
-                var fakeNode = new PTGNode(ptgID, src.Type);
+                var fakeNode = new SimplePTGNode(ptgID, src.Type);
                 foreach (var node in nodes)
                 {
                     ptg.PointsTo(node, field, fakeNode);
@@ -629,10 +632,10 @@ namespace Backend.Analyses
         }
 
 
-        private PTGNode NewNode(SimplePointsToGraph ptg, PTGID ptgID, ITypeReference type, PTGNodeKind kind = PTGNodeKind.Object)
+        private SimplePTGNode NewNode(SimplePointsToGraph ptg, PTGID ptgID, ITypeReference type, SimplePTGNodeKind kind = SimplePTGNodeKind.Object)
 		{
-			PTGNode node;
-            node = new PTGNode(ptgID, type, kind);
+			SimplePTGNode node;
+            node = new SimplePTGNode(ptgID, type, kind);
             //node = ptg.GetNode(ptgID, type, kind);
             return node;
 		}

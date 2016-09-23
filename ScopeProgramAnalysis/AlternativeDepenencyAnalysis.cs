@@ -163,34 +163,34 @@ namespace ScopeProgramAnalysis
             return lastDefs;
         }
 
-        private void LastDefSet(PTGNode ptgNode, IFieldReference f, int location)
+        private void LastDefSet(SimplePTGNode SimplePTGNode, IFieldReference f, int location)
         {
-            ICollection<int> lastDefs = InternalGetLastDefs(ptgNode, f);
+            ICollection<int> lastDefs = InternalGetLastDefs(SimplePTGNode, f);
             lastDefs.Add(location);
         }
-        private void LastDefSet(PTGNode ptgNode, IFieldReference f, IEnumerable<int> locations)
+        private void LastDefSet(SimplePTGNode SimplePTGNode, IFieldReference f, IEnumerable<int> locations)
         {
-            ICollection<int> lastDefs = InternalGetLastDefs(ptgNode, f);
+            ICollection<int> lastDefs = InternalGetLastDefs(SimplePTGNode, f);
             lastDefs.AddRange(locations);
 
         }
-        private ICollection<int> LastDefGet(PTGNode ptgNode, IFieldReference f)
+        private ICollection<int> LastDefGet(SimplePTGNode SimplePTGNode, IFieldReference f)
         {
-            ICollection<int> lastDefs = InternalGetLastDefs(ptgNode, f);
+            ICollection<int> lastDefs = InternalGetLastDefs(SimplePTGNode, f);
             return lastDefs;
         }
 
-        private ICollection<int> InternalGetLastDefs(PTGNode ptgNode, IFieldReference f)
+        private ICollection<int> InternalGetLastDefs(SimplePTGNode SimplePTGNode, IFieldReference f)
         {
             IDictionary<IFieldReference, ICollection<int>> lastDefsDict = new Dictionary<IFieldReference, ICollection<int>>();
             ICollection<int> lastDefs = new HashSet<int>();
-            if (LastDefsPtg.ContainsKey(ptgNode))
+            if (LastDefsPtg.ContainsKey(SimplePTGNode))
             {
-                lastDefsDict = LastDefsPtg[ptgNode];
+                lastDefsDict = LastDefsPtg[SimplePTGNode];
             }
             else
             {
-                LastDefsPtg[ptgNode] = lastDefsDict;
+                LastDefsPtg[SimplePTGNode] = lastDefsDict;
             }
             if (lastDefsDict.ContainsKey(f))
             {
@@ -206,7 +206,7 @@ namespace ScopeProgramAnalysis
 
         private ICollection<int> LastDefGet(IVariable variable, IFieldReference field, PointsToGraph ptg)
         {
-            var query = ptg.GetTargets(variable).SelectMany(ptgNode => LastDefGet(ptgNode, field));
+            var query = ptg.GetTargets(variable).SelectMany(SimplePTGNode => LastDefGet(SimplePTGNode, field));
             var result = new HashSet<int>();
             result.AddRange(query);
             return result;
@@ -214,9 +214,9 @@ namespace ScopeProgramAnalysis
         private void LastDefSet(IVariable variable, IFieldReference field, int location, PointsToGraph ptg)
         {
             var query = ptg.GetTargets(variable);
-            foreach (var ptgNode in query)
+            foreach (var SimplePTGNode in query)
             {
-                LastDefSet(ptgNode, field, location);
+                LastDefSet(SimplePTGNode, field, location);
             }
         }
 
@@ -225,8 +225,8 @@ namespace ScopeProgramAnalysis
         private InstructionDependencyGraph depGraph;
 
         IDictionary<IVariable, ICollection<int>> LastDefsVar = new Dictionary<IVariable, ICollection<int>>();
-        IDictionary<PTGNode, IDictionary<IFieldReference, ICollection<int>>>
-            LastDefsPtg = new Dictionary<PTGNode, IDictionary<IFieldReference, ICollection<int>>>();
+        IDictionary<SimplePTGNode, IDictionary<IFieldReference, ICollection<int>>>
+            LastDefsPtg = new Dictionary<SimplePTGNode, IDictionary<IFieldReference, ICollection<int>>>();
         private DataFlowAnalysisResult<PointsToGraph>[] ptAnalysisResult;
         private IMethodDefinition method;
 
@@ -335,10 +335,10 @@ namespace ScopeProgramAnalysis
             //            var v = def.Variables.Single();
             //            if (ptg.Variables.Contains(v))
             //            {
-            //                var ptgNodes = ptg.GetTargets(v);
-            //                foreach (var ptgNode in ptgNodes)
+            //                var SimplePTGNodes = ptg.GetTargets(v);
+            //                foreach (var SimplePTGNode in SimplePTGNodes)
             //                {
-            //                    var depNode = new DependencyInfo(ptgNode, access);
+            //                    var depNode = new DependencyInfo(SimplePTGNode, access);
             //                    dependencyGraph.AddVertex(depNode);
             //                    var useAccess = "";
             //                    if (instruction is LoadInstruction)
@@ -358,9 +358,9 @@ namespace ScopeProgramAnalysis
             //                        if (ptg.Variables.Contains(v2))
             //                        {
             //                            var ptgUseNodes = ptg.GetTargets(v2);
-            //                            foreach (var ptgNode2 in ptgUseNodes)
+            //                            foreach (var SimplePTGNode2 in ptgUseNodes)
             //                            {
-            //                                var useNode = new DependencyInfo(ptgNode2, useAccess);
+            //                                var useNode = new DependencyInfo(SimplePTGNode2, useAccess);
             //                                dependencyGraph.ConnectVertex(depNode, useNode);
             //                            }
             //                        }
@@ -411,10 +411,10 @@ namespace ScopeProgramAnalysis
     //}
     class DependencyInfo
     {
-        public PTGNode SymbolicObject { get; private set; }
+        public SimplePTGNode SymbolicObject { get; private set; }
         public string Traceable { get; private set; }
 
-        public DependencyInfo(PTGNode symObj, string traceable)
+        public DependencyInfo(SimplePTGNode symObj, string traceable)
         {
             SymbolicObject = symObj;
             Traceable = traceable;

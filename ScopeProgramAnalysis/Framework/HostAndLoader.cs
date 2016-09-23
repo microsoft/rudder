@@ -13,13 +13,16 @@ namespace ScopeProgramAnalysis.Framework
         private string assemblyFolder;
         private string assemblyParentFolder;
         private HashSet<IAssemblyReference> failedAssemblies;
-        private IAssembly mainAssemably;
+        private Tuple<IAssembly, ISourceLocationProvider> mainAssemably;
         private MetadataReaderHost cciHost;
+        private IDictionary<IAssembly, ISourceLocationProvider> sourceProviderForAssembly;
+
+        public IMetadataHost Host { get { return cciHost; }  }
 
         public MyLoader(MetadataReaderHost host) 
         {
             this.cciHost = host;
-
+            sourceProviderForAssembly = new Dictionary<IAssembly, ISourceLocationProvider>();
             if (PlatformTypes == null)
                 PlatformTypes = host.PlatformType;
 
@@ -30,6 +33,12 @@ namespace ScopeProgramAnalysis.Framework
             this.cciHost = new PeReader.DefaultHost();
             this.failedAssemblies = new HashSet<IAssemblyReference>();
         }
+
+        public ISourceLocationProvider GetSourceLocationProvider(IAssembly assembly)
+        {
+            return sourceProviderForAssembly[assembly];
+        }
+
         public void Dispose()
         {
             this.cciHost.Dispose();
@@ -43,11 +52,11 @@ namespace ScopeProgramAnalysis.Framework
 
             if (module == null || module == Dummy.Module || module == Dummy.Assembly)
                 throw new AnalysisNetException("The input is not a valid CLR module or assembly.");
-
+            sourceProviderForAssembly.Add(module.ContainingAssembly, null);
             return module.ContainingAssembly;
         }
 
-        public IAssembly LoadAssembly(string fileName)
+        public Tuple<IAssembly,ISourceLocationProvider> LoadAssembly(string fileName)
         {
             var module = cciHost.LoadUnitFrom(fileName) as IModule;
 
@@ -65,15 +74,20 @@ namespace ScopeProgramAnalysis.Framework
                 }
             }
 
-            if (pdbReader != null)
-            {
-                pdbReader.Dispose();
-            }
+            //if (pdbReader != null)
+            //{
+            //    pdbReader.Dispose();
+            //}
+            sourceProviderForAssembly.Add(module.ContainingAssembly, pdbReader);
+    
+            if(module.ContainingAssembly.Name.Value=="ScopeRuntime")
+                ScopeTypes.InitializeScopeTypes(cciHost);
 
-            return module.ContainingAssembly;
+
+            return Tuple.Create(module.ContainingAssembly, pdbReader as ISourceLocationProvider);
         }
 
-        public IAssembly LoadMainAssembly(string fileName)
+        public Tuple<IAssembly, ISourceLocationProvider> LoadMainAssembly(string fileName)
         {
             this.assemblyFolder = Path.GetDirectoryName(fileName);
             this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
@@ -84,27 +98,27 @@ namespace ScopeProgramAnalysis.Framework
         }
 
 
-        public IAssembly TryToLoadReferencedAssembly(IAssemblyReference reference)
-        {
-            var assembly = this.ourHost.Assemblies.SingleOrDefault(a => a.MatchReference(reference));
-            if (assembly == null && !failedAssemblies.Contains(reference))
-            {
-                try
-                {
-                    AnalysisStats.TotalDllsFound++;
-                    assembly = TryToLoadAssembly(reference.Name.Value);
-                }
-                catch (Exception e)
-                {
-                    System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
-                    failedAssemblies.Add(reference);
-                    throw e;
-                }
-            }
-            return assembly;
-        }
+        //public IAssembly TryToLoadReferencedAssembly(IAssemblyReference reference)
+        //{
+        //    var assembly = this.ourHost.Assemblies.SingleOrDefault(a => a.MatchReference(reference));
+        //    if (assembly == null && !failedAssemblies.Contains(reference))
+        //    {
+        //        try
+        //        {
+        //            AnalysisStats.TotalDllsFound++;
+        //            assembly = TryToLoadAssembly(reference.Name.Value);
+        //        }
+        //        catch (Exception e)
+        //        {
+        //            System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
+        //            failedAssemblies.Add(reference);
+        //            throw e;
+        //        }
+        //    }
+        //    return assembly;
+        //}
 
-        private IAssembly TryToLoadAssembly(string assemblyReferenceName)
+        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyReferenceName)
         {
             //if(assemblyReferenceName=="mscorlib")
             //{

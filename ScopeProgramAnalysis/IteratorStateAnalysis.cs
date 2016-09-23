@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
 using Backend.Utils;
 using System.Globalization;
-using Backend.Analysis;
+using Backend.Analyses;
 using Backend.Visitors;
 using Backend.ThreeAddressCode.Expressions;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
+using Backend.Model;
 
 namespace ScopeProgramAnalysis
 {
@@ -112,9 +113,9 @@ namespace ScopeProgramAnalysis
         }
 
         private IDictionary<IVariable, IExpression> equalities;
-        DataFlowAnalysisResult<PointsToGraph>[] ptgs;
+        DataFlowAnalysisResult<SimplePointsToGraph>[] ptgs;
 
-        public IteratorStateAnalysis(ControlFlowGraph cfg, DataFlowAnalysisResult<PointsToGraph>[] ptgs, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
+        public IteratorStateAnalysis(ControlFlowGraph cfg, DataFlowAnalysisResult<SimplePointsToGraph>[] ptgs, IDictionary<IVariable, IExpression> equalitiesMap) : base(cfg)
         {
             this.ptgs = ptgs;
             this.equalities = equalitiesMap;

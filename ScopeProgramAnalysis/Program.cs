@@ -13,6 +13,7 @@ using ScopeProgramAnalysis.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.Cci;
 using Backend;
+using Backend.Model;
 
 namespace ScopeProgramAnalysis
 {
@@ -44,12 +45,12 @@ namespace ScopeProgramAnalysis
                     // ScopeRuntime.
             };
 
-        public ScopeProgramAnalysis(IMetadataHost host, MyLoader loader)
+        public ScopeProgramAnalysis(MyLoader loader)
         {
-            this.host = host;
+            this.host = loader.Host;
             this.loader = loader;
             this.factoryReducerMap = new Dictionary<string, INamedTypeDefinition>();
-            this.interprocAnalysisManager = new InterproceduralManager(host);
+            this.interprocAnalysisManager = new InterproceduralManager(loader);
         }
 
         static void Main(string[] args)
@@ -228,10 +229,12 @@ namespace ScopeProgramAnalysis
 
                                        bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
-            IMetadataHost host;
+            MyLoader loader;
             ScopeProgramAnalysis program;
             IAssembly assembly;
-            CreateHostAndProgram(inputPath, interProc, out host, out program, out assembly);
+            CreateHostAndProgram(inputPath, interProc, out loader, out program, out assembly);
+            var host = loader.Host;
+
             AnalysisStats.TotalNumberFolders++;
             AnalysisStats.TotalDllsFound++;
 
@@ -324,7 +327,8 @@ namespace ScopeProgramAnalysis
 
                 Run run;
                 AnalysisReason errorReason;
-                var ok = AnalyzeProcessor(inputPath, host, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethodDef, moveNextMethod, getEnumMethod, inputSchema, outputSchema, out run, out errorReason);
+                
+                var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethodDef, moveNextMethod, getEnumMethod, inputSchema, outputSchema, out run, out errorReason);
                 if (ok)
                 {
                     log.Runs.Add(run);
@@ -359,10 +363,13 @@ namespace ScopeProgramAnalysis
         {
             var inputPath = processorType.Assembly.Location;
 
-            IMetadataHost host;
+            MyLoader loader;
             ScopeProgramAnalysis program;
             IAssembly assembly;
-            CreateHostAndProgram(inputPath, false, out host, out program, out assembly);
+            CreateHostAndProgram(inputPath, false, out loader, out program, out assembly);
+
+            var host = loader.Host;
+
             Run run;
             AnalysisReason errorReason;
 
@@ -418,7 +425,7 @@ namespace ScopeProgramAnalysis
             var i = new Schema(inputColumns);
             var o = new Schema(outputColumns);
 
-            var ok = AnalyzeProcessor(inputPath, host, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethod, moveNextMethod, getEnumMethod, i, o, out run, out errorReason);
+            var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethod, moveNextMethod, getEnumMethod, i, o, out run, out errorReason);
             if (ok)
             {
                 return run;
@@ -486,33 +493,31 @@ namespace ScopeProgramAnalysis
             return null;
         }
 
-        private static void CreateHostAndProgram(string inputPath, bool interProc, out IMetadataHost host, out ScopeProgramAnalysis program, out IAssembly loadedAssembly)
+        private static void CreateHostAndProgram(string inputPath, bool interProc, out MyLoader loader, out ScopeProgramAnalysis program, 
+                                                out IAssembly loadedAssembly)
         {
             // Determine whether to use Interproc analysis
             AnalysisOptions.DoInterProcAnalysis = interProc;
 
-            var myHost = new PeReader.DefaultHost();
+            var host = new PeReader.DefaultHost();
 
-            host = myHost;
+            loader = new MyLoader(host);
 
-            var loader = new MyLoader(myHost);
+            Types.Initialize(host);
 
-            Types.Initialize(myHost);
-            ScopeTypes.InitializeScopeTypes(host);
-
-
-            loadedAssembly = loader.LoadMainAssembly(inputPath);
-
+            var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
+            loadedAssembly = assemblyAndProvider.Item1;
+  
             loader.LoadCoreAssembly();
 
-            program = new ScopeProgramAnalysis(host, loader);
+            program = new ScopeProgramAnalysis(loader);
 
         }
 
         private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>>();
         private static bool AnalyzeProcessor(
             string inputPath,
-            IMetadataHost host,
+            MyLoader loader,
             InterproceduralManager interprocAnalysisManager,
             IDictionary<string, INamedTypeDefinition> factoryReducerMap,
             INamedTypeDefinition processorClass,
@@ -545,7 +550,7 @@ namespace ScopeProgramAnalysis
                     inputColumns = previousResult.Item2;
                     outputColumns = previousResult.Item3;
                 } else {
-                    var dependencyAnalysis = new SongTaoDependencyAnalysis(host, interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
+                    var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                     depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                     inputColumns = dependencyAnalysis.InputColumns;
                     outputColumns = dependencyAnalysis.OutputColumns;
@@ -559,7 +564,8 @@ namespace ScopeProgramAnalysis
             }
             catch (Exception e)
             {
-                errorReason = new AnalysisReason(moveNextMethod, moveNextMethod.Body.Instructions[0],
+                var body = MethodBodyProvider.Instance.GetBody(moveNextMethod);
+                errorReason = new AnalysisReason(moveNextMethod, body.Instructions[0],
                                 String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()));
                 return false;
             }
