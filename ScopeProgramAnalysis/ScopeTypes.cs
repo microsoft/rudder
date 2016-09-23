@@ -10,7 +10,7 @@ namespace ScopeProgramAnalysis
         private const string scopeNameSpace = "ScopeRuntime";
         private const string scopeAssemblyName = "ScopeRuntime"; // "CodeUnderTest"; 
 
-        // private static ICollection<INamedTypeReference> scopeTypes;
+        private static ICollection<INamedTypeReference> scopeTypes;
         public static  INamedTypeReference Producer;
         public static INamedTypeReference Processor;
         public static  INamedTypeReference Reducer;
@@ -52,7 +52,13 @@ namespace ScopeProgramAnalysis
                 else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
                 else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
                 else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
+                scopeTypes.Add(type);
             }
-        } 
+        }
+        public static bool Contains(ITypeReference type)
+        {
+            return scopeTypes.Contains(type);
+        }
+
     }
 }

@@ -1592,7 +1592,7 @@ namespace Backend.Analyses
                     return false;
                 }
 
-                return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.Equals(Schema);
+                return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.Equals(ScopeTypes.Schema);
             }
 
             private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType)
@@ -1604,8 +1604,9 @@ namespace Backend.Analyses
                 var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
                 var specialMethods = new Tuple<string, string>[] { }; //  { Tuple.Create("IDisposable", "Dispose") };
                 var result = methodInvoked.ContainingType != null 
-                    && ( methodInvoked.ContainingType.Equals(clousureType) && patterns.Any(pattern => methodInvoked.Name.StartsWith(pattern))
-                         || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.Name && sm.Item2 == methodInvoked.Name));
+                    && ( methodInvoked.ContainingType.Equals(clousureType) && patterns.Any(pattern => methodInvoked.Name.Value.StartsWith(pattern))
+                         || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetName() 
+                         && sm.Item2 == methodInvoked.Name.Value));
                return result;
              }
 
@@ -1933,7 +1934,7 @@ namespace Backend.Analyses
         DataFlowAnalysisResult<SimplePointsToGraph>[] ptgs;
         private ScopeInfo scopeData;
         // private IDictionary<string, IVariable> specialFields;
-        private ITypeDefinition iteratorClass;
+        private INamedTypeDefinition iteratorClass;
         private IMethodDefinition method;
 
         private InterproceduralManager interproceduralManager;
@@ -1958,7 +1959,7 @@ namespace Backend.Analyses
                                             InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
         {
             this.method = method;
-            this.iteratorClass = method.ContainingType;
+            this.iteratorClass = method.ContainingType as INamedTypeDefinition;
             // this.specialFields = specialFields;
             this.ptgs = pta.Result;
             this.equalities = equalitiesMap;

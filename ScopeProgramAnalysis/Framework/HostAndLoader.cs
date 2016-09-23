@@ -79,7 +79,7 @@ namespace ScopeProgramAnalysis.Framework
             this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
             cciHost.AddLibPath(assemblyFolder);
             cciHost.AddLibPath(assemblyParentFolder);
-            this.mainAssemably = base.LoadAssembly(fileName);
+            this.mainAssemably = this.LoadAssembly(fileName);
             return this.mainAssemably;
         }
 
@@ -92,7 +92,7 @@ namespace ScopeProgramAnalysis.Framework
                 try
                 {
                     AnalysisStats.TotalDllsFound++;
-                    assembly = TryToLoadAssembly(reference.Name);
+                    assembly = TryToLoadAssembly(reference.Name.Value);
                 }
                 catch (Exception e)
                 {

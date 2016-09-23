@@ -202,14 +202,14 @@ namespace ScopeProgramAnalysis
             {
                 return false;
             }
-            if (basicType.ContainingNamespace == "ScopeRuntime" && scopeTypes.Contains(basicType.Name))
+            if (ScopeTypes.Contains(basicType))
             {
                 return true;
             }
-            if ( scopeUsageTypes.Contains(basicType.Name))
-            {
-                return true;
-            }
+            //if ( scopeUsageTypes.Contains(basicType.Name))
+            //{
+            //    return true;
+            //}
 
             return false;
         }

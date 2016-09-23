@@ -415,7 +415,7 @@ namespace ScopeProgramAnalysis
             var unresolvedCallees = new HashSet<IMethodReference>();
             var potentialDelegates = ptg.GetTargets(delegateArgument);
             var resolvedInvocations = potentialDelegates.OfType<DelegateNode>()
-                .Select(d => this.host.FindMethodImplementation(d.Instance.Type as BasicType, d.Method) as IMethodReference);
+                .Select(d => this.host.FindMethodImplementation(d.Instance.Type, d.Method) as IMethodReference);
             resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
             unresolvedCallees.UnionWith(resolvedInvocations.Where(c => !resolvedCallees.Contains(c)));
             return new Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
@@ -444,11 +444,11 @@ namespace ScopeProgramAnalysis
             }
             else
             {
-                if (!instruction.Method.IsStatic && instruction.Method.Name != ".ctor")
+                if (!instruction.Method.IsStatic && instruction.Method.Name.Value != ".ctor")
                 {
                     var receiver = instruction.Arguments[0];
                     var types = ptg.GetTargets(receiver, false).Where(n => n.Kind != PTGNodeKind.Null && n.Type != null).Select(n => n.Type);
-                    var candidateCalless = types.Select(t => host.FindMethodImplementation(t as IBasicType, instruction.Method));
+                    var candidateCalless = types.Select(t => host.FindMethodImplementation(t, instruction.Method));
                     var resolvedInvocations = candidateCalless.Select(c => (host.ResolveReference(c) as IMethodReference));
                     resolvedCallees.UnionWith(resolvedInvocations.OfType<IMethodDefinition>());
                     unresolvedCallees.UnionWith(candidateCalless.Where(c => !resolvedInvocations.Contains(c) 
@@ -458,14 +458,14 @@ namespace ScopeProgramAnalysis
                 else
                 {
                     var candidateCalee = host.FindMethodImplementation(instruction.Method.ContainingType, instruction.Method);
-                    var resolvedCalle = host.ResolveReference(candidateCalee) as MethodDefinition;
+                    var resolvedCalle = host.ResolveReference(candidateCalee) as IMethodDefinition;
                     if (resolvedCalle != null)
                     {
                         resolvedCallees.Add(resolvedCalle);
                     }
                 }
             }
-            return new Tuple<IEnumerable<MethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
+            return new Tuple<IEnumerable<IMethodDefinition>, IEnumerable<IMethodReference>>(resolvedCallees, unresolvedCallees);
         }
     }
 }

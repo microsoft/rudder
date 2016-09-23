@@ -94,7 +94,7 @@ namespace Backend.Serialization
                             xmlWriter.WriteStartElement("Link");
                             xmlWriter.WriteAttributeString("Source", sourceId);
                             xmlWriter.WriteAttributeString("Target", targetId);
-                            xmlWriter.WriteAttributeString("Label", label);
+                            xmlWriter.WriteAttributeString("Label", label.Value);
                             xmlWriter.WriteEndElement();
                         }
                     }
