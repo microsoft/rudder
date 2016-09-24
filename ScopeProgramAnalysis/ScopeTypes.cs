@@ -20,8 +20,6 @@ namespace ScopeProgramAnalysis
         public static  INamedTypeReference Row;
         public static  INamedTypeReference RowSet;
         public static  INamedTypeReference RowList;
-        public static  INamedTypeReference IEnumerable_Row;
-        public static  INamedTypeReference IEnumerator_Row;
 
         public static  INamedTypeReference ColumnData;
         public static INamedTypeReference ColumnData_Generic;
@@ -43,9 +41,6 @@ namespace ScopeProgramAnalysis
                 else if (type.FullName() == "ScopeRuntime.Row")
                 {
                     Row = type;
-                    IEnumerable_Row = TypeHelper.SpecializeTypeReference(type, host.PlatformType.SystemCollectionsGenericIEnumerable, host.InternFactory) as INamedTypeReference;
-                    IEnumerator_Row = TypeHelper.SpecializeTypeReference(type, host.PlatformType.SystemCollectionsGenericIEnumerator, host.InternFactory) as INamedTypeReference;
-
                 }
                 else if (type.FullName() == "ScopeRuntime.RowSet") RowSet = type;
                 else if (type.FullName() == "ScopeRuntime.RowList") RowList = type;

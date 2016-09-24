@@ -16,6 +16,7 @@ namespace ScopeProgramAnalysis.Framework
         public static bool IsCompilerGenerated(this ITypeReference type)
         {
             var resolvedClass = type.ResolvedType as INamedTypeDefinition;
+
             if (resolvedClass != null)
             {
                 return resolvedClass.IsCompiledGeneratedClass();
@@ -31,28 +32,30 @@ namespace ScopeProgramAnalysis.Framework
         }
         public static bool IsEnumerable(this ITypeReference type)
         {
-            var namedType = type as INamedTypeReference;
-            var result = namedType != null && namedType.Name.Value.Contains("Enumerable");
+            var namedType = type;
+            var result = namedType != null && namedType.ToString().Contains("Enumerable");
             return result;
         }
+        public static bool IsEnumerator(this ITypeReference type)
+        {
+            var namedType = type;
+            var result = namedType != null && namedType.ToString().Contains("Enumerator");
+            return result;
+        }
+
         public static bool IsIEnumerable(this ITypeReference type)
         {
             var result = type.ResolvedType != null 
             && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable);
             // && type.Name.Contains("IEnumerable")
-            return result;
+            return result || IsGenericEnumerable(type);
         }
+
         public static bool IsIEnumerator(this ITypeReference type)
         {
-            var namedType = type as INamedTypeReference;
-            var result = namedType!=null && namedType.Name.Value.Contains("IEnumerator");
-            return result;
-        }
-        public static bool IsEnumerator(this ITypeReference type)
-        {
-            var namedType = type as INamedTypeReference;
-            var result = namedType != null && namedType.Name.Value.Contains("Enumerator");
-            return result;
+            var result = type.ResolvedType != null
+                && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerator);
+            return result || IsGenericEnumerator(type);
         }
 
 
@@ -64,19 +67,20 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool IsDictionary(this ITypeReference type)
         {
-            var namedType = type as INamedTypeReference;
+            var namedType = type;
+            
             var result = namedType != null && 
-                (namedType.Name.Value.Contains("SortedDictionary")
-                    || namedType.Name.Value.Contains("Dictionary")
-                    || namedType.Name.Value.Contains("IDictionary"));
+                (namedType.ToString().Contains("SortedDictionary")
+                    || namedType.ToString().Contains("Dictionary")
+                    || namedType.ToString().Contains("IDictionary"));
 
             return result;
         }
 
         public static bool IsSet(this ITypeReference type)
         {
-            var namedType = type as INamedTypeReference;
-            var result = namedType != null && namedType.Name.Value.Contains("Set");
+            var namedType = type;
+            var result = namedType != null && namedType.ToString().Contains("Set");
             return result;
         }
 
@@ -134,35 +138,58 @@ namespace ScopeProgramAnalysis.Framework
             return basicType != null && basicType.Name.Value == "ScopeMapUsage";
         }
 
-
-        public static bool IsIEnumerableRow(this ITypeReference type)
+        public static bool IsGenericEnumerator(this ITypeReference type)
         {
-            var basicType = type as INamedTypeReference;
+            var basicType = type as IGenericTypeInstanceReference;
             if (basicType != null)
             {
-                return basicType.TypeEquals(ScopeTypes.IEnumerable_Row);
+                return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerator);
             }
             return false;
         }
-
-        public static bool IsIEnumeratorRow(this ITypeReference type)
+        public static bool IsGenericEnumerable(this ITypeReference type)
         {
-            var basicType = type as INamedTypeReference;
+            var basicType = type as IGenericTypeInstanceReference;
             if (basicType != null)
             {
-                if (basicType != null)
+                return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerable);
+            }
+            return false;
+        }
+        public static bool IsIEnumerableRow(this ITypeReference type)
+        {
+            var basicType = type as IGenericTypeInstanceReference;
+            if (basicType != null)
+            {
+                if (basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerable))
                 {
-                    return basicType.TypeEquals(ScopeTypes.IEnumerator_Row);
+                    return basicType.GenericArguments.First().TypeEquals(ScopeTypes.Row);
+                }
+            }
+            return false;
+        }
+        
+        public static bool IsIEnumeratorRow(this ITypeReference type)
+        {            
+            var basicType = type as IGenericTypeInstanceReference;
+            if (basicType != null)
+            {
+                if(basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerator))
+                {
+                    return basicType.GenericArguments.First().TypeEquals(ScopeTypes.Row);
                 }
             }
             return false;
         }
         public static bool IsIEnumerableScopeMapUsage(this ITypeReference type)
         {
-            var basicType = type as INamedTypeReference;
-            if (basicType != null && basicType.TypeEquals(basicType.PlatformType.SystemCollectionsGenericIEnumerable))
+            var basicType = type as IGenericTypeInstanceReference;
+            if (basicType != null)
             {
-                return basicType.FullName() == "System.Collections.IEnumerable<ScopeMapUsage>";
+                if (basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerable))
+                {
+                    return basicType.GenericArguments.First().IsScopeMapUsage();
+                }
             }
             return false;
         }
