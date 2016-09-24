@@ -1177,7 +1177,9 @@ namespace Backend.Analyses
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     bool createdNode;
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result, out createdNode);
-                    if(createdNode)
+                    // TODO: Warning: This only works if we keep the mapping A2_References
+                    // If we remove that mapping we MUST do the AssignTraceables
+                    if (createdNode)
                     {
                         this.State.AssignTraceables(methodCallStmt.Result, traceables);
                     }
@@ -1193,6 +1195,16 @@ namespace Backend.Analyses
                     // Notice that we add the traceables to the receiver object (arg0.Add(args...))
                     this.State.AddTraceables(methodCallStmt.Arguments[0], traceables);
                 }
+                else if (( methodInvoked.Name.Value == "get_Values" || methodInvoked.Name.Value == "get_Keys") &&  methodInvoked.ContainingType.IsDictionary())
+                {
+                    var arg = methodCallStmt.Arguments[0];
+                    var traceables = this.State.GetTraceables(arg);
+                    // This method makes method.Result point to the iterator 
+                    this.iteratorDependencyAnalysis.pta.ProcessCopy(this.State.PTG, methodCallStmt.Result, arg);
+                    // We copy the traceables from the collection to the iterator
+                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                }
+
                 // for Add we need to add an element the collection using a fake field "$item"
                 else if (methodInvoked.Name.Value == "Add" 
                     && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))

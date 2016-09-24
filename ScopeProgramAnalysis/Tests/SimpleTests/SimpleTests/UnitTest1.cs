@@ -38,6 +38,12 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
         }
 
+        [TestMethod]
+        public void TestDictValues()
+        {
+            var t = typeof(TestDictProcessor);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+        }
 
         [TestMethod]
         public void ReturnMethodCall()
