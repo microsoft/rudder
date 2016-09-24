@@ -28,11 +28,13 @@ namespace ScopeProgramAnalysis
 
         /// <summary>
         /// This is "ugly" but I don't know how to query a type by name
+        /// Inspired in Zvonimir code
         /// </summary>
         /// <param name="host"></param>
         public static void InitializeScopeTypes(IMetadataHost host)
         {
-            var scopeAssembly = host.LoadedUnits.Single(u => u.Name.Value == scopeAssemblyName) as IAssembly;
+            var scopeAssembly = host.LoadedUnits.OfType<IModule>()
+                .Single(module => module.ContainingAssembly.NamespaceRoot.Members.Any(m => m.Name.Value == "ScopeRuntime"));
             foreach (var type in scopeAssembly.GetAllTypes())
             {
                 if (type.FullName() == "ScopeRuntime.Reducer") Reducer = type;
@@ -48,7 +50,7 @@ namespace ScopeProgramAnalysis
                 else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
                 else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
                 else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
-                if(type.ContainingNamespace() == "ScopeRuntime")
+                if (type.ContainingNamespace() == "ScopeRuntime")
                     scopeTypes.Add(type);
             }
         }

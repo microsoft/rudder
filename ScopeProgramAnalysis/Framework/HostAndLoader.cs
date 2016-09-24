@@ -60,6 +60,12 @@ namespace ScopeProgramAnalysis.Framework
 
         public Tuple<IAssembly,ISourceLocationProvider> LoadAssembly(string fileName)
         {
+            var unit = cciHost.LoadedUnits.SingleOrDefault(u => u.Location == fileName);
+            if(unit!=null)
+            {
+                return Tuple.Create(unit as IAssembly, sourceProviderForAssembly[unit as IAssembly]);
+            }
+
             var module = cciHost.LoadUnitFrom(fileName) as IModule;
 
             if (module == null || module == Dummy.Module || module == Dummy.Assembly)
@@ -81,8 +87,8 @@ namespace ScopeProgramAnalysis.Framework
             //    pdbReader.Dispose();
             //}
             sourceProviderForAssembly.Add(module.ContainingAssembly, pdbReader);
-    
-            if(module.ContainingAssembly.Name.Value=="ScopeRuntime")
+
+            if (module.ContainingAssembly.NamespaceRoot.Members.Any(m => m.Name.Value == "ScopeRuntime"))
                 ScopeTypes.InitializeScopeTypes(cciHost);
 
 
@@ -144,8 +150,10 @@ namespace ScopeProgramAnalysis.Framework
             return LoadAssembly(referencePath);
         }
 
-        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime()
+        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(bool isUnitTest)
         {
+            if(isUnitTest)
+                return TryToLoadAssembly("CodeUnderTest");
             return TryToLoadAssembly("ScopeRuntime");
         }
         //public Assembly LoadAssemblyAndReferences(string fileName)
