@@ -30,8 +30,8 @@ namespace ScopeProgramAnalysis.Framework
             }
 
             var cfAnalysis = new ControlFlowAnalysis(methodBody);
-            var cfg = cfAnalysis.GenerateExceptionalControlFlow();
-            // var cfg = cfAnalysis.GenerateNormalControlFlow();
+            //var cfg = cfAnalysis.GenerateExceptionalControlFlow();
+            var cfg = cfAnalysis.GenerateNormalControlFlow();
 
             var domAnalysis = new DominanceAnalysis(cfg);
             domAnalysis.Analyze();
@@ -164,12 +164,30 @@ namespace ScopeProgramAnalysis.Framework
         {
             if (type.IsValueType)
             {
-                if (!type.TypeCode.Equals(TypeCode.Object) || !type.TypeCode.Equals(TypeCode.String))
+                if (type.ResolvedType.IsStruct)
                 {
-                    return true;
-                }
+                    switch (type.TypeCode)
+                    {
+                        case PrimitiveTypeCode.Boolean:
+                        case PrimitiveTypeCode.Char:
+                        case PrimitiveTypeCode.Int8:
+                        case PrimitiveTypeCode.Float32:
+                        case PrimitiveTypeCode.Float64:
+                        case PrimitiveTypeCode.Int16:
+                        case PrimitiveTypeCode.Int32:
+                        case PrimitiveTypeCode.Int64:
+                        case PrimitiveTypeCode.UInt8:
+                        case PrimitiveTypeCode.UInt16:
+                        case PrimitiveTypeCode.UInt32:
+                        case PrimitiveTypeCode.UInt64:
+                        case PrimitiveTypeCode.Void:
+                            return false;
+                        default:
+                            return true;
+                    }
+                }               
             }
-            return false;
+            return true;
         }
 
         public static bool MapLessEquals<K, V>(this MapSet<K, V> left, MapSet<K, V> right)

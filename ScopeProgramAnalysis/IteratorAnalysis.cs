@@ -2045,9 +2045,19 @@ namespace Backend.Analyses
         {
             foreach (var v in cfg.GetVariables())
             {
-                if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && !v.Type.IsClassOrStruct())
+                // The framework has problems with  type resolution
+                // This is a workaround until the problem is fix
+                if (v.Type != null)
                 {
-                    depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
+                    if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && !v.Type.IsClassOrStruct())
+                    {
+                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
+                    }
+                }
+                else
+                {
+                    v.Type = Types.Instance.PlatformType.SystemObject;
+                    depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other("null") });
                 }
             }
         }

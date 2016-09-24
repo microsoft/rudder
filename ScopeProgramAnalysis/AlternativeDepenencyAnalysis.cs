@@ -74,7 +74,7 @@ namespace ScopeProgramAnalysis
             public override void Visit(MethodCallInstruction instruction)
             {
                 var methodCall = instruction;
-                if (methodCall.Method.Name.Equals(".ctor") && methodCall.HasResult)
+                if (methodCall.Method.Name.Value.Equals(".ctor") && methodCall.HasResult)
                 {
                     var variable = methodCall.Arguments[0] as IVariable;
                     var lastDefs = depAnalysis.LastDefGet(variable);

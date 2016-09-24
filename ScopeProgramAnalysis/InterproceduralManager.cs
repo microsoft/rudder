@@ -108,9 +108,8 @@ namespace ScopeProgramAnalysis
 
         public InterProceduralReturnInfo DoInterProcWithCallee(InterProceduralCallInfo callInfo)
         {
-            var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
 
-            if (body.Instructions.Any())
+            if (callInfo.Callee.Body.Operations.Any())
             {
                 //if(previousResult.ContainsKey(callInfo.Instruction))
                 //{

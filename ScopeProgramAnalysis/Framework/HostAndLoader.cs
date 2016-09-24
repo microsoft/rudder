@@ -36,7 +36,9 @@ namespace ScopeProgramAnalysis.Framework
 
         public ISourceLocationProvider GetSourceLocationProvider(IAssembly assembly)
         {
-            return sourceProviderForAssembly[assembly];
+            if(sourceProviderForAssembly.ContainsKey(assembly))
+                return sourceProviderForAssembly[assembly];
+            return null;
         }
 
         public void Dispose()

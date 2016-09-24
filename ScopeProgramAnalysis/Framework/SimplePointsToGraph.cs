@@ -17,6 +17,17 @@ namespace Backend.Model
             this.Source = source;
             this.Field = field;
         }
+        public override bool Equals(object obj)
+        {
+            if (!(obj is NodeField))
+                return false;
+            var oth = (NodeField)obj;
+            return  oth.Field.Equals(this.Field) && oth.Source.Equals(this.Source);
+        }
+        public override int GetHashCode()
+        {
+            return this.Field.GetHashCode()+this.Source.GetHashCode();
+        }
     }
 
     // Unknown PTG nodes represent placeholders
