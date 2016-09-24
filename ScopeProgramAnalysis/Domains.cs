@@ -498,10 +498,13 @@ namespace ScopeProgramAnalysis
             //    if (entry.Value.Count > 0)
             //        cleanRight.Add(entry.Key, entry.Value);
             //}
-            var keySetDiff = cleanLeft.Keys.Except(cleanRight.Keys);
-            if (!keySetDiff.Any())
+            if (cleanLeft.Count <= cleanRight.Count)
             {
-                return cleanLeft.All(kv => kv.Value.IsSubsetOf(cleanRight[kv.Key]));
+                var keySetDiff = cleanLeft.Keys.Except(cleanRight.Keys);
+                if (!keySetDiff.Any())
+                {
+                    return cleanLeft.All(kv => kv.Value.IsSubsetOf(cleanRight[kv.Key]));
+                }
             }
             return result;
         }

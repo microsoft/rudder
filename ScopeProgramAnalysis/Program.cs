@@ -166,6 +166,7 @@ namespace ScopeProgramAnalysis
             var outputStream = File.CreateText(logPath);
 
             var log = AnalyzeOneDll(input, scopeKind, useScopeFactory);
+            var log = AnalyzeOneDll(input, scopeKind, false, useScopeFactory);
             WriteSarifOutput(log, outputPath);
 
 
@@ -182,11 +183,14 @@ namespace ScopeProgramAnalysis
         public enum ScopeMethodKind { Producer, Reducer, All };
 
         private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, bool useScopeFactory = true, bool interProcAnalysis = false)
+        private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, 
+            bool isUnitTest,  bool useScopeFactory = true, bool interProcAnalysis = false)
         {
             //var folder = Path.GetDirectoryName(input);
             //var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             //referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
             return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
+            return AnalyzeDll(input, kind, isUnitTest, useScopeFactory, interProcAnalysis);
         }
 
         private void ComputeColumns(string xmlFile, string processNumber)
@@ -226,6 +230,7 @@ namespace ScopeProgramAnalysis
 
 
         public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind,
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool isUnitTest,
 
                                        bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
@@ -233,6 +238,7 @@ namespace ScopeProgramAnalysis
             ScopeProgramAnalysis program;
             IAssembly assembly;
             CreateHostAndProgram(inputPath, interProc, out loader, out program, out assembly);
+            CreateHostAndProgram(inputPath, interProc, isUnitTest, out loader, out program, out assembly);
             var host = loader.Host;
 
             AnalysisStats.TotalNumberFolders++;
@@ -367,6 +373,7 @@ namespace ScopeProgramAnalysis
             ScopeProgramAnalysis program;
             IAssembly assembly;
             CreateHostAndProgram(inputPath, false, out loader, out program, out assembly);
+            CreateHostAndProgram(inputPath, false, true, out loader, out program, out assembly);
 
             var host = loader.Host;
 
@@ -494,6 +501,7 @@ namespace ScopeProgramAnalysis
         }
 
         private static void CreateHostAndProgram(string inputPath, bool interProc, out MyLoader loader, out ScopeProgramAnalysis program, 
+        private static void CreateHostAndProgram(string inputPath, bool interProc, bool isUnitTest, out MyLoader loader, out ScopeProgramAnalysis program, 
                                                 out IAssembly loadedAssembly)
         {
             // Determine whether to use Interproc analysis
@@ -508,6 +516,10 @@ namespace ScopeProgramAnalysis
             var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
             loadedAssembly = assemblyAndProvider.Item1;
   
+
+            if(!isUnitTest)
+                loader.LoadScopeRuntime();
+
             loader.LoadCoreAssembly();
 
             program = new ScopeProgramAnalysis(loader);
@@ -578,8 +590,11 @@ namespace ScopeProgramAnalysis
 
         public static void AnalyzeDllAndWriteLog(string inputPath, string outputPath, ScopeMethodKind kind,
                               bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+                    bool isUnitTest,           
+                    bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             var log = AnalyzeDll(inputPath, ScopeMethodKind.All, useScopeFactory, interProc, outputStream);
+            var log = AnalyzeDll(inputPath, ScopeMethodKind.All, isUnitTest, useScopeFactory, interProc, outputStream);
             WriteSarifOutput(log, outputPath);
         }
 
@@ -868,6 +883,7 @@ namespace ScopeProgramAnalysis
 
                             var moveNextMethods = candidateClosure.Methods
                                                         .Where(md => md.Body != null && md.Name.Equals(this.MethodUnderAnalysisName));
+                                                        .Where(md => md.Body != null && md.Name.Value.Equals(this.MethodUnderAnalysisName));
                             foreach (var moveNextMethod in moveNextMethods)
                             {
                                 scopeMethodTuplesToAnalyze.Add(Tuple.Create(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod));
@@ -926,6 +942,7 @@ namespace ScopeProgramAnalysis
                         var methods = candidateClousure.Members.OfType<IMethodDefinition>()
                                                 .Where(md => md.Body != null
                                                 && md.Name.Equals(this.MethodUnderAnalysisName));
+                                                && md.Name.Value.Equals(this.MethodUnderAnalysisName));
 
                         if (methods.Any())
                         {

@@ -111,14 +111,14 @@ namespace ScopeProgramAnalysis
 
             if (callInfo.Callee.Body.Operations.Any())
             {
-                //if(previousResult.ContainsKey(callInfo.Instruction))
-                //{
-                //    var previousState = previousResult[callInfo.Instruction];
-                //    if(callInfo.CallerState.LessEqual(previousState))
-                //    {
-                //        return new InterProceduralReturnInfo(callInfo.CallerState);
-                //    }
-                //}
+                if (previousResult.ContainsKey(callInfo.Instruction))
+                {
+                    var previousState = previousResult[callInfo.Instruction];
+                    if (callInfo.CallerState.LessEqual(previousState))
+                    {
+                        return new InterProceduralReturnInfo(callInfo.CallerState);
+                    }
+                }
 
                 this.previousResult[callInfo.Instruction] = callInfo.CallerState;
                 ControlFlowGraph calleeCFG = this.GetCFG(callInfo.Callee);
@@ -221,7 +221,7 @@ namespace ScopeProgramAnalysis
             calleeDepDomain.Dependencies.IsTop = callInfo.CallerState.Dependencies.IsTop;
             // Bind parameters with arguments 
             var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
-            for (int i = 0; i < callInfo.CallArguments.Count(); i++)
+            for (int i = 0; i < body.Parameters.Count(); i++)
             {
                 var arg = callInfo.CallArguments[i];
 
@@ -273,7 +273,7 @@ namespace ScopeProgramAnalysis
             var exitResult = depAnalysis.Result[calleeCFG.Exit.Id].Output;
             var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
 
-            for (int i = 0; i < callInfo.CallArguments.Count(); i++)
+            for (int i = 0; i < body.Parameters.Count(); i++)
             {
                 var arg = callInfo.CallArguments[i];
                 var param = body.Parameters[i];
@@ -412,7 +412,7 @@ namespace ScopeProgramAnalysis
             // Bind parameters with arguments in PTA
             var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
 
-            for (int i = 0; i < arguments.Count(); i++)
+            for (int i = 0; i < body.Parameters.Count(); i++)
             {
                 argParamMap[arguments[i]] = body.Parameters[i];
             }

@@ -132,7 +132,7 @@ namespace ScopeProgramAnalysis.Framework
         {
             var result = method;
 
-            while (receiverType != null && !method.ContainingType.Equals(receiverType))
+            while (receiverType != null && !method.ContainingType.TypeEquals(receiverType))
             {
                 var receiverTypeDef = receiverType.ResolvedType;
                 if (receiverTypeDef == null) break;

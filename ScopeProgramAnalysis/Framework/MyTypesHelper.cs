@@ -84,7 +84,7 @@ namespace ScopeProgramAnalysis.Framework
         {
             
             var result = false;
-            if (class1.Equals(class2))
+            if (class1.TypeEquals(class2))
                 return true;
             if(class1.BaseClasses!=null && class1.BaseClasses.SingleOrDefault() is ITypeDefinition)
             {
@@ -140,7 +140,7 @@ namespace ScopeProgramAnalysis.Framework
             var basicType = type as INamedTypeReference;
             if (basicType != null)
             {
-                return basicType.Equals(ScopeTypes.IEnumerable_Row);
+                return basicType.TypeEquals(ScopeTypes.IEnumerable_Row);
             }
             return false;
         }
@@ -152,7 +152,7 @@ namespace ScopeProgramAnalysis.Framework
             {
                 if (basicType != null)
                 {
-                    return basicType.Equals(ScopeTypes.IEnumerator_Row);
+                    return basicType.TypeEquals(ScopeTypes.IEnumerator_Row);
                 }
             }
             return false;
@@ -160,7 +160,7 @@ namespace ScopeProgramAnalysis.Framework
         public static bool IsIEnumerableScopeMapUsage(this ITypeReference type)
         {
             var basicType = type as INamedTypeReference;
-            if (basicType != null && basicType.Equals(basicType.PlatformType.SystemCollectionsGenericIEnumerable))
+            if (basicType != null && basicType.TypeEquals(basicType.PlatformType.SystemCollectionsGenericIEnumerable))
             {
                 return basicType.FullName() == "System.Collections.IEnumerable<ScopeMapUsage>";
             }
@@ -233,7 +233,7 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool SameType(this INamedTypeReference containingType, ITypeDefinition iteratorClass)
         {
-            return containingType.Equals(iteratorClass);
+            return containingType.TypeEquals(iteratorClass);
         }
         public static bool IsString(this ITypeReference containingType)
         {

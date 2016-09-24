@@ -431,7 +431,7 @@ namespace Backend.Analyses
 
             private bool IsClousureType(IVariable instance)
             {
-                return instance.Type.Equals(this.iteratorDependencyAnalysis.iteratorClass);
+                return instance.Type.TypeEquals(this.iteratorDependencyAnalysis.iteratorClass);
             }
 
             private bool ISClousureField(IVariable instance, IFieldReference field)
@@ -451,7 +451,7 @@ namespace Backend.Analyses
                     instanceType= (instanceType as IPointerType).TargetType;
                 }
 
-                if ( instanceType.Equals(this.iteratorDependencyAnalysis.iteratorClass)) 
+                if ( instanceType.TypeEquals(this.iteratorDependencyAnalysis.iteratorClass)) 
                 {
                     return true;
                 }
@@ -467,10 +467,10 @@ namespace Backend.Analyses
                     instanceIsCompilerGeneratedSibblingClass = MyTypesHelper.IsCompiledGeneratedClass(typeAsClassResolved)
                                             && typeAsClassResolved.ContainingType != null 
                                             && iteratorClass!= null
-                                            && typeAsClassResolved.ContainingType.Equals(iteratorClass.ContainingType);
+                                            && typeAsClassResolved.ContainingType.TypeEquals(iteratorClass.ContainingType);
                 }
                 var isReducerField = iteratorClass != null
-                    && iteratorClass.ContainingType.Equals(field.ContainingType);
+                    && iteratorClass.ContainingType.TypeEquals(field.ContainingType);
 
                 if(isClousureField || isReducerField || instanceIsCompilerGeneratedSibblingClass)
                 {
@@ -695,7 +695,7 @@ namespace Backend.Analyses
                 // TODO: Move to IsClousureField()
                 var isClousureField =  iteratorClass.Equals(fieldAccess.Field.ContainingType);
                 var isReducerField = iteratorClass!=null 
-                                        && iteratorClass.ContainingType.Equals(fieldAccess.Field.ContainingType);
+                                        && iteratorClass.ContainingType.TypeEquals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
                 if (ISClousureField(IteratorPointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
@@ -959,6 +959,7 @@ namespace Backend.Analyses
                                     foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=SimplePTGNodeKind.Null))
                                     {
                                         var escapingField = new FieldReference("escape", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
+                                        // TODO: Check if this is always necessary
                                         currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
                                     }
                                 }
@@ -1529,7 +1530,7 @@ namespace Backend.Analyses
             {
                 Column result = result = Column.TOP; 
                 var columnLiteral = "";
-                if (col.Type.Equals(Types.Instance.PlatformType.SystemString))
+                if (col.Type.TypeEquals(Types.Instance.PlatformType.SystemString))
                 {
                     var columnValue = this.equalities.GetValue(col);
                     if (columnValue is Constant)
@@ -1582,7 +1583,7 @@ namespace Backend.Analyses
             private bool IsSchemaItemMethod(IMethodReference methodInvoked)
             {
                 return methodInvoked.Name.Value == "get_Item"
-                    && (methodInvoked.ContainingType.Equals(ScopeTypes.Schema));
+                    && (methodInvoked.ContainingType.TypeEquals(ScopeTypes.Schema));
             }
 
             private bool IsIndexOfMethod(IMethodReference methodInvoked)
@@ -1592,7 +1593,7 @@ namespace Backend.Analyses
                     return false;
                 }
 
-                return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.Equals(ScopeTypes.Schema);
+                return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.TypeEquals(ScopeTypes.Schema);
             }
 
             private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType)
@@ -1604,7 +1605,7 @@ namespace Backend.Analyses
                 var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
                 var specialMethods = new Tuple<string, string>[] { }; //  { Tuple.Create("IDisposable", "Dispose") };
                 var result = methodInvoked.ContainingType != null 
-                    && ( methodInvoked.ContainingType.Equals(clousureType) && patterns.Any(pattern => methodInvoked.Name.Value.StartsWith(pattern))
+                    && ( methodInvoked.ContainingType.TypeEquals(clousureType) && patterns.Any(pattern => methodInvoked.Name.Value.StartsWith(pattern))
                          || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetName() 
                          && sm.Item2 == methodInvoked.Name.Value));
                return result;
@@ -1885,17 +1886,19 @@ namespace Backend.Analyses
                         //{
                         var instance = this.currentPTG.GetTargets(delegateArgument).OfType<DelegateNode>().First().Instance;
 
-                        var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
+                        //var body = MethodBodyProvider.Instance.GetBody(resolvedCallee);
 
-                        var parametersCount = body.Parameters.Count;
+                        var parametersCount = 0;
                         if (!resolvedCallee.IsStatic)
                         {
                             arguments.Add(instance);
-                            parametersCount--;
+                            parametersCount++;
                         }
-                        for (int i = 0; i < parametersCount; i++)
+                        for (int i = 0; i < methodCall.Arguments.Count; i++)
+                        {
+                            parametersCount++; 
                             arguments.Add(methodCall.Arguments[i]);
-                        //}
+                        }
                         var interProcInfo = new InterProceduralCallInfo()
                         {
                             Caller = this.method,

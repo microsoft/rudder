@@ -53,7 +53,9 @@ namespace AnalysisClient
             outputStream.WriteLine("Analyzing {0}", dllToAnalyze);
 
 
-            ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true, interproc, outputStream);
+            ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, 
+                ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
+                false, true, interproc, outputStream);
 
             if (AnalysisStats.AnalysisReasons.Any())
             {

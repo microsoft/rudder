@@ -13,7 +13,8 @@ namespace SimpleTests
         public void TestMethod1()
         {
             var t = typeof(CopyProcessor);
-            var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, false, false, null);
+            var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, true,  
+                                    false, false, null);
         }
         [TestMethod]
         public void TestMethod2()

@@ -28,11 +28,11 @@ namespace ScopeProgramAnalysis
         public static ProtectedRowKind GetKind(ITypeReference type)
         {
             var result = ProtectedRowKind.Unknown;
-            if(type.Equals(ScopeTypes.Row))
+            if(type.ResolvedType.Equals(ScopeTypes.Row))
             {
                 result = ProtectedRowKind.Output;
             }
-            else if (type.Equals(ScopeTypes.RowSet))
+            else if (type.ResolvedType.Equals(ScopeTypes.RowSet))
             {
                 result = ProtectedRowKind.Input;
             }

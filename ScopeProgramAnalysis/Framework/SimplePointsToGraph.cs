@@ -10,11 +10,11 @@ namespace Backend.Model
 {
     public struct NodeField
     {
-        public SimplePTGNode Source { get; set; }
+        public SimplePTGNode Node { get; set; }
         public IFieldReference Field { get; set; }
         public NodeField(SimplePTGNode source, IFieldReference field)
         {
-            this.Source = source;
+            this.Node = source;
             this.Field = field;
         }
         public override bool Equals(object obj)
@@ -22,11 +22,11 @@ namespace Backend.Model
             if (!(obj is NodeField))
                 return false;
             var oth = (NodeField)obj;
-            return  oth.Field.Equals(this.Field) && oth.Source.Equals(this.Source);
+            return oth.Field.Equals(this.Field) && oth.Node.Equals(this.Node);
         }
         public override int GetHashCode()
         {
-            return this.Field.GetHashCode()+this.Source.GetHashCode();
+            return this.Field.GetHashCode() + this.Node.GetHashCode();
         }
     }
 
@@ -156,7 +156,7 @@ namespace Backend.Model
                 this.Id.Equals(other.Id) &&
                 this.Kind == other.Kind &&
                 //this.Offset == other.Offset &&
-                this.Type.Equals(other.Type);
+                this.Type.TypeEquals(other.Type);
         }
 
         public override int GetHashCode()
@@ -301,7 +301,9 @@ namespace Backend.Model
     {
         private Stack<MapSet<IVariable, SimplePTGNode>> stackFrame;
         private MapSet<IVariable, SimplePTGNode> roots;
-        private MapSet<NodeField,SimplePTGNode> edges;
+        //private MapSet<NodeField,SimplePTGNode> edges;
+        private MapSet<SimplePTGNode, NodeField> edges;
+
         private ISet<SimplePTGNode> nodes;
 
         public static SimplePTGNode NullNode = new NullNode(); // { get; private set; }
@@ -313,7 +315,8 @@ namespace Backend.Model
             this.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>();
             this.roots = new MapSet<IVariable, SimplePTGNode>();
             this.nodes = new HashSet<SimplePTGNode>();
-            this.edges = new MapSet<NodeField, SimplePTGNode>();
+            //this.edges = new MapSet<NodeField, SimplePTGNode>();
+            this.edges = new MapSet<SimplePTGNode, NodeField>();
             this.Add(SimplePointsToGraph.NullNode);
         }
 
@@ -354,7 +357,8 @@ namespace Backend.Model
             ptg.stackFrame = new Stack<MapSet<IVariable, SimplePTGNode>>(this.stackFrame.Reverse());
             ptg.roots = new MapSet<IVariable, SimplePTGNode>(this.roots);
             ptg.nodes = new HashSet<SimplePTGNode>(this.nodes);
-            ptg.edges = new MapSet<NodeField, SimplePTGNode>(this.edges);
+            //ptg.edges = new MapSet<NodeField, SimplePTGNode>(this.edges);
+            ptg.edges = new MapSet<SimplePTGNode, NodeField>(this.edges);
             return ptg;
         }
 
@@ -452,8 +456,12 @@ namespace Backend.Model
 
         public void AddEdge(SimplePTGNode source, IFieldReference field, SimplePTGNode target)
         {
-            var nodeField = new NodeField(source, field);
-            this.edges.Add(nodeField, target);
+            //var nodeField = new NodeField(source, field);
+            //if(edges.ContainsKey(nodeField))
+            //{ }
+            //this.edges.Add(nodeField, target);
+            var nodeField = new NodeField(target, field);
+            this.edges.Add(source, nodeField);
         }
 
 
@@ -478,29 +486,45 @@ namespace Backend.Model
         public ISet<SimplePTGNode> GetTargets(SimplePTGNode source, IFieldReference field)
         {
             var result = new HashSet<SimplePTGNode>();
-            var nodeField = new NodeField(source, field);
-            if (this.edges.ContainsKey(nodeField))
-            { 
-                result.UnionWith(this.edges[nodeField]);
+            //var nodeField = new NodeField(source, field);
+            //if (this.edges.ContainsKey(nodeField))
+            //{ 
+            //    result.UnionWith(this.edges[nodeField]);
+            //}
+            if(this.edges.ContainsKey(source))
+            {
+                result.AddRange(this.edges[source].Where(nf => nf.Field.Equals(field)).Select(nf => nf.Node));
             }
             return result;
         }
-        public MapSet<IFieldReference, SimplePTGNode> GetTargets(SimplePTGNode SimplePTGNode)
+        public MapSet<IFieldReference, SimplePTGNode> GetTargets(SimplePTGNode source)
         {
-            //var result = this.edges.Where(kv => kv.Key.Source.Equals(SimplePTGNode)).GroupBy(kv => kv.Key.Field, kv=> kv.Value);
-            //return result.ToDictionary( kv => kv.Key, kv => kv.SelectMany(kv => kv.));
+            //var result = new MapSet<IFieldReference, SimplePTGNode>();
+            //foreach (var edge in this.edges.Where(kv => kv.Key.Source.Equals(SimplePTGNode)))
+            //{
+            //    result.AddRange(edge.Key.Field, edge.Value);
+            //}
+            //return result;
             var result = new MapSet<IFieldReference, SimplePTGNode>();
-            foreach (var edge in this.edges.Where(kv => kv.Key.Source.Equals(SimplePTGNode)))
+            if (this.edges.ContainsKey(source))
             {
-                result.AddRange(edge.Key.Field, edge.Value);
+                foreach (var nodeField in this.edges[source])
+                {
+                    result.Add(nodeField.Field, nodeField.Node);
+                }
             }
             return result;
         }
 
         public void RemoveTargets(SimplePTGNode source, IFieldReference field)
         {
-            var nodeField = new NodeField(source, field);
-            this.edges.Remove(nodeField);
+            //var nodeField = new NodeField(source, field);
+            //this.edges.Remove(nodeField);
+            if(this.edges.ContainsKey(source))
+            {
+                var nodeFields = this.edges[source].Where(nf => !nf.Field.Equals(field));
+                this.edges[source] = new HashSet<NodeField>(nodeFields);
+            }
         }
 
         public void RemoveRootEdges(IVariable variable)
@@ -540,10 +564,23 @@ namespace Backend.Model
             var reacheableNodes = this.ReachableNodesFromVariables();
             var unreacheableNodes = this.nodes.Except(reacheableNodes);
 
-            var edgesToRemove = new HashSet<NodeField>();
-            foreach(var entry in this.edges)
+            //var edgesToRemove = new HashSet<NodeField>();
+            //foreach(var entry in this.edges)
+            //{
+            //    if(unreacheableNodes.Contains(entry.Key.Source))
+            //    {
+            //        edgesToRemove.Add(entry.Key);
+            //    }
+            //}
+            //foreach (var entry in edgesToRemove)
+            //{
+            //    this.edges.Remove(entry);
+            //}
+            
+            var edgesToRemove = new HashSet<SimplePTGNode>();
+            foreach (var entry in this.edges)
             {
-                if(unreacheableNodes.Contains(entry.Key.Source))
+                if (unreacheableNodes.Contains(entry.Key))
                 {
                     edgesToRemove.Add(entry.Key);
                 }
@@ -552,6 +589,7 @@ namespace Backend.Model
             {
                 this.edges.Remove(entry);
             }
+
             //this.nodes.ExceptWith(unreacheableNodes);
             this.nodes = new HashSet<SimplePTGNode>(this.nodes.Except(unreacheableNodes));
         }

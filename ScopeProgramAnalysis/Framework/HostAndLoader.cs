@@ -143,6 +143,11 @@ namespace ScopeProgramAnalysis.Framework
             //return cciAssemblyFromReference;
             return LoadAssembly(referencePath);
         }
+
+        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime()
+        {
+            return TryToLoadAssembly("ScopeRuntime");
+        }
         //public Assembly LoadAssemblyAndReferences(string fileName)
         //{
         //    var module = cciHost.LoadUnitFrom(fileName) as Cci.IModule;

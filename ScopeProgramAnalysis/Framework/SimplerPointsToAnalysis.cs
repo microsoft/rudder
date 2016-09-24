@@ -786,5 +786,17 @@ namespace Backend.Analyses
         {
             throw new NotImplementedException();
         }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as FieldReference;
+            return oth != null && oth.name.Value.Equals(this.name.Value)
+                && oth.Type.TypeEquals(this.type)
+                && oth.containingType.TypeEquals(this.containingType);
+        }
+        public override int GetHashCode()
+        {
+            return this.name.Value.GetHashCode()+this.type.GetHashCode()
+                +this.containingType.GetHashCode();
+        }
     }
 }

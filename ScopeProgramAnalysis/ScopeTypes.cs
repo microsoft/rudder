@@ -53,12 +53,15 @@ namespace ScopeProgramAnalysis
                 else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
                 else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
                 else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
-                scopeTypes.Add(type);
+                if(type.ContainingNamespace() == "ScopeRuntime")
+                    scopeTypes.Add(type);
             }
         }
         public static bool Contains(ITypeReference type)
         {
-            return scopeTypes.Contains(type);
+            if(type is INamedTypeReference)
+                return scopeTypes.Contains(((INamedTypeReference)type).ResolvedType);
+            return false;
         }
 
     }
