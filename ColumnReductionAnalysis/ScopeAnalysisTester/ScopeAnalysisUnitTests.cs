@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Linq;
-using System.IO;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ScopeAnalyzer;
 using ScopeAnalyzer.Misc;
 using Microsoft.Cci;
 using ScopeAnalyzer.Analyses;
-using Frontend;
+using Console;
 
 namespace ScopeAnalysisTester
 {

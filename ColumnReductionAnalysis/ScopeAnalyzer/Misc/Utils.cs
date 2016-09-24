@@ -32,8 +32,8 @@ namespace ScopeAnalyzer
             if (!IsVerbose)
                 return;
 
-            Console.WriteLine(message);
-            if (Output != null && Output != Console.Out)
+            System.Console.WriteLine(message);
+            if (Output != null && Output != System.Console.Out)
             {
                 Output.WriteLine(message);
                 Output.Flush();

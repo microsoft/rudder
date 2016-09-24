@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Cci;
-using Frontend;
-using Backend;
+using Console;
 using ScopeAnalyzer;
+using Backend.Transformations;
 
 namespace BulkScopeAnalyzer
 {
@@ -60,7 +60,7 @@ namespace BulkScopeAnalyzer
             var disassembler = new Disassembler(assembly.Host, method, null);
             var methodBody = disassembler.Execute();
             var ins = methodBody.Instructions.OfType<Backend.ThreeAddressCode.Instructions.CreateObjectInstruction>().Single();
-            var ct = ins.Constructor.ContainingType;
+            var ct = ins.AllocationType;
             var name =  Microsoft.Cci.TypeHelper.GetTypeName(ct, NameFormattingOptions.Signature);
 
             if (IsCompilerGenerated(name))

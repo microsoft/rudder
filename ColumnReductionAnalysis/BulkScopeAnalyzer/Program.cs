@@ -6,7 +6,7 @@ using System.Threading;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Cci;
-using Frontend;
+using Console;
 using ScopeAnalyzer;
 using ScopeAnalyzer.Misc;
 
@@ -239,7 +239,7 @@ namespace BulkScopeAnalyzer
             string mappingPrefix = @"C:\Users\t-zpavli\Desktop\test output\mappings\";
 
             var subdirs = Utils.GetSubDirectoriesPaths(mainFolder);
-            Console.WriteLine(String.Format("Analyzing {0} Scope projects", subdirs.Length));
+            System.Console.WriteLine(String.Format("Analyzing {0} Scope projects", subdirs.Length));
             int dll_count = 0;
             for (int i = 0; i < subdirs.Length; i++)
             {
@@ -249,7 +249,7 @@ namespace BulkScopeAnalyzer
                 string mapping = mappingPrefix + String.Format("{0}{1}.txt", Utils.PROCESSOR_ID_MAPPING_NAME, (i + 1));
                 if (!CreateProcessorIdMapping(subdir, libs, mapping))
                 {
-                    Console.WriteLine("Skipping this Scope project...");
+                    System.Console.WriteLine("Skipping this Scope project...");
                     continue;
                 }
 
@@ -257,11 +257,11 @@ namespace BulkScopeAnalyzer
                 {
                     if (dll_count >= 150 && dll_count % 150 == 0)
                     {
-                        Console.WriteLine("Giving myself 6 minutes...");
+                        System.Console.WriteLine("Giving myself 6 minutes...");
                         Thread.Sleep(360000);
                     }
 
-                    Console.WriteLine("Spawning process " + (dll_count + 1));
+                    System.Console.WriteLine("Spawning process " + (dll_count + 1));
                     string output = outputPrefix + String.Format("output_{0}.txt", (dll_count + 1));
                     string input = libs[j];
 

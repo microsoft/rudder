@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Backend;
 using Microsoft.Cci;
-using Backend.Analysis;
+using Backend.Analyses;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
 using ScopeAnalyzer.Analyses;
@@ -13,7 +13,10 @@ using ScopeAnalyzer.Misc;
 
 namespace ScopeAnalyzer
 {
-    using Assembly = Frontend.Assembly;
+    using Backend.Analyses;
+    using Backend.Model;
+    using Backend.Transformations;
+    using Assembly = Console.Assembly;
 
     /// <summary>
     /// Class that simply bundles together relevant information about
@@ -321,39 +324,78 @@ namespace ScopeAnalyzer
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
             var methodBody = disassembler.Execute();
 
-            var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);
-            ControlFlowGraph.ComputeDominators(cfg);
-            ControlFlowGraph.IdentifyLoops(cfg);
+            var cfAnalysis = new ControlFlowAnalysis(methodBody);
+            var cfg = cfAnalysis.GenerateNormalControlFlow();
 
-            ControlFlowGraph.ComputeDominatorTree(cfg);
-            ControlFlowGraph.ComputeDominanceFrontiers(cfg);
+            var domAnalysis = new DominanceAnalysis(cfg);
+            domAnalysis.Analyze();
+            domAnalysis.GenerateDominanceTree();
 
-            // Uniquely rename stack variables.
+            var loopAnalysis = new NaturalLoopAnalysis(cfg);
+            loopAnalysis.Analyze();
+
+            var domFrontierAnalysis = new DominanceFrontierAnalysis(cfg);
+            domFrontierAnalysis.Analyze();
+
             var splitter = new WebAnalysis(cfg);
             splitter.Analyze();
             splitter.Transform();
 
             methodBody.UpdateVariables();
 
-            // Infer types for stack variables.
-            var typeAnalysis = new TypeInferenceAnalysis(cfg);
-            typeAnalysis.Analyze();
+            var analysis = new TypeInferenceAnalysis(cfg);
+            analysis.Analyze();
 
-            var backwardCopyAnalysis = new BackwardCopyPropagationAnalysis(cfg);
-            backwardCopyAnalysis.Analyze();
-            backwardCopyAnalysis.Transform(methodBody);
+            var copyProgapagtion = new ForwardCopyPropagationAnalysis(cfg);
+            copyProgapagtion.Analyze();
+            copyProgapagtion.Transform(methodBody);
 
-            var lva = new LiveVariablesAnalysis(cfg);
-            lva.Analyze();
+            var backwardCopyProgapagtion = new BackwardCopyPropagationAnalysis(cfg);
+            backwardCopyProgapagtion.Analyze();
+            backwardCopyProgapagtion.Transform(methodBody);
 
-            var ssa = new StaticSingleAssignmentAnalysis(methodBody, cfg);
+            var liveVariables = new LiveVariablesAnalysis(cfg);
+            var resultLiveVar = liveVariables.Analyze();
+
+            var ssa = new StaticSingleAssignment(methodBody, cfg);
             ssa.Transform();
-            ssa.Prune(lva);
-
+            ssa.Prune(liveVariables);
             methodBody.UpdateVariables();
-
-            //_code = methodBody.ToString();
             return cfg;
+
+            //var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);
+            //ControlFlowGraph.ComputeDominators(cfg);
+            //ControlFlowGraph.IdentifyLoops(cfg);
+
+            //ControlFlowGraph.ComputeDominatorTree(cfg);
+            //ControlFlowGraph.ComputeDominanceFrontiers(cfg);
+
+            //// Uniquely rename stack variables.
+            //var splitter = new WebAnalysis(cfg);
+            //splitter.Analyze();
+            //splitter.Transform();
+
+            //methodBody.UpdateVariables();
+
+            //// Infer types for stack variables.
+            //var typeAnalysis = new TypeInferenceAnalysis(cfg);
+            //typeAnalysis.Analyze();
+
+            //var backwardCopyAnalysis = new BackwardCopyPropagationAnalysis(cfg);
+            //backwardCopyAnalysis.Analyze();
+            //backwardCopyAnalysis.Transform(methodBody);
+
+            //var lva = new LiveVariablesAnalysis(cfg);
+            //lva.Analyze();
+
+            //var ssa = new StaticSingleAssignmentAnalysis(methodBody, cfg);
+            //ssa.Transform();
+            //ssa.Prune(lva);
+
+            //methodBody.UpdateVariables();
+
+            ////_code = methodBody.ToString();
+            //return cfg;
         }
 
         /// <summary>

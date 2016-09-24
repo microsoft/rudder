@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using Microsoft.Cci;
-using Frontend;
+using Console;
 using Backend;
 using System.Xml.Linq;
 using ScopeAnalyzer.Misc;

@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 using Microsoft.Cci;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
-using Backend.Analysis;
+using Backend.Analyses;
 
 namespace ScopeAnalyzer.Misc
 {
+    using Backend.Model;
     using CCI = Microsoft.Cci;
 
     public static class Extensions

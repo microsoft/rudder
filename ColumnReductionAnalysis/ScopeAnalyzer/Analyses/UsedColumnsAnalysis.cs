@@ -5,10 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
-using Backend.Analysis;
+using Backend.Analyses;
 using ScopeAnalyzer.Interfaces;
 using Microsoft.Cci;
 using ScopeAnalyzer.Misc;
+using Backend.Model;
 
 namespace ScopeAnalyzer.Analyses
 {

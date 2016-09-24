@@ -9,9 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalysisTester", "Colu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BulkScopeAnalyzer", "ColumnReductionAnalysis\BulkScopeAnalyzer\BulkScopeAnalyzer.csproj", "{4A4AD12B-670E-482B-909A-7B2BDF4843E1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backend", "..\ZoppiFork\Backend\Backend.csproj", "{45C7B613-E32D-43E8-8030-932D509602EB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backend", "analysis-net\Backend\Backend.csproj", "{45C7B613-E32D-43E8-8030-932D509602EB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Console", "..\ZoppiFork\Console\Console.csproj", "{C836D6AD-2A48-4FFF-A958-023C48A65478}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Console", "analysis-net\Console\Console.csproj", "{C836D6AD-2A48-4FFF-A958-023C48A65478}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

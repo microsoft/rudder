@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Instructions;
-using Backend.Analysis;
+using Backend.Analyses;
 using Backend.Visitors;
 using Backend.Utils;
 using Microsoft.Cci;
 using ScopeAnalyzer.Misc;
 using ScopeAnalyzer;
 using ScopeAnalyzer.Interfaces;
+using Backend.Model;
 
 namespace ScopeAnalyzer.Analyses
 {
