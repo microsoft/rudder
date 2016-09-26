@@ -25,7 +25,7 @@ namespace ScopeAnalysisTester
         {
             var options = Options.ParseCommandLineArguments(args);
             var host = new PeReader.DefaultHost();
-            var data = ScopeAnalyzer.Program.LoadAssemblies(host, options);
+            var data = ScopeAnalyzer.Program.LoadAssemblies(host, options.ReferenceAssemblies, options.Assemblies);
             var mainAssemblies = data.Item1;
             Assert.AreEqual(mainAssemblies.Count, 1);
             return new Tuple<IMetadataHost, Assembly, IEnumerable<Assembly>>(host, mainAssemblies[0], data.Item2);

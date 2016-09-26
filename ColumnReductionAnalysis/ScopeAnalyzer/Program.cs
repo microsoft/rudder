@@ -141,7 +141,10 @@ namespace ScopeAnalyzer
     public static class Program
     {
         public static void Main(string[] args)
-        {           
+        {
+
+            var r = GetUsedColumns(args[0], args[1]);
+
             Options options = Options.ParseCommandLineArguments(args);
 
             if (options.AskingForHelp)
@@ -160,6 +163,7 @@ namespace ScopeAnalyzer
                     Debugger.Launch();
                 }
             }
+
 
             if (options.OutputPath != null) Utils.SetOutput(options.OutputPath);
             Utils.WriteLine("Parsed input arguments, starting the analysis...");
@@ -183,7 +187,7 @@ namespace ScopeAnalyzer
             var processorIdMapping = LoadProcessorMapping(options);
            
             var host = new PeReader.DefaultHost();
-            var assemblies = LoadAssemblies(host, options);
+            var assemblies = LoadAssemblies(host, options.ReferenceAssemblies, options.Assemblies);
             var stats = new ScopeAnalysisStats();
             stats.Assemblies = options.Assemblies.Count;
 
@@ -199,12 +203,10 @@ namespace ScopeAnalyzer
 
                     // If processor to id mapping and xml with id information are both available, 
                     // then we ask ScopeAnalysis to analyze only those processors mentioned in the mapping.
-                    ScopeAnalysis analysis = new ScopeAnalysis(host, mAssembly, assemblies.Item2, 
-                                                                processorIdMapping == null || vertexDef == null? null : processorIdMapping.Keys);
-                    analysis.Analyze();
+                    var results = AnalyzeAssembly(host, mAssembly, assemblies.Item2, (processorIdMapping == null || vertexDef == null) ? null : processorIdMapping.Keys);
 
                     //Update the stats.
-                    UpdateStats(analysis.Results, ref stats, vertexDef, processorIdMapping);
+                    UpdateStats(results, ref stats, vertexDef, processorIdMapping);
 
                     Utils.WriteLine("\n====== Done analyzing the assembly  =========");
                 }
@@ -225,8 +227,37 @@ namespace ScopeAnalyzer
             return stats;
         }
 
+        private static IEnumerable<ScopeMethodAnalysisResult> AnalyzeAssembly(IMetadataHost host, Assembly assembly, IEnumerable<Assembly> referenceAssemblies, IEnumerable<string> ips)
+        {
+            var analysis = new ScopeAnalysis(host, assembly, referenceAssemblies, ips);
+            analysis.Analyze();
+            return analysis.Results;
+        }
 
-     
+        private static IEnumerable<Tuple<string, IEnumerable<string>>> GetUsedColumns(IEnumerable<ScopeMethodAnalysisResult> results)
+        {
+            var interestingResults = results.Where(r => !r.Failed && r.Interesting).ToList();
+            var concreteResults = interestingResults.Where(r => !r.UsedColumnsSummary.IsTop && !r.UsedColumnsSummary.IsBottom);
+            return concreteResults.Select(r => Tuple.Create(r.ProcessorType.Name(), r.UsedColumnsSummary.Elements.Select(e => e.ToString())));
+        }
+
+        public static IEnumerable<Tuple<string, IEnumerable<string>>> GetUsedColumns(string assemblyPath, string libPath)
+        {
+            try
+            {
+                var host = new PeReader.DefaultHost();
+                var referenceAssemblies = Utils.CollectAssemblies(libPath);
+                var assemblies = LoadAssemblies(host, referenceAssemblies, new string[] { assemblyPath, });
+                var mainAssemblies = assemblies.Item1;
+                var a = mainAssemblies[0];
+                var results = AnalyzeAssembly(host, a, assemblies.Item2, null);
+                return GetUsedColumns(results);
+            }
+            catch { return Enumerable<Tuple<string, IEnumerable<string>>>.Empty; }
+        }
+
+
+
 
 
         //static Dictionary<string, int> TYPE_SIZES = new Dictionary<string, int>() { {"int", 4}, {"int?", 8}, {"float", 4}, {"float?", 8}, {"double", 8}, {"double?", 12},
@@ -445,11 +476,11 @@ namespace ScopeAnalyzer
 
 
         [HandleProcessCorruptedStateExceptions]
-        public static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, Options options)
+        public static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, IEnumerable<string> referenceAssemblies, IEnumerable<string> assemblyNames)
         {
             // First, load all the reference assemblies.
             var refs = new List<Assembly>();
-            foreach (var rassembly in options.ReferenceAssemblies)
+            foreach (var rassembly in referenceAssemblies)
             {
                 try
                 {
@@ -474,7 +505,7 @@ namespace ScopeAnalyzer
 
             // Now, load the main assemblies.
             var assemblies = new List<Assembly>();
-            foreach (var assembly in options.Assemblies)
+            foreach (var assembly in assemblyNames)
             {
                 try
                 {
