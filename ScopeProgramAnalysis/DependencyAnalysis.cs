@@ -189,7 +189,7 @@ namespace ScopeProgramAnalysis
             //resultDepAnalysis = dependencyAnalysis.Analyze();
 
             var node = cfg.Exit;
-            System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);
+            //System.Console.Out.WriteLine("At {0}\nBefore {1}\nAfter {2}\n", node.Id, resultDepAnalysis[node.Id].Input, resultDepAnalysis[node.Id].Output);
 
             this.InputColumns = dependencyAnalysis.InputColumns;
             this.OutputColumns = dependencyAnalysis.OutputColumns;

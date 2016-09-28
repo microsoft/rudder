@@ -15,65 +15,108 @@ namespace AnalysisClient
 
         static void Main(string[] args)
         {
+            if (Directory.Exists(args[0]))
+            {
+                AnalyzeAllJobsInDirectory(args);
+                return;
+            }
+
             var inputDll = args[0];
             var outputPath = args[1];
-            var logPath = args[2];
 
             AnalyzeScopeScript(args);
-            AnalysisStats.PrintStats(System.Console.Out);
+            //            AnalysisStats.PrintStats(System.Console.Out);
+        }
+
+        public static void AnalyzeAllJobsInDirectory(string[] args)
+        {
+            var inputDir = args[0];
+            // enumerate all GUIDs in this directory
+            var inputDlls = from dir in Directory.EnumerateDirectories(inputDir)
+                            let scopeCodeGenFile = Path.Combine(dir, "__ScopeCodeGen__.dll")
+                            where File.Exists(scopeCodeGenFile)
+                            select scopeCodeGenFile;
+
+            Parallel.ForEach(inputDlls, new ParallelOptions { MaxDegreeOfParallelism = 10 },
+                inputDll =>
+                {
+                    var process = new Process();
+                    process.StartInfo = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName, String.Join(" ", new string[] { inputDll, args[1] }));
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.RedirectStandardError = true;
+                    process.StartInfo.RedirectStandardOutput = true;
+                    process.StartInfo.CreateNoWindow = true;
+                    process.Start();
+                    if(!process.WaitForExit(1000 * 60 * 10))
+                    {
+                        System.Console.WriteLine("{0} timed out", inputDll);
+                        process.Kill();
+                    }
+                }
+                );
         }
 
         public static void AnalyzeScopeScript(string[] args)
         {
+            Console.Error.WriteLine("Analyzing {0}", args[0]);
             var inputDll = args[0];
             var outputFolder = args[1];
-            var tempPath = outputFolder;
 
-            var interproc = false;
+            var tempPath = outputFolder;
 
             var dllToAnalyze = inputDll;
 
             var folder = Path.GetDirectoryName(dllToAnalyze);
             string[] directories = folder.Split(Path.DirectorySeparatorChar);
 
-            var logPath = Path.Combine(tempPath, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".log");
-        
-            var outputStream = File.CreateText(logPath);
+            var outputSummaryFile = Path.Combine(tempPath, "summary.txt");
 
-            //var referencesPath = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp) != inputDllName).ToList();
-            //referencesPath.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
+            //var logPath = Path.Combine(tempPath, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".log");
+
+            //var outputStream = File.CreateText(logPath);
 
             var outputPath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".sarif");
 
-            System.Console.WriteLine("=========================================================================");
-            System.Console.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
-            System.Console.WriteLine("Analyzing {0}", dllToAnalyze);
-            outputStream.WriteLine("Folder #{0}", AnalysisStats.TotalNumberFolders);
-            outputStream.WriteLine("===========================================================================");
-            outputStream.WriteLine("Analyzing {0}", dllToAnalyze);
+            var output = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, false);
 
+            List<string> ret = new List<string>();
 
-            ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, 
-                ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
-                false, true, interproc, outputStream);
-
-            if (AnalysisStats.AnalysisReasons.Any())
+            if (output == null)
             {
-                outputStream.WriteLine("Analysis reasons for {0}", dllToAnalyze);
-                AnalysisStats.WriteAnalysisReasons(outputStream);
+                ret.Add(String.Join("\t", new string[] {
+                    inputDll,
+                    ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
+                    "__ERROR__" }));
             }
-            outputStream.WriteLine("===========================================================================");
-            outputStream.Flush();
-
-            System.Console.WriteLine("=========================================================================");
-
-
-            AnalysisStats.PrintStats(outputStream);
-            outputStream.WriteLine("End.");
-            outputStream.Flush();
-
-            System.Console.WriteLine("Done!");
+            else
+            {
+                ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(output, outputPath);
+                var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(output);
+                foreach (var x in depStream)
+                {
+                    var processorName = x.Item1;
+                    ScopeProgramAnalysis.ScopeProgramAnalysis.DependencyStats stats = x.Item2;
+                    ret.Add(String.Join("\t", new string[] {
+                        inputDll,
+                        ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
+                        processorName,
+                        stats.InputHasTop.ToString(),
+                        stats.OutputHasTop.ToString(),
+                        stats.TopHappened.ToString(),
+                        stats.PassThroughColumns.Count.ToString(),
+                        String.Join(",",stats.PassThroughColumns),
+                        stats.UnreadInputs.Count.ToString(),
+                        String.Join(",", stats.UnreadInputs)
+                    }));
+                }
+            }
+            var retStr = String.Join("\r\n", ret) + "\r\n";
+            using (var mutex = new System.Threading.Mutex(false, "ScopeDependencyAnalysis_OutputSummaryMutex"))
+            {
+                mutex.WaitOne();
+                File.AppendAllText(outputSummaryFile, retStr);
+                mutex.ReleaseMutex();
+            }
         }
-
     }
 }

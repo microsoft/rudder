@@ -55,6 +55,12 @@ namespace SimpleTests
             Assert.IsTrue(run.ToolNotifications.Count == 1);
             Assert.IsTrue(run.ToolNotifications[0].Message == "Closure class not found");
         }
+        [TestMethod]
+        public void Foo()
+        {
+            var log = AnalyzeDll(@"\\research\root\public\mbarnett\Parasail\InterestingScopeProjects\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll", ScopeMethodKind.All, true, true, false, null);
+        }
+
 
     }
 }
