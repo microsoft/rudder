@@ -113,4 +113,74 @@ namespace CodeUnderTest
         }
 
     }
+    public class TopN : Reducer
+    {
+        public override Schema Produces(string[] requested_columns, string[] args, Schema input_schema)
+        {
+            var output_schema = input_schema.CloneWithSource();
+            return output_schema;
+        }
+
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            int currentRowNumber = 0;
+            int maxRowNumber = int.Parse(args[0]);
+            foreach (Row current in input.Rows)
+            {
+                if (currentRowNumber >= maxRowNumber)
+                {
+                    break;
+                }
+                current.CopyTo(output);
+                yield return output;
+                currentRowNumber++;
+            }
+            yield break;
+        }
+    }
+    public class AccumulateList : Reducer
+    {
+        public override Schema Produces(string[] requested_columns, string[] args, Schema input_schema)
+        {
+            var output_schema = input_schema.CloneWithSource();
+            return output_schema;
+            //Schema schema = new Schema("X:ulong,Y:int");
+            //return schema;
+        }
+
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            Dictionary<string, int> d = new Dictionary<string, int>();
+            int threshold = int.Parse(args[0]);
+            int[] defaultYs = new int[] { 1, 2, 3 };
+            var ys = new List<int>();
+            ulong x = 0;
+            int line = 0;
+
+            d.Clear();
+            foreach (Row row in input.Rows)
+            {
+                if (0 == line)
+                {
+                    x = row["X"].ULong;
+                }
+                line++;
+                int y = row["Y"].Integer;
+                if (!ys.Contains(y))
+                    ys.Add(y);
+            }
+            if (line >= threshold)
+            {
+                ys.Clear();
+                ys.AddRange(defaultYs);
+            }
+            foreach (var y in ys)
+            {
+                output["X"].Set(x);
+                output["Y"].Set(y);
+                yield return output;
+            }
+        }
+    }
 }
+    

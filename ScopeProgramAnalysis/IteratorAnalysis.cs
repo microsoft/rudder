@@ -633,7 +633,7 @@ namespace Backend.Analyses
                 else if (operand is Constant)
                 {
                     var constant = operand as Constant;
-                    this.State.AssignTraceables(loadStmt.Result, new Traceable[] { new Other(constant.Type.ToString()) });
+                    this.State.AssignTraceables(loadStmt.Result, new Traceable[] { new Other(constant.Type.GetName()) });
                 }
                 else
                 {
@@ -872,7 +872,7 @@ namespace Backend.Analyses
             public override void Visit(CreateObjectInstruction instruction)
             {
                 var traceables = new HashSet<Traceable>();
-                traceables.Add(new Other(instruction.AllocationType.ToString()));
+                traceables.Add(new Other(instruction.AllocationType.GetName()));
                 instruction.Accept(visitorPTA);
                 this.State.AssignTraceables(instruction.Result, traceables);
                 
@@ -1158,6 +1158,7 @@ namespace Backend.Analyses
 
                 }
                 // For GetEnum we need to create an object iterator that points-to the colecction
+                // BUGBUG: Should this be "else if" and not "if"????
                 if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
@@ -1845,7 +1846,7 @@ namespace Backend.Analyses
             private IEnumerable<Traceable>  GetCallTraceables(MethodCallInstruction methodCallStmt)
             {
                 var result = new HashSet<Traceable>();
-                string argString = String.Join(",", methodCallStmt.Arguments.Select(arg => arg.Type.ToString()).ToList());
+                string argString = String.Join(",", methodCallStmt.Arguments.Select(arg => arg.Type.GetName()).ToList());
                 //var argList = new HashSet<Traceable>( methodCallStmt.Arguments.SelectMany(arg => this.State.GetTraceables(arg)));
                 //string argString = "["+ String.Join(",", argList) +"]";
                 result.Add(new Other(String.Format("{0}({1})", methodCallStmt.Method.Name,argString)));
@@ -2066,7 +2067,7 @@ namespace Backend.Analyses
                 {
                     if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && !v.Type.IsClassOrStruct())
                     {
-                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.ToString()) });
+                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.GetName()) });
                     }
                 }
                 else

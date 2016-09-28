@@ -27,7 +27,8 @@ namespace ScopeProgramAnalysis.Framework
         public static bool IsCollection(this ITypeReference type)
         {
             var result = type.ResolvedType != null
-                && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsICollection);
+                //&& TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsICollection);
+                && TypeHelper.TypesAreAssignmentCompatible(type.ResolvedType, type.PlatformType.SystemCollectionsICollection.ResolvedType);
             return result;
         }
         public static bool IsEnumerable(this ITypeReference type)
@@ -45,8 +46,9 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool IsIEnumerable(this ITypeReference type)
         {
-            var result = type.ResolvedType != null 
-            && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable);
+            var result = type.ResolvedType != null
+            //&& TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable);
+            && TypeHelper.TypesAreAssignmentCompatible(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerable.ResolvedType);
             // && type.Name.Contains("IEnumerable")
             return result || IsGenericEnumerable(type);
         }
@@ -54,7 +56,8 @@ namespace ScopeProgramAnalysis.Framework
         public static bool IsIEnumerator(this ITypeReference type)
         {
             var result = type.ResolvedType != null
-                && TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerator);
+            //&& TypeHelper.Type1ImplementsType2(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerator);
+            && TypeHelper.TypesAreAssignmentCompatible(type.ResolvedType, type.PlatformType.SystemCollectionsIEnumerator.ResolvedType);
             return result || IsGenericEnumerator(type);
         }
 
@@ -86,22 +89,7 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool IsSubClass(this INamedTypeDefinition class1, ITypeReference class2)
         {
-            
-            var result = false;
-            if (class1.TypeEquals(class2))
-                return true;
-            if(class1.BaseClasses!=null && class1.BaseClasses.SingleOrDefault() is ITypeDefinition)
-            {
-                var baseClass = class1.BaseClasses.SingleOrDefault() as ITypeDefinition;
-                if (TypeHelper.TypesAreEquivalent(baseClass, class2))
-                    return true;
-                else
-                {
-                    if(baseClass.ResolvedType!=null)
-                        (baseClass.ResolvedType as INamedTypeDefinition).IsSubClass(class2);
-                }
-            }
-            return result;
+            return TypeHelper.TypesAreAssignmentCompatible(class1, class2.ResolvedType);
         }
 
         public  static bool IsRowSetType(this ITypeReference type)
@@ -143,7 +131,9 @@ namespace ScopeProgramAnalysis.Framework
             var basicType = type as IGenericTypeInstanceReference;
             if (basicType != null)
             {
-                return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerator);
+                //return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerator);
+                var r = TypeHelper.TypesAreAssignmentCompatible(basicType.GenericType.ResolvedType, type.PlatformType.SystemCollectionsGenericIEnumerator.ResolvedType);
+                return r;
             }
             return false;
         }
@@ -152,7 +142,9 @@ namespace ScopeProgramAnalysis.Framework
             var basicType = type as IGenericTypeInstanceReference;
             if (basicType != null)
             {
-                return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerable);
+                //return basicType.GenericType.TypeEquals(type.PlatformType.SystemCollectionsGenericIEnumerable);
+                var r = TypeHelper.TypesAreAssignmentCompatible(basicType.GenericType.ResolvedType, type.PlatformType.SystemCollectionsGenericIEnumerable.ResolvedType);
+                return r;
             }
             return false;
         }

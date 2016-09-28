@@ -210,7 +210,7 @@ namespace ScopeProgramAnalysis.Framework
             if (tref is INamedTypeReference)
                 return (tref as INamedTypeReference).Name.Value;
 
-            return TypeHelper.GetTypeName(tref, NameFormattingOptions.SmartTypeName);
+            return TypeHelper.GetTypeName(tref, NameFormattingOptions.OmitContainingType | NameFormattingOptions.OmitContainingNamespace | NameFormattingOptions.SmartTypeName);
         }
 
     }

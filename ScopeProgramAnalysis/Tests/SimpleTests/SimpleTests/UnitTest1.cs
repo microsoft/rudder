@@ -56,9 +56,16 @@ namespace SimpleTests
             Assert.IsTrue(run.ToolNotifications[0].Message == "Closure class not found");
         }
         [TestMethod]
-        public void Foo()
+        public void TopN()
         {
-            var log = AnalyzeDll(@"\\research\root\public\mbarnett\Parasail\InterestingScopeProjects\0003cc74-a571-4638-af03-77775c5542c6\__ScopeCodeGen__.dll", ScopeMethodKind.All, true, true, false, null);
+            var t = typeof(TopN);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+        }
+        [TestMethod]
+        public void AccumulateList()
+        {
+            var t = typeof(AccumulateList);
+            var run = AnalyzeProcessor(t, "X: ulong, Y: int", "X: ulong, Y: int");
         }
 
 
