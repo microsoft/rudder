@@ -59,6 +59,8 @@ namespace ScopeAnalyzer
 
         public static List<string> CollectAssemblies(string path)
         {
+            if (String.IsNullOrWhiteSpace(path)) return new List<string>();
+
             DirectoryInfo dir;
             try
             {

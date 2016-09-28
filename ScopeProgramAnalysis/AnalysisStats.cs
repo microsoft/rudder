@@ -39,13 +39,20 @@ namespace ScopeProgramAnalysis
         public static int TotalDllsFound { get; set; }
         public static int TotalDllsFailedToLoad{ get; set; }
 
+        public static int NumUDOs { get; set; }
+
+        public static int NumCandidateClosures { get; set; }
+
         public static int TotalMethods { get; set; }
         public static int TotalProducers { get; set; }
-        public static int TotalMethodsNotFound { get; set; }
+
+        public static HashSet<string> MethodsNotFound = new HashSet<string>();
 
         public static int TotalofFrameworkErrors { get; set; }
         public static int TotalofPTAErrors{ get; set; }
         public static int TotalofDepAnalysisErrors { get; set; }
+        public static HashSet<string> EmptyClasses = new HashSet<string>();
+        public static HashSet<string> EmptyCandidateClosures = new HashSet<string>();
 
         public static string CurrentScript = "NoSet";
 
@@ -67,7 +74,7 @@ namespace ScopeProgramAnalysis
             output.WriteLine("Dlls Fail to Load: {0}", TotalDllsFailedToLoad);
             output.WriteLine("Showing the first 10...: {0}", String.Join(", ", DllThatFailedToLoad.Take(Math.Min(10,DllThatFailedToLoad.Count()))));
             output.WriteLine("Total Methods Resolved: {0}", TotalMethods);
-            output.WriteLine("Total Methods Unsolved: {0}", TotalMethodsNotFound);
+            output.WriteLine("Total Methods Unsolved: {0}", MethodsNotFound.Count);
             //output.WriteLine("Total Producers: {0}", TotalProducers);
             output.WriteLine("Total Depencency Analysis errors: {0}", TotalofDepAnalysisErrors);
             output.WriteLine("Total PTA errors: {0}", TotalofPTAErrors);
@@ -77,6 +84,18 @@ namespace ScopeProgramAnalysis
 
         }
 
+        public static string StatsAsString(string sep = "\t")
+        {
+            return String.Join(sep,
+                NumUDOs.ToString(),
+                TotalofDepAnalysisErrors.ToString(),
+                TotalofFrameworkErrors.ToString(),
+                TotalofPTAErrors.ToString(),
+                String.Join(",", MethodsNotFound.ToList()),
+                String.Join(",", EmptyClasses.ToList()),
+                String.Join(",", EmptyCandidateClosures.ToList()),
+                String.Join(",", DllThatFailedToLoad.ToList()));
+        }
         public static void WriteAnalysisReasons(TextWriter output)
         {
             foreach(var entry in AnalysisReasons)
