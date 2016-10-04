@@ -1159,7 +1159,7 @@ namespace Backend.Analyses
                 }
                 // For GetEnum we need to create an object iterator that points-to the colecction
                 // BUGBUG: Should this be "else if" and not "if"????
-                if (methodInvoked.Name.Value == "GetEnumerator"
+                else if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
                      var arg = methodCallStmt.Arguments[0];
