@@ -144,20 +144,14 @@ namespace CodeUnderTest
         {
             var output_schema = input_schema.CloneWithSource();
             return output_schema;
-            //Schema schema = new Schema("X:ulong,Y:int");
-            //return schema;
         }
 
         public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
         {
-            Dictionary<string, int> d = new Dictionary<string, int>();
-            int threshold = int.Parse(args[0]);
-            int[] defaultYs = new int[] { 1, 2, 3 };
             var ys = new List<int>();
             ulong x = 0;
             int line = 0;
 
-            d.Clear();
             foreach (Row row in input.Rows)
             {
                 if (0 == line)
@@ -169,11 +163,6 @@ namespace CodeUnderTest
                 if (!ys.Contains(y))
                     ys.Add(y);
             }
-            if (line >= threshold)
-            {
-                ys.Clear();
-                ys.AddRange(defaultYs);
-            }
             foreach (var y in ys)
             {
                 output["X"].Set(x);
@@ -182,5 +171,58 @@ namespace CodeUnderTest
             }
         }
     }
+    public class UseDictionary : Reducer
+    {
+        public override Schema Produces(string[] requested_columns, string[] args, Schema input_schema)
+        {
+            var output_schema = input_schema.CloneWithSource();
+            return output_schema;
+        }
+
+        public class Record
+        {
+            public long X;
+            public Record(long x) { this.X = x; }
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            var d = new Dictionary<int, Record>();
+            foreach (Row current in input.Rows)
+            {
+                var r = new Record(current["X"].Long);
+                d.Add(current["Y"].Integer, r);
+            }
+            foreach (var v in d.Values)
+            {
+                output["X"].Set(v.X);
+                yield return output;
+            }
+            yield break;
+        }
+    }
+    public class LastX : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            double lastX = 0;
+            foreach (Row row in input.Rows)
+            {
+                if (row["X"].Double != lastX)
+                {
+                    output[0].Set(lastX);
+                    lastX = row["X"].Double;
+                    yield return output;
+                }
+            }
+            output[0].Set(lastX);
+            yield return output;
+        }
+    }
+
 }
-    
+

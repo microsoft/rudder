@@ -67,7 +67,18 @@ namespace SimpleTests
             var t = typeof(AccumulateList);
             var run = AnalyzeProcessor(t, "X: ulong, Y: int", "X: ulong, Y: int");
         }
-
+        [TestMethod]
+        public void UseDictionary()
+        {
+            var t = typeof(UseDictionary);
+            var run = AnalyzeProcessor(t, "X: long, Y: int", "X: long");
+        }
+        [TestMethod]
+        public void UseLastX()
+        {
+            var t = typeof(LastX);
+            var run = AnalyzeProcessor(t, "X: double", "X: double");
+        }
 
     }
 }
