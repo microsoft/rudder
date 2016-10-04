@@ -12,10 +12,14 @@ namespace ScopeRuntime
     {
         public virtual string String { get; }
         public virtual void Set(string o) { }
+        public virtual double Double { get; }
+        public virtual void Set(double o) { }
         public virtual ulong ULong { get; }
         public virtual void Set(ulong o) { }
         public virtual int Integer { get; }
         public virtual void Set(int o) { }
+        public virtual long Long { get; }
+        public virtual void Set(long o) { }
     }
     public class ColumnInfo
     {

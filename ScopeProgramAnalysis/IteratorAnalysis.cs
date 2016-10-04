@@ -1183,6 +1183,9 @@ namespace Backend.Analyses
                     if (createdNode)
                     {
                         this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                    } else
+                    {
+                        this.State.AddTraceables(methodCallStmt.Result, traceables);
                     }
                 }
                 // set_Item add an element to the colecction using a fake field "$item"
