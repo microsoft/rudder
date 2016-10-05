@@ -178,8 +178,7 @@ namespace Backend.Analyses
             }
             public override void Visit(ConvertInstruction instruction)
             {
-                var convertion = instruction as ConvertInstruction;
-                ptAnalysis.ProcessCopy(State, convertion.Result, convertion.Operand);
+                ptAnalysis.ProcessCopy(State, instruction.Result, instruction.Operand);
             }
             public override void Visit(MethodCallInstruction instruction)
             {
