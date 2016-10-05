@@ -178,6 +178,12 @@ namespace ScopeProgramAnalysis
             //nodeExit.NormalSuccessors.Add(nodeEntry);
             //nodeEntry.Predecessors.Add(nodeExit);
 
+            var nodeEntry = cfg.Entry.Successors.First();
+            var nodeExit = cfg.Exit;
+            nodeExit.Successors.Add(nodeEntry);
+            nodeEntry.Predecessors.Add(nodeExit);
+
+
             var rangeAnalysis = new RangeAnalysis(cfg);
             var ranges = rangeAnalysis.Analyze();
             var exitRange = ranges[cfg.Exit.Id];
