@@ -1416,7 +1416,7 @@ namespace Backend.Analyses
                 }
                 // arg.Set(arg1)
                 // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
-                else if (methodInvoked.Name.Value == "Set" && methodInvoked.ContainingType.IsColumnDataType())
+                else if ((methodInvoked.Name.Value == "Set" || methodInvoked.Name.Value == "UnsafeSet") && methodInvoked.ContainingType.IsColumnDataType())
                 //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
                 {
                     var arg0 = methodCallStmt.Arguments[0];

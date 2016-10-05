@@ -224,5 +224,26 @@ namespace CodeUnderTest
         }
     }
 
+    public class ConditionalSchemaWriteColumn : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            double lastX = 0;
+            foreach (Row row in input.Rows)
+            {
+                if (input.Schema.Contains("X"))
+                {
+                    output["X"].Set(3);
+                }
+            }
+            output[0].Set(lastX);
+            yield return output;
+        }
+    }
 }
 

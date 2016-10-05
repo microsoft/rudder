@@ -37,7 +37,7 @@ namespace AnalysisClient
                             where File.Exists(scopeCodeGenFile)
                             select scopeCodeGenFile;
 
-            Parallel.ForEach(inputDlls, new ParallelOptions { MaxDegreeOfParallelism = 10 },
+            Parallel.ForEach(inputDlls, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
                 inputDll =>
                 {
                     var process = new Process();
@@ -47,7 +47,7 @@ namespace AnalysisClient
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.CreateNoWindow = true;
                     process.Start();
-                    if(!process.WaitForExit(1000 * 60 * 10))
+                    if(!process.WaitForExit((int)(System.TimeSpan.FromMinutes(10).TotalMilliseconds)))
                     {
                         System.Console.WriteLine("{0} timed out", inputDll);
                         process.Kill();

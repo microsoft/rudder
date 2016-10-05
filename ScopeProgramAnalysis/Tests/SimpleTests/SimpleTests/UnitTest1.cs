@@ -79,6 +79,12 @@ namespace SimpleTests
             var t = typeof(LastX);
             var run = AnalyzeProcessor(t, "X: double", "X: double");
         }
+        [TestMethod]
+        public void UseConditionalSchemaWriteColumn()
+        {
+            var t = typeof(ConditionalSchemaWriteColumn);
+            var run = AnalyzeProcessor(t, "X: int", "X: int");
+        }
 
     }
 }

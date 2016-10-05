@@ -12,14 +12,19 @@ namespace ScopeRuntime
     {
         public virtual string String { get; }
         public virtual void Set(string o) { }
+        public virtual void UnsafeSet(string o) { }
         public virtual double Double { get; }
         public virtual void Set(double o) { }
+        public virtual void UnsafeSet(double o) { }
         public virtual ulong ULong { get; }
         public virtual void Set(ulong o) { }
+        public virtual void UnsafeSet(ulong o) { }
         public virtual int Integer { get; }
         public virtual void Set(int o) { }
+        public virtual void UnsafeSet(int o) { }
         public virtual long Long { get; }
         public virtual void Set(long o) { }
+        public virtual void UnsafeSet(long o) { }
     }
     public class ColumnInfo
     {
@@ -46,6 +51,7 @@ namespace ScopeRuntime
         public void AddRange(IEnumerable<ColumnInfo> columnInfos) { }
         public Schema Clone() { return null; }
         public Schema CloneWithSource() { return null; }
+        public bool Contains(string name) { return default(bool); }
         public int IndexOf(string name) { return default(int); }
     }
     public class Row
@@ -78,11 +84,15 @@ namespace ScopeRuntime
 
         public abstract IEnumerable<Row> Rows { get; }
 
+        public abstract Schema Schema { get; }
+
+
     }
 
     public abstract class Processor : RowSet
     {
         public override IEnumerable<Row> Rows { get; }
+        public override Schema Schema { get { return null; } }
 
         public abstract IEnumerable<Row> Process(RowSet input, Row outputRow, string[] args);
         public virtual Schema Produces(string[] requestedColumns, string[] args, Schema input) { return null; }
@@ -92,6 +102,7 @@ namespace ScopeRuntime
         public virtual bool IsBulk { get; }
         public virtual bool IsRecursive { get; }
         public override IEnumerable<Row> Rows { get; }
+        public override Schema Schema { get { return null; } }
 
         public virtual Schema Produces(string[] requestedColumns, string[] args, Schema input) { return null; }
         public abstract IEnumerable<Row> Reduce(RowSet input, Row outputRow, string[] args);

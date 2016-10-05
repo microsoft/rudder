@@ -97,6 +97,10 @@ namespace ScopeProgramAnalysis.Framework
 
         public Tuple<IAssembly, ISourceLocationProvider> LoadMainAssembly(string fileName)
         {
+            if (fileName.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
+            {
+                fileName = new Uri(fileName).LocalPath;
+            }
             this.assemblyFolder = Path.GetDirectoryName(fileName);
             this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
             cciHost.AddLibPath(assemblyFolder);
