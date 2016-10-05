@@ -28,6 +28,10 @@ namespace Backend.Model
         {
             return this.Field.GetHashCode() + this.Node.GetHashCode();
         }
+        public override string ToString()
+        {
+            return Node.ToString()+";"+Field.Name.Value;
+        }
     }
 
     // Unknown PTG nodes represent placeholders
