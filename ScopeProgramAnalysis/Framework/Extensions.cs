@@ -212,6 +212,10 @@ namespace ScopeProgramAnalysis.Framework
 
             return TypeHelper.GetTypeName(tref, NameFormattingOptions.OmitContainingType | NameFormattingOptions.OmitContainingNamespace | NameFormattingOptions.SmartTypeName);
         }
+        public static string GetNameThatMatchesReflectionName(this ITypeDefinition typeDefinition)
+        {
+            return Microsoft.Cci.TypeHelper.GetTypeName(typeDefinition, NameFormattingOptions.OmitContainingType | NameFormattingOptions.OmitContainingNamespace | NameFormattingOptions.UseGenericTypeNameSuffix);
+        }
 
     }
 

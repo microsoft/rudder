@@ -238,12 +238,30 @@ namespace CodeUnderTest
             {
                 if (input.Schema.Contains("X"))
                 {
-                    output["X"].Set(3);
+                    output["X"].Set(row["X"].Double);
                 }
             }
             output[0].Set(lastX);
             yield return output;
         }
     }
+    public class GenericProcessor<T> : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            foreach (Row input_row in input.Rows)
+            {
+                input_row.CopyTo(output);
+                yield return output;
+            }
+        }
+    }
+    public class SubtypeOfGenericProcessor : GenericProcessor<int> { }
+
 }
 

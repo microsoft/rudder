@@ -380,7 +380,7 @@ namespace ScopeProgramAnalysis
                 //.RootNamespace
                 .GetAllTypes()
                 .OfType<ITypeDefinition>()
-                .Where(c => c.FullName() == processorName)
+                .Where(c => c.GetNameThatMatchesReflectionName() == processorName)
                 .SingleOrDefault();
             if (processorClass == null)
             {
@@ -398,7 +398,7 @@ namespace ScopeProgramAnalysis
             {
                 return CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
             }
-            var closureClass = containingType.Members.OfType<ITypeDefinition>().Where(c => c.FullName().StartsWith(closureName)).SingleOrDefault();
+            var closureClass = containingType.Members.OfType<ITypeDefinition>().Where(c => c.GetName().StartsWith(closureName)).SingleOrDefault();
             if (closureClass == null)
             {
                 return CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
