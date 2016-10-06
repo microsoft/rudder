@@ -33,7 +33,7 @@ namespace ScopeProgramAnalysis
         }
 
     }
-    public class AnalysisStats
+    public static class AnalysisStats
     {
         public static int TotalNumberFolders { get; set; }
         public static int TotalDllsFound { get; set; }

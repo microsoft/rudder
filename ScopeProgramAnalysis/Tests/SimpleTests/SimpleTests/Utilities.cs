@@ -21,6 +21,27 @@ namespace SimpleTests
             var orderedDependencies = dependencies.OrderBy(d => d);
             return SetEqual(dependencies, dataDependencies, (x, y) => ColumnNameMatches(x, y) || x.Equals(y));
         }
+        public static bool RunIsTop(this Run r)
+        {
+            if (r.Results.Count != 2) return false;
+            var topColumn = r.Results.Where(result => result.Id == "SingleColumn" && result.GetProperty("column").Equals("_TOP_")).FirstOrDefault();
+            if (topColumn == null) return false;
+            string top;
+            if (!topColumn.TryGetProperty("depends", out top)) return false;
+            if (top != "_TOP_") return false;
+
+            var summary = r.Results.Where(result => result.Id == "Summary").FirstOrDefault();
+            if (summary == null) return false;
+            List<string> cols;
+            if (!summary.TryGetProperty<List<string>>("Inputs", out cols)) return false;
+            if (cols.Count != 1) return false;
+            if (cols[0] != "_TOP_") return false;
+
+            if (!summary.TryGetProperty<List<string>>("Outputs", out cols)) return false;
+            if (cols.Count != 1) return false;
+            if (cols[0] != "_TOP_") return false;
+            return true;
+        }
         public static bool Inputs(this Run r, params string[] columnNames)
         {
             return Summary(r, "Inputs", columnNames);
