@@ -25,6 +25,7 @@ namespace ScopeRuntime
         public virtual long Long { get; }
         public virtual void Set(long o) { }
         public virtual void UnsafeSet(long o) { }
+        public virtual void CopyTo(ColumnData destination) { }
     }
     public class ColumnInfo
     {

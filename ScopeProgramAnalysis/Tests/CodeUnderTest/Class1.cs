@@ -263,5 +263,25 @@ namespace CodeUnderTest
     }
     public class SubtypeOfGenericProcessor : GenericProcessor<int> { }
 
+    public class IterateOverColumns : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            foreach (Row current in input.Rows)
+            {
+                for (int i = 0; i < input.Schema.Count; i++)
+                {
+                    current[i].CopyTo(output[i]);
+                    yield return output;
+                }
+            }
+            yield break;
+        }
+    }
 }
 

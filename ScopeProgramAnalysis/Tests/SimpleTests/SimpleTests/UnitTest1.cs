@@ -114,6 +114,17 @@ namespace SimpleTests
             Assert.IsTrue(run.Inputs("X"));
             Assert.IsTrue(run.Outputs("X"));
         }
+        [TestMethod]
+        public void IterateOverColumns()
+        {
+            var t = typeof(IterateOverColumns);
+            var run = AnalyzeProcessor(t, "X: int, Y: string", "X: int, Y: string");
+
+            Assert.IsTrue(run.ColumnDependsOn("X", "X"));
+            Assert.IsTrue(run.ColumnDependsOn("Y", "Y"));
+            Assert.IsTrue(run.Inputs("X", "Y"));
+            Assert.IsTrue(run.Outputs("X", "Y"));
+        }
 
     }
 }
