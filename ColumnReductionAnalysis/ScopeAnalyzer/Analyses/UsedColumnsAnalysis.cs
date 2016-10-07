@@ -48,12 +48,7 @@ namespace ScopeAnalyzer.Analyses
         {
             if (IsTop) return "All columns used.";
             if (IsBottom) return "Column information unknown.";
-            string summary = String.Empty;
-            foreach(var el in elements)
-            {
-                summary += el.ToString() + "\r\n";
-            }
-            return summary;
+            return String.Join(",", elements.Select(e => e.Value));
         }
 
     }

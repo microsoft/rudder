@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeUnderTest", "ScopeProgr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backend", "analysis-net\Backend\Backend.csproj", "{45C7B613-E32D-43E8-8030-932D509602EB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalyzer", "ColumnReductionAnalysis\ScopeAnalyzer\ScopeAnalyzer.csproj", "{90C431C8-AB8C-444F-904C-350C236D27DE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,10 @@ Global
 		{45C7B613-E32D-43E8-8030-932D509602EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{45C7B613-E32D-43E8-8030-932D509602EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{45C7B613-E32D-43E8-8030-932D509602EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90C431C8-AB8C-444F-904C-350C236D27DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90C431C8-AB8C-444F-904C-350C236D27DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90C431C8-AB8C-444F-904C-350C236D27DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90C431C8-AB8C-444F-904C-350C236D27DE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

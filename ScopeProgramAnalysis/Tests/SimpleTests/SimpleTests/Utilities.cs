@@ -54,6 +54,7 @@ namespace SimpleTests
         public static bool Summary(this Run r, string table, params string[] columnNames)
         {
             var summary = r.Results.Where(result => result.Id == "Summary").FirstOrDefault();
+            if (summary == null) return false;
             List<string> cols;
             if (!summary.TryGetProperty<List<string>>(table, out cols)) return false;
             if (columnNames.Length != cols.Count) return false;
@@ -67,6 +68,15 @@ namespace SimpleTests
                     return false;
             }
             return true;
+        }
+
+        public static bool BothAnalysesAgree(this Run r)
+        {
+            var summary = r.Results.Where(result => result.Id == "Summary").FirstOrDefault();
+            if (summary == null) return false;
+            bool agreement;
+            if (!summary.TryGetProperty("Comparison", out agreement)) return true; // no Comparison property means that Zvonimir's analysis either returned all columns or none.
+            return agreement;
         }
 
         /// <summary>

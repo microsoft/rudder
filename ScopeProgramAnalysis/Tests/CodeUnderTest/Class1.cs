@@ -241,7 +241,7 @@ namespace CodeUnderTest
                     output["X"].Set(row["X"].Double);
                 }
             }
-            output[0].Set(lastX);
+            output["X"].Set(lastX);
             yield return output;
         }
     }
@@ -279,6 +279,25 @@ namespace CodeUnderTest
                     current[i].CopyTo(output[i]);
                     yield return output;
                 }
+            }
+            yield break;
+        }
+    }
+    [Reads("X"), Writes("X", "Y")]
+    public class ReadOnlyX : Processor
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Process(RowSet input, Row output, string[] args)
+        {
+            foreach (Row current in input.Rows)
+            {
+                output["X"].Set(current["X"].String);
+                output["Y"].Set(3);
+                yield return output;
             }
             yield break;
         }

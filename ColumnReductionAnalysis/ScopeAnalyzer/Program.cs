@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using Microsoft.Cci;
-using Console;
 using Backend;
 using System.Xml.Linq;
 using ScopeAnalyzer.Misc;
@@ -199,11 +198,11 @@ namespace ScopeAnalyzer
             {
                 try
                 {
-                    Utils.WriteLine("\n====== Analyzing assembly: " + mAssembly.FileName + " =========");
+                    Utils.WriteLine("\n====== Analyzing assembly: " + mAssembly.Name + " =========");
 
                     // If processor to id mapping and xml with id information are both available, 
                     // then we ask ScopeAnalysis to analyze only those processors mentioned in the mapping.
-                    var results = AnalyzeAssembly(host, mAssembly, assemblies.Item2, (processorIdMapping == null || vertexDef == null) ? null : processorIdMapping.Keys);
+                    var results = AnalyzeAssembly(host, mAssembly, null, assemblies.Item2, (processorIdMapping == null || vertexDef == null) ? null : processorIdMapping.Keys);
 
                     //Update the stats.
                     UpdateStats(results, ref stats, vertexDef, processorIdMapping);
@@ -227,9 +226,9 @@ namespace ScopeAnalyzer
             return stats;
         }
 
-        private static IEnumerable<ScopeMethodAnalysisResult> AnalyzeAssembly(IMetadataHost host, Assembly assembly, IEnumerable<Assembly> referenceAssemblies, IEnumerable<string> ips)
+        private static IEnumerable<ScopeMethodAnalysisResult> AnalyzeAssembly(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> referenceAssemblies, IEnumerable<string> ips)
         {
-            var analysis = new ScopeAnalysis(host, assembly, referenceAssemblies, ips);
+            var analysis = new ScopeAnalysis(host, assembly, sourceLocationProvider, referenceAssemblies, ips);
             analysis.Analyze();
             return analysis.Results;
         }
@@ -250,7 +249,7 @@ namespace ScopeAnalyzer
                 var assemblies = LoadAssemblies(host, referenceAssemblies, new string[] { assemblyPath, });
                 var mainAssemblies = assemblies.Item1;
                 var a = mainAssemblies[0];
-                var results = AnalyzeAssembly(host, a, assemblies.Item2, null);
+                var results = AnalyzeAssembly(host, a, null, assemblies.Item2, null);
                 return GetUsedColumns(results);
             }
             catch { return Enumerable<Tuple<string, IEnumerable<string>>>.Empty; }
@@ -476,10 +475,10 @@ namespace ScopeAnalyzer
 
 
         [HandleProcessCorruptedStateExceptions]
-        public static Tuple<List<Assembly>, List<Assembly>> LoadAssemblies(PeReader.DefaultHost host, IEnumerable<string> referenceAssemblies, IEnumerable<string> assemblyNames)
+        public static Tuple<List<IAssembly>, List<IAssembly>> LoadAssemblies(IMetadataHost host, IEnumerable<string> referenceAssemblies, IEnumerable<string> assemblyNames)
         {
             // First, load all the reference assemblies.
-            var refs = new List<Assembly>();
+            var refs = new List<IAssembly>();
             foreach (var rassembly in referenceAssemblies)
             {
                 try
@@ -487,8 +486,7 @@ namespace ScopeAnalyzer
                     //TODO: is this a CCI bug?
                     if (rassembly.EndsWith("__ScopeCodeGen__.dll")) continue;
 
-                    var rasm = new Assembly(host);
-                    rasm.Load(rassembly);
+                    var rasm = host.LoadUnitFrom(rassembly) as IAssembly;
                     refs.Add(rasm);
                     Utils.WriteLine("Successfully loaded reference assembly: " + rassembly);
                 }
@@ -504,13 +502,12 @@ namespace ScopeAnalyzer
             }
 
             // Now, load the main assemblies.
-            var assemblies = new List<Assembly>();
+            var assemblies = new List<IAssembly>();
             foreach (var assembly in assemblyNames)
             {
                 try
                 {
-                    var asm = new Assembly(host);
-                    asm.Load(assembly);
+                    var asm = host.LoadUnitFrom(assembly) as IAssembly;
                     assemblies.Add(asm);
                     Utils.WriteLine("Successfully loaded main assembly: " + assembly);
                 }
@@ -526,7 +523,7 @@ namespace ScopeAnalyzer
 
             Types.Initialize(host);
 
-            return new Tuple<List<Assembly>, List<Assembly>>(assemblies, refs);
+            return Tuple.Create(assemblies, refs);
         }
 
         private static XElement LoadVertexDef(Options options)

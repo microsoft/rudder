@@ -153,13 +153,17 @@ namespace ScopeProgramAnalysis
             //input = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug\0e4ca5d2-3478-431f-a4ad-f0b256780daf\__ScopeCodeGen__.dll";
 
             const string madansDirectory = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            input = Path.Combine(madansDirectory, @"01dc7d9c-f0bf-44b3-9228-9d22dda03e5d\__ScopeCodeGen__.dll"); //PassThroughReducer
+            //input = Path.Combine(madansDirectory, @"01dc7d9c-f0bf-44b3-9228-9d22dda03e5d\__ScopeCodeGen__.dll"); //PassThroughReducer
             //input = Path.Combine(madansDirectory, @"2968e7c3-33a0-4a93-8ac8-81cd105bdbc4\__ScopeCodeGen__.dll"); // WindowsLoginSessionPathComputedColumnProcessor
             //input = Path.Combine(madansDirectory, @"11f04fe1-fa82-4de6-9557-e54a82f88e5a\__ScopeCodeGen__.dll"); // LiveIDStructuredStreamDecompileProcessor
             //input = Path.Combine(madansDirectory, @"2c0e5058-12a9-4fee-a36f-1b036f85aaee\__ScopeCodeGen__.dll"); // TopNReducer
             //input = Path.Combine(madansDirectory, @"30b000af-f6ad-413e-9b27-00f5b63aff1f\__ScopeCodeGen__.dll"); // ConfigurablePassThroughReducer
 
-            string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
+            const string oneHundredJobsDirectory = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
+            //input = Path.Combine(oneHundredJobsDirectory, @"00e0c351-4bae-4970-989b-92806b1e657c\__ScopeCodeGen__.dll");
+            input = Path.Combine(oneHundredJobsDirectory, @"0b610085-e88d-455c-81ea-90c727bbdf58\__ScopeCodeGen__.dll");
+
+                string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
@@ -324,7 +328,11 @@ namespace ScopeProgramAnalysis
                 {
                     inputSchema = schemas.Item1;
                     outputSchema = schemas.Item2;
+                } else
+                {
+                    continue; // BUG! Silent failure
                 }
+                
 
                 Run run;
                 AnalysisReason errorReason;
@@ -517,7 +525,7 @@ namespace ScopeProgramAnalysis
 
         }
 
-        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>>>();
+        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>>();
         private static bool AnalyzeProcessor(
             string inputPath,
             MyLoader loader,
@@ -545,22 +553,30 @@ namespace ScopeProgramAnalysis
                 DependencyPTGDomain depAnalysisResult;
                 ISet<TraceableColumn> inputColumns;
                 ISet<TraceableColumn> outputColumns;
+                ScopeAnalyzer.Analyses.ColumnsDomain usedColumns;
 
-                Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>> previousResult;
+                Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain> previousResult;
                 if (previousResults.TryGetValue(moveNextMethod, out previousResult))
                 {
                     depAnalysisResult = previousResult.Item1;
                     inputColumns = previousResult.Item2;
                     outputColumns = previousResult.Item3;
+                    usedColumns = previousResult.Item4;
+
                 } else {
                     var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
                     depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
                     inputColumns = dependencyAnalysis.InputColumns;
                     outputColumns = dependencyAnalysis.OutputColumns;
-                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns));
+
+                    var a = TypeHelper.GetDefiningUnit(processorClass) as IAssembly;
+                    var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, moveNextMethod);
+                    usedColumns = z.UsedColumnsSummary;
+
+                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, usedColumns));
                 }
 
-                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, depAnalysisResult, inputColumns, outputColumns, factoryReducerMap);
+                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, depAnalysisResult, inputColumns, outputColumns, factoryReducerMap, usedColumns);
                 runResult = r;
 
                 return true;
@@ -695,7 +711,7 @@ namespace ScopeProgramAnalysis
 
 
         private static Run CreateResultsAndThenRun(string inputPath, ITypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
-            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap)
+            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap, ScopeAnalyzer.Analyses.ColumnsDomain usedColumns)
         {
             var results = new List<Result>();
 
@@ -762,42 +778,6 @@ namespace ScopeProgramAnalysis
                         inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
                         outputModifies.Add(column);
                     }
-
-
-                    //foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
-                    //{
-                    //    //var outColumns = depAnalysisResult.Dependencies.A2_Variables[outColum].OfType<TraceableColumn>()
-                    //    //                                            .Where(t => t.TableKind == ProtectedRowKind.Output);
-                    //    var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
-                    //                                                .Where(t => t.TableKind == ProtectedRowKind.Output);
-
-                    //    foreach (var column in outColumns)
-                    //    {
-                    //        var result = new Result();
-                    //        result.Id = "SingleColumn";
-                    //        var columnString = column.ToString();
-                    //        var dependsOn = depAnalysisResult.Dependencies.A4_Ouput[outColum];
-
-                    //        //dependsOn.AddRange(traceables);
-                    //        result.SetProperty("column", columnString);
-                    //        result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
-                    //        if (depAnalysisResult.Dependencies.A4_Ouput_Control.ContainsKey(outColum))
-                    //        {
-                    //            var controlDependsOn = depAnalysisResult.Dependencies.A4_Ouput_Control[outColum];
-                    //            result.SetProperty("control depends", controlDependsOn.Where(t => !(t is Other)).Select(traceable => traceable.ToString()));
-                    //            inputUses.AddRange(controlDependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
-                    //        }
-                    //        else
-                    //        {
-                    //            result.SetProperty("control depends", new string[] { });
-                    //        }
-                    //        result.SetProperty("escapes", escapes);
-                    //        results.Add(result);
-
-                    //        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
-                    //        outputModifies.Add(column);
-                    //    }
-                    //}
                 }
                 else
                 {
@@ -811,11 +791,6 @@ namespace ScopeProgramAnalysis
                 var resultSummary = new Result();
                 resultSummary.Id = "Summary";
 
-                //var inputsString = inputUses.OfType<TraceableColumn>().Select(t => t.ToString());
-                //var outputsString = outputModifies.OfType<TraceableColumn>().Select(t => t.ToString());
-                //result2.SetProperty("Inputs", inputsString);
-                //result2.SetProperty("Outputs", outputsString);
-
                 var inputsString = inputColumns.Select(t => t.ToString());
                 var outputsString = outputColumns.Select(t => t.ToString());
                 resultSummary.SetProperty("Inputs", inputsString);
@@ -826,6 +801,19 @@ namespace ScopeProgramAnalysis
 
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
+
+                if (!usedColumns.IsTop && !usedColumns.IsBottom)
+                {
+                    var inputColumnNames = inputColumns.Select(t => t.Column.Name);
+                    var outputColumnNames = outputColumns.Select(t => t.Column.Name);
+                    var compareResuls = inputColumnNames
+                        .Union(outputColumnNames)
+                        .OrderBy(s => s)
+                        .SequenceEqual(usedColumns.Elements.Where(e => e.Value.GetType().Equals(typeof(string))).Select(e => e.Value).OrderBy(s => s));
+                    resultSummary.SetProperty("Comparison", compareResuls);
+                }
+                resultSummary.SetProperty("BagOColumns", usedColumns.ToString());
+
                 results.Add(resultSummary);
             }
             else
@@ -1033,8 +1021,8 @@ namespace ScopeProgramAnalysis
 
                     var containingType = entryMethod.ContainingType.ResolvedType;
                     if (containingType == null) continue;
-                    var candidateClousures = containingType.NestedTypes.OfType<ITypeDefinition>()
-                                    .Where(c => this.ClousureFilters.Any(filter => c.FullName().StartsWith(filter)));
+                    var candidateClousures = containingType.NestedTypes.OfType<INamedTypeDefinition>()
+                                    .Where(c => this.ClousureFilters.Any(filter => c.Name.Value.StartsWith(filter)));
                     foreach (var candidateClousure in candidateClousures)
                     {
                         var methods = candidateClousure.Members.OfType<IMethodDefinition>()

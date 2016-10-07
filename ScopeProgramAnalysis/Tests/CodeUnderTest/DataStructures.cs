@@ -108,4 +108,13 @@ namespace ScopeRuntime
         public virtual Schema Produces(string[] requestedColumns, string[] args, Schema input) { return null; }
         public abstract IEnumerable<Row> Reduce(RowSet input, Row outputRow, string[] args);
     }
+    public abstract class Combiner : RowSet
+    {
+        public virtual bool IsBulk { get; }
+        public override IEnumerable<Row> Rows { get; }
+        public override Schema Schema { get { return null; } }
+
+        public virtual Schema Produces(string[] requestedColumns, string[] args, Schema leftSchema, string leftTable, Schema rightSchema, string rightTable) { return null; }
+        public abstract System.Collections.Generic.IEnumerable<Row> Combine(RowSet left, RowSet right, Row outputRow, string[] args);
+    }
 }

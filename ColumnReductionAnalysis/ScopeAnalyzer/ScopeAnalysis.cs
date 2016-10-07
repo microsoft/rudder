@@ -16,7 +16,6 @@ namespace ScopeAnalyzer
     using Backend.Analyses;
     using Backend.Model;
     using Backend.Transformations;
-    using Assembly = Console.Assembly;
 
     /// <summary>
     /// Class that simply bundles together relevant information about
@@ -84,9 +83,9 @@ namespace ScopeAnalyzer
 
 
         IMetadataHost mhost;
-        Assembly assembly;
+        IAssembly assembly;
         // We need reference assemblies to get necessary type definitions.
-        IEnumerable<Assembly> refAssemblies;
+        IEnumerable<IAssembly> refAssemblies;
 
         // We keep track of all possible definitions of Scope types, for soundness reasons.
         List<ITypeDefinition> rowTypes = new List<ITypeDefinition>();
@@ -106,12 +105,12 @@ namespace ScopeAnalyzer
 
 
 
-        public ScopeAnalysis(IMetadataHost host, Assembly assembly, IEnumerable<Assembly> refAssemblies, IEnumerable<string> ips)
+        public ScopeAnalysis(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> refAssemblies, IEnumerable<string> ips)
         {
             this.mhost = host;
             this.assembly = assembly;
             this.refAssemblies = refAssemblies;
-            sourceLocationProvider = assembly.PdbReader;
+            this.sourceLocationProvider = sourceLocationProvider;
             interestingProcessors = ips;
 
             if (interestingProcessors == null)
@@ -145,10 +144,12 @@ namespace ScopeAnalyzer
         private void LoadTypes()
         {
             // Look for Scope types in the main assembley, but also in the reference assemblies.
-            var asms = new HashSet<Assembly>(refAssemblies); asms.Add(assembly);
+            var asms = new HashSet<IAssembly>(refAssemblies);
+            if (assembly != null)
+                asms.Add(assembly);
             foreach (var asm in asms)
             {
-                var allTypes = asm.Module.GetAllTypes();
+                var allTypes = asm.GetAllTypes();
                 foreach (var type in allTypes)
                 {
                     if (type.FullName() == "ScopeRuntime.Reducer") reducerTypes.Add(type);
@@ -173,7 +174,14 @@ namespace ScopeAnalyzer
         /// </summary>
         public void Analyze()
         {
-            base.Traverse(assembly.Module);
+            base.Traverse(assembly);
+        }
+
+        public static ScopeMethodAnalysisResult AnalyzeMethodWithBagOColumnsAnalysis(IMetadataHost host, IAssembly assembly, IEnumerable<IAssembly> refAssemblies, IMethodDefinition method)
+        {
+            var me = new ScopeAnalysis(host, assembly, null, refAssemblies, null);
+            me.Traverse(method);
+            return me.results[0];
         }
  
 
