@@ -829,6 +829,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("BagOColumns", usedColumns.ToString());
                 results.Add(resultEmpty);
             }
 

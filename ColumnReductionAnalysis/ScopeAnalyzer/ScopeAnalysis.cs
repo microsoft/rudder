@@ -112,13 +112,6 @@ namespace ScopeAnalyzer
             this.refAssemblies = refAssemblies;
             this.sourceLocationProvider = sourceLocationProvider;
             interestingProcessors = ips;
-
-            if (interestingProcessors == null)
-            {
-                Utils.WriteLine("Interesting processors list not provided, continuing without it.");
-            }
-
-            LoadTypes();
         }
 
 
@@ -141,7 +134,7 @@ namespace ScopeAnalyzer
         /// <summary>
         /// Load all necessary Scope types. Jump out abruptly if some are missing.
         /// </summary>
-        private void LoadTypes()
+        internal void LoadTypes()
         {
             // Look for Scope types in the main assembley, but also in the reference assemblies.
             var asms = new HashSet<IAssembly>(refAssemblies);
@@ -180,10 +173,10 @@ namespace ScopeAnalyzer
         public static ScopeMethodAnalysisResult AnalyzeMethodWithBagOColumnsAnalysis(IMetadataHost host, IAssembly assembly, IEnumerable<IAssembly> refAssemblies, IMethodDefinition method)
         {
             var me = new ScopeAnalysis(host, assembly, null, refAssemblies, null);
-            me.Traverse(method);
-            return me.results[0];
+            var r = me.AnalyzeMethod(method);
+            return r;
         }
- 
+
 
         /// <summary>
         /// Main method for performing Scope analysis on a method.
@@ -191,56 +184,59 @@ namespace ScopeAnalyzer
         /// <param name="methodDefinition"></param>
         public override void TraverseChildren(IMethodDefinition methodDefinition)
         {
-            //if (!methodDefinition.FullName().Contains("MMRV2.IndexSelection.DPGenDomainKeyProcessor"))
-            //    return;
+            // We analyze only (interesting) processor methods.
+            if (IsInterestingProcessor(methodDefinition))
+            {
+                Utils.WriteLine("\n--------------------------------------------------");
+                Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
 
-            //if (!methodDefinition.FullName().Contains("ScopeML.Prediction.CompactModelBuilderReducer") || !methodDefinition.FullName().Contains("MoveNext"))
-            //    return;
+                // Create CFG and run basic analyses, such as copy-propagation.
+                var methodResult = AnalyzeMethod(methodDefinition);
 
+                Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
+                Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
+                Utils.WriteLine("\n--------------------------------------------------");
+                results.Add(methodResult);
+            }
+            else
+            {
+                var methodResult = new ScopeMethodAnalysisResult(methodDefinition, mhost);
+                methodResult.Interesting = false;
+                results.Add(methodResult);
+            }
+
+            return;
+        }
+
+        private ScopeMethodAnalysisResult AnalyzeMethod(IMethodDefinition methodDefinition)
+        {
             var methodResult = new ScopeMethodAnalysisResult(methodDefinition, mhost);
             try
             {
-                // We analyze only (interesting) processor methods.
-                if (IsInterestingProcessor(methodDefinition))
+                var cfg = PrepareMethod(methodDefinition);
+                Utils.WriteLine("CFG size " + cfg.Nodes.Count);
+
+                // Run escape analysis.              
+                var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
+                methodResult.Unsupported = escAnalysis.Unsupported;
+
+                // If some row has escaped or the method has unsupported features,
+                // there is no need to analyze the method any further.
+                if (escAnalysis.InterestingRowEscaped || escAnalysis.Unsupported)
                 {
-                    Utils.WriteLine("\n--------------------------------------------------");
-                    Utils.WriteLine("Found interesting method " + methodDefinition.FullName());
-
-                    // Create CFG and run basic analyses, such as copy-propagation.
-                    var cfg = PrepareMethod(methodDefinition);
-                    Utils.WriteLine("CFG size " + cfg.Nodes.Count);
-                    //System.IO.File.WriteAllText(@"mbody-zvonimir.txt", _code);
-                      
-                    // Run escape analysis.              
-                    var escAnalysis = DoEscapeAnalysis(cfg, methodDefinition, methodResult);
-                    methodResult.Unsupported = escAnalysis.Unsupported;
-
-                    // If some row has escaped or the method has unsupported features,
-                    // there is no need to analyze the method any further.
-                    if (escAnalysis.InterestingRowEscaped || escAnalysis.Unsupported)
-                    {
-                        if (escAnalysis.InterestingRowEscaped && !escAnalysis.Unsupported) 
-                            Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
-                        methodResult.UsedColumnsSummary = ColumnsDomain.Top;                     
-                    }
-                    else
-                    {
-                        // Otherwise, do constant-set propagation (CSP) analysis.
-                        var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
-                        var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
-
-                        //Finally, do the actual used-columns analysis using results of the previous CSP analysis.
-                        var clsAnalysis = DoUsedColumnsAnalysis(cfg, cspInfo, methodResult);
-                        methodResult.Unsupported = cspAnalysis.Unsupported | clsAnalysis.Unsupported;
-                    }
-                  
-                    Utils.WriteLine("Method has useful result: " + (!methodResult.UsedColumnsSummary.IsBottom && !methodResult.UsedColumnsSummary.IsTop));
-                    Utils.WriteLine("Method has unsupported features: " + methodResult.Unsupported);
-                    Utils.WriteLine("\n--------------------------------------------------");                  
-                } 
+                    if (escAnalysis.InterestingRowEscaped && !escAnalysis.Unsupported)
+                        Utils.WriteLine("A rowish data structure has escaped, no dependency information available.");
+                    methodResult.UsedColumnsSummary = ColumnsDomain.Top;
+                }
                 else
                 {
-                    methodResult.Interesting = false;
+                    // Otherwise, do constant-set propagation (CSP) analysis.
+                    var cspAnalysis = DoConstantPropagationAnalysis(cfg, methodDefinition, methodResult);
+                    var cspInfo = new NaiveScopeConstantsProvider(cspAnalysis.PreResults, mhost);
+
+                    //Finally, do the actual used-columns analysis using results of the previous CSP analysis.
+                    var clsAnalysis = DoUsedColumnsAnalysis(cfg, cspInfo, methodResult);
+                    methodResult.Unsupported = cspAnalysis.Unsupported | clsAnalysis.Unsupported;
                 }
             }
             catch (Exception e)
@@ -249,9 +245,7 @@ namespace ScopeAnalyzer
                 Utils.WriteLine(e.StackTrace);
                 methodResult.Failed = true;
             }
-
-            results.Add(methodResult);
-            return;
+            return methodResult;
         }
 
 

@@ -228,7 +228,13 @@ namespace ScopeAnalyzer
 
         private static IEnumerable<ScopeMethodAnalysisResult> AnalyzeAssembly(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> referenceAssemblies, IEnumerable<string> ips)
         {
+            if (ips == null)
+            {
+                Utils.WriteLine("Interesting processors list not provided, continuing without it.");
+            }
+
             var analysis = new ScopeAnalysis(host, assembly, sourceLocationProvider, referenceAssemblies, ips);
+            analysis.LoadTypes();
             analysis.Analyze();
             return analysis.Results;
         }
