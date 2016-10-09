@@ -44,7 +44,11 @@ namespace Backend.Serialization
 
                     if (node.Kind == SimplePTGNodeKind.Null)
                     {
-                        xmlWriter.WriteAttributeString("Background", "Yellow");
+                        xmlWriter.WriteAttributeString("Background", "Black");
+                    }
+                    else if (node.Kind == SimplePTGNodeKind.Global)
+                    {
+                        xmlWriter.WriteAttributeString("Background", "Blue");
                     }
                     else if (node.Kind == SimplePTGNodeKind.Delegate)
                     {
@@ -57,7 +61,7 @@ namespace Backend.Serialization
                     }
                     else if (node.Kind == SimplePTGNodeKind.Unknown)
                     {
-                        xmlWriter.WriteAttributeString("Background", "#FFB445");
+                        xmlWriter.WriteAttributeString("Background", "Yellow");
                         xmlWriter.WriteAttributeString("StrokeDashArray", "6,6");
                     }
 
