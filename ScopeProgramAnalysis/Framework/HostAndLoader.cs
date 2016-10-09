@@ -154,10 +154,8 @@ namespace ScopeProgramAnalysis.Framework
             return LoadAssembly(referencePath);
         }
 
-        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(bool isUnitTest)
+        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime()
         {
-            if(isUnitTest)
-                return TryToLoadAssembly("CodeUnderTest");
             return TryToLoadAssembly("ScopeRuntime");
         }
         //public Assembly LoadAssemblyAndReferences(string fileName)

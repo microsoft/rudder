@@ -65,8 +65,8 @@ namespace ScopeAnalyzer.Analyses
         IMetadataHost host;
 
         ConstantsInfoProvider constInfo;
-        List<ITypeDefinition> rowTypes;
-        List<ITypeDefinition> columnTypes;
+        ITypeDefinition rowType;
+        ITypeDefinition columnType;
         
         public bool Unsupported { get; set; }
 
@@ -77,13 +77,13 @@ namespace ScopeAnalyzer.Analyses
 
         private HashSet<string> trustedRowMethods = new HashSet<string>() { "get_Item", "get_Schema", "Reset" };
 
-        public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, ConstantsInfoProvider ci, List<ITypeDefinition> r, List<ITypeDefinition> cd)
+        public UsedColumnsAnalysis(IMetadataHost h, ControlFlowGraph c, ConstantsInfoProvider ci, ITypeDefinition r, ITypeDefinition cd)
         {
             host = h;
             cfg = c;
             constInfo = ci;
-            rowTypes = r;
-            columnTypes = cd;
+            rowType = r;
+            columnType = cd;
 
             ColumnIndexAccesses = 0;
             ColumnStringAccesses = 0;
@@ -153,7 +153,7 @@ namespace ScopeAnalyzer.Analyses
             var ct = instruction.Method.ContainingType;
 
             // The methods must belong to Row.
-            if (rowTypes.All(rt => ct != null && !ct.SubtypeOf(rt, host)))
+            if (ct != null && !ct.SubtypeOf(rowType, host))
                 return ColumnsDomain.Bottom;
 
             // If we don't trust the method, then only safe thing to do is to

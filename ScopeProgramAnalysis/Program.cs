@@ -186,12 +186,12 @@ namespace ScopeProgramAnalysis
         public enum ScopeMethodKind { Producer, Reducer, All };
 
         private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, 
-            bool isUnitTest,  bool useScopeFactory = true, bool interProcAnalysis = false)
+            bool useScopeFactory = true, bool interProcAnalysis = false)
         {
             //var folder = Path.GetDirectoryName(input);
             //var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
             //referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            return AnalyzeDll(input, kind, isUnitTest, useScopeFactory, interProcAnalysis);
+            return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
         }
 
         private void ComputeColumns(string xmlFile, string processNumber)
@@ -230,14 +230,12 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool isUnitTest,
-
-                                       bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             MyLoader loader;
             ScopeProgramAnalysis program;
             IAssembly assembly;
-            CreateHostAndProgram(inputPath, interProc, isUnitTest, out loader, out program, out assembly);
+            CreateHostAndProgram(inputPath, interProc, out loader, out program, out assembly);
             var host = loader.Host;
 
             AnalysisStats.TotalNumberFolders++;
@@ -375,7 +373,7 @@ namespace ScopeProgramAnalysis
             MyLoader loader;
             ScopeProgramAnalysis program;
             IAssembly assembly;
-            CreateHostAndProgram(inputPath, false, true, out loader, out program, out assembly);
+            CreateHostAndProgram(inputPath, false, out loader, out program, out assembly);
 
             var host = loader.Host;
 
@@ -508,7 +506,7 @@ namespace ScopeProgramAnalysis
             return null;
         }
 
-        private static void CreateHostAndProgram(string inputPath, bool interProc, bool isUnitTest, out MyLoader loader, out ScopeProgramAnalysis program, 
+        private static void CreateHostAndProgram(string inputPath, bool interProc, out MyLoader loader, out ScopeProgramAnalysis program, 
                                                 out IAssembly loadedAssembly)
         {
             // Determine whether to use Interproc analysis
@@ -523,7 +521,7 @@ namespace ScopeProgramAnalysis
             var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
             loadedAssembly = assemblyAndProvider.Item1;
 
-            loader.LoadScopeRuntime(isUnitTest);
+            loader.LoadScopeRuntime();
 
             loader.LoadCoreAssembly();
 
@@ -602,10 +600,9 @@ namespace ScopeProgramAnalysis
         }
 
         public static void AnalyzeDllAndWriteLog(string inputPath, string outputPath, ScopeMethodKind kind,
-                    bool isUnitTest,           
                     bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
-            var log = AnalyzeDll(inputPath, ScopeMethodKind.All, isUnitTest, useScopeFactory, interProc, outputStream);
+            var log = AnalyzeDll(inputPath, ScopeMethodKind.All, useScopeFactory, interProc, outputStream);
             WriteSarifOutput(log, outputPath);
         }
 

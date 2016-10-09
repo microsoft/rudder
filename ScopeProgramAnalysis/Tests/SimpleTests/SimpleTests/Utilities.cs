@@ -73,10 +73,25 @@ namespace SimpleTests
         public static bool BothAnalysesAgree(this Run r)
         {
             var summary = r.Results.Where(result => result.Id == "Summary").FirstOrDefault();
-            if (summary == null) return false;
+            if (summary == null) return true; // Then nothing to compare
             bool agreement;
-            if (!summary.TryGetProperty("Comparison", out agreement)) return true; // no Comparison property means that Zvonimir's analysis either returned all columns or none.
-            return agreement;
+            // If there result isn't TOP, then there is a comparison already put into the results
+            if (summary.TryGetProperty("Comparison", out agreement)) return agreement;
+            // Otherwise, make sure that the Inputs and Outputs are TOP and that the BagOColumns is TOP.
+            string bagOColumnsResult;
+            if (!summary.TryGetProperty("BagOColumns", out bagOColumnsResult)) return false;
+            if (bagOColumnsResult == "Column information unknown.")
+            {
+                List<string> cols;
+                if (!summary.TryGetProperty<List<string>>("Inputs", out cols)) return false;
+                if (1 != cols.Count) return false;
+                if (cols[0] != "_TOP_") return false;
+                if (!summary.TryGetProperty<List<string>>("Outputs", out cols)) return false;
+                if (1 != cols.Count) return false;
+                if (cols[0] != "_TOP_") return false;
+            }
+
+            return true;
         }
 
         /// <summary>

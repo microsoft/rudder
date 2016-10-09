@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backend", "analysis-net\Bac
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalyzer", "ColumnReductionAnalysis\ScopeAnalyzer\ScopeAnalyzer.csproj", "{90C431C8-AB8C-444F-904C-350C236D27DE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeRuntime", "ScopeProgramAnalysis\Tests\ScopeRuntime\ScopeRuntime.csproj", "{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,10 @@ Global
 		{90C431C8-AB8C-444F-904C-350C236D27DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{90C431C8-AB8C-444F-904C-350C236D27DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{90C431C8-AB8C-444F-904C-350C236D27DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -66,5 +72,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{EB843856-A8E4-4475-BAFF-E0B84E97B364} = {14F40A22-FC0B-411A-902B-3AA9DD9368C5}
 		{C2537313-C755-4997-9ED3-A1FE05C5A0C4} = {14F40A22-FC0B-411A-902B-3AA9DD9368C5}
+		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF} = {14F40A22-FC0B-411A-902B-3AA9DD9368C5}
 	EndGlobalSection
 EndGlobal

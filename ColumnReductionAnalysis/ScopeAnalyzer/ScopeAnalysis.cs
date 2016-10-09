@@ -16,6 +16,7 @@ namespace ScopeAnalyzer
     using Backend.Analyses;
     using Backend.Model;
     using Backend.Transformations;
+    using System.IO;
 
     /// <summary>
     /// Class that simply bundles together relevant information about
@@ -88,13 +89,13 @@ namespace ScopeAnalyzer
         IEnumerable<IAssembly> refAssemblies;
 
         // We keep track of all possible definitions of Scope types, for soundness reasons.
-        List<ITypeDefinition> rowTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> rowsetTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> reducerTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> processorTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> combinerTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> columnTypes = new List<ITypeDefinition>();
-        List<ITypeDefinition> schemaTypes = new List<ITypeDefinition>();
+        ITypeDefinition rowType = null;
+        ITypeDefinition rowSetType = null;
+        ITypeDefinition reducerType = null;
+        ITypeDefinition processorType = null;
+        ITypeDefinition combinerType = null;
+        ITypeDefinition columnType = null;
+        ITypeDefinition schemaType = null;
         ISourceLocationProvider sourceLocationProvider;
 
         List<ScopeMethodAnalysisResult> results = new List<ScopeMethodAnalysisResult>();
@@ -112,6 +113,8 @@ namespace ScopeAnalyzer
             this.refAssemblies = refAssemblies;
             this.sourceLocationProvider = sourceLocationProvider;
             interestingProcessors = ips;
+
+            this.LoadRuntimeTypes(assembly);
         }
 
 
@@ -134,32 +137,58 @@ namespace ScopeAnalyzer
         /// <summary>
         /// Load all necessary Scope types. Jump out abruptly if some are missing.
         /// </summary>
-        internal void LoadTypes()
+        private void LoadRuntimeTypes(IAssembly assemblyBeingAnalyzed)
         {
-            // Look for Scope types in the main assembley, but also in the reference assemblies.
-            var asms = new HashSet<IAssembly>(refAssemblies);
-            if (assembly != null)
-                asms.Add(assembly);
-            foreach (var asm in asms)
-            {
-                var allTypes = asm.GetAllTypes();
-                foreach (var type in allTypes)
-                {
-                    if (type.FullName() == "ScopeRuntime.Reducer") reducerTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.Processor") processorTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.Row") rowTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.RowSet") rowsetTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.ColumnData") columnTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.Schema") schemaTypes.Add(type);
-                    else if (type.FullName() == "ScopeRuntime.Combiner") combinerTypes.Add(type);
-                }
-            }
+            // Look for Scope types in an assembly named ScopeRuntime.
+            IAssembly scopeRuntime = null;
+            var scopeRuntimeNameAsDll = "ScopeRuntime.dll";
 
-            if (!reducerTypes.Any() || !processorTypes.Any() || !rowsetTypes.Any() || 
-                !rowTypes.Any() || !columnTypes.Any() || !schemaTypes.Any() || !combinerTypes.Any())
+            // First, look in the directory the assembly being analyzed is located in
+            string pathToRuntime = Path.Combine(Path.GetDirectoryName(assemblyBeingAnalyzed.Location), scopeRuntimeNameAsDll);
+            scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            if (scopeRuntime == null)
+            {
+                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            }
+            if (scopeRuntime == null)
+            {
+                // Second, look in the parent directory of the direcoty the assembly being analyzed is located in.
+                pathToRuntime = Path.Combine(Directory.GetParent(Path.GetDirectoryName(pathToRuntime)).FullName, scopeRuntimeNameAsDll);
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            }
+            if (scopeRuntime == null)
+            {
+                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            }
+            if (scopeRuntime == null)
+            {
+                // Third, look in the currently directory
+                pathToRuntime = Path.Combine(Environment.CurrentDirectory, scopeRuntimeNameAsDll);
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            }
+            if (scopeRuntime == null)
+            {
+                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+            }
+            if (scopeRuntime == null)
+                throw new InvalidOperationException("Cannot find runtime types for the assembly: " + assemblyBeingAnalyzed.Name);
+
+            processorType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Processor");
+            reducerType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Reducer");
+            rowType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Row");
+            rowSetType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.RowSet");
+            columnType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.ColumnData");
+            schemaType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Schema");
+            combinerType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Combiner");
+
+            if (reducerType == null || processorType == null || rowSetType == null || 
+                rowType == null || columnType == null || schemaType == null || combinerType == null)
                 throw new MissingScopeMetadataException(
                     String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}\tCombiner:{6}",
-                        reducerTypes.Count, processorTypes.Count, rowTypes.Count, rowTypes.Count, columnTypes.Count, schemaTypes.Count, combinerTypes.Count));
+                        reducerType != null, processorType != null, rowSetType != null, rowType != null, columnType != null, schemaType != null, combinerType != null));
         }
 
         /// <summary>
@@ -259,7 +288,7 @@ namespace ScopeAnalyzer
         private NaiveScopeMayEscapeAnalysis DoEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running escape analysis...");
-            var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowTypes, rowsetTypes);
+            var escAnalysis = new NaiveScopeMayEscapeAnalysis(cfg, method, mhost, rowType, rowSetType);
             results.EscapeSummary = escAnalysis.Analyze()[cfg.Exit.Id].Output;
             //Utils.WriteLine(results.EscapeSummary.ToString());
             Utils.WriteLine("Something escaped: " + escAnalysis.InterestingRowEscaped);
@@ -277,7 +306,7 @@ namespace ScopeAnalyzer
         private ConstantPropagationSetAnalysis DoConstantPropagationAnalysis(ControlFlowGraph cfg, IMethodDefinition method, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running constant propagation set analysis...");
-            var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost, schemaTypes);
+            var cpsAnalysis = new ConstantPropagationSetAnalysis(cfg, method, mhost, schemaType);
             results.CPropagationSummary = cpsAnalysis.Analyze()[cfg.Exit.Id].Output;
             //Utils.WriteLine(results.CPropagationSummary.ToString());
             Utils.WriteLine("Done with constant propagation set analysis");
@@ -295,7 +324,7 @@ namespace ScopeAnalyzer
         private UsedColumnsAnalysis DoUsedColumnsAnalysis(ControlFlowGraph cfg, ConstantsInfoProvider cspInfo, ScopeMethodAnalysisResult results)
         {
             Utils.WriteLine("Running used columns analysis...");         
-            var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowTypes, columnTypes);
+            var clsAnalysis = new UsedColumnsAnalysis(mhost, cfg, cspInfo, rowType, columnType);
             var outcome = clsAnalysis.Analyze();      
             results.UsedColumnsSummary = outcome;
 
@@ -427,9 +456,9 @@ namespace ScopeAnalyzer
                 return false;
             
             // We are interested in processors, reducers, and combiners.
-            if (reducerTypes.All(rt => !type.SubtypeOf(rt, mhost)) && 
-                processorTypes.All(pt => !type.SubtypeOf(pt, mhost)) &&
-                combinerTypes.All(ct => !type.SubtypeOf(ct, mhost)))
+            if (!type.SubtypeOf(reducerType, mhost) && 
+                !type.SubtypeOf(processorType, mhost) &&
+                !type.SubtypeOf(combinerType, mhost))
                 return false;
 
             // We are currently focusing on MoveNext methods only.

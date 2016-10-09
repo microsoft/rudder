@@ -285,8 +285,8 @@ namespace ScopeAnalyzer.Analyses
     {
         IMethodDefinition method;
         IMetadataHost host;
-        List<ITypeDefinition> rowTypes;
-        List<ITypeDefinition> rowsetTypes;
+        ITypeDefinition rowType;
+        ITypeDefinition rowSetType;
 
         // Analysis results for each instruction, before and after the instruction is executed.
         Dictionary<Instruction, ScopeEscapeDomain> preResults = new Dictionary<Instruction, ScopeEscapeDomain>();
@@ -300,13 +300,13 @@ namespace ScopeAnalyzer.Analyses
         bool interestingRowEscaped = false;
 
 
-        public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, List<ITypeDefinition> rowtype, List<ITypeDefinition> rowsettype) : base(cfg)
+        public NaiveScopeMayEscapeAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, ITypeDefinition rowtype, ITypeDefinition rowsettype) : base(cfg)
         {
             method = m;
             host = h;
 
-            rowTypes = rowtype;
-            rowsetTypes = rowsettype;
+            rowType = rowtype;
+            rowSetType = rowsettype;
 
             Initialize();
         }
@@ -332,9 +332,9 @@ namespace ScopeAnalyzer.Analyses
             get { return preResults; }
         }
 
-        public List<ITypeDefinition> RowTypes
+        public ITypeDefinition RowType
         {
-            get { return rowTypes; }
+            get { return rowType; }
         }
 
         public IEnumerable<IFieldAccess> TrackedFields
@@ -447,16 +447,10 @@ namespace ScopeAnalyzer.Analyses
             if (type == null)
                 return true;
 
-            foreach (var rt in rowTypes)
-            {
-                if (PossiblyRow(type, rt, host)) return true;
-            }
+            if (PossiblyRow(type, rowType, host)) return true;
 
             // Rowset is a custom collection of rows, so we check it as well.
-            foreach (var rst in rowsetTypes)
-            {
-                if (PossiblyRow(type, rst, host)) return true;
-            }
+            if (PossiblyRow(type, rowSetType, host)) return true;
             return false;
         }
 

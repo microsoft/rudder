@@ -234,7 +234,7 @@ namespace ScopeAnalysisBulkScripts
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
                 ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
-                                                                    false, true, interProc , outputStream);
+                                                                    true, interProc , outputStream);
 
                 if (AnalysisStats.AnalysisReasons.Any())
                 {

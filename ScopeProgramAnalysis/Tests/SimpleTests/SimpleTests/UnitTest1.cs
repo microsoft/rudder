@@ -13,8 +13,7 @@ namespace SimpleTests
         public void AnalyzeEntireCodeUnderTestDll()
         {
             var t = typeof(CopyProcessor);
-            var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, true,  
-                                    false, false, null);
+            var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, false, false, null);
 
             Assert.IsNotNull(log);
         }
@@ -67,6 +66,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
         }
 
         [TestMethod]
@@ -76,6 +76,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.Id == "ProcessReturningMethodCall");
             Assert.IsTrue(run.ToolNotifications.Count == 1);
             Assert.IsTrue(run.ToolNotifications[0].Message == "Closure class not found");
@@ -87,6 +88,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
         public void AccumulateList()
@@ -95,6 +97,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: ulong, Y: int", "X: ulong, Y: int");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
         public void Dictionary()
@@ -103,6 +106,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: long, Y: int", "X: long");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
         public void LastX()
@@ -111,6 +115,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: double", "X: double");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
         public void ConditionalSchemaWriteColumn()
@@ -142,6 +147,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: int, Y: string", "X: int, Y: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.RunIsTop());
         }
         [TestMethod]

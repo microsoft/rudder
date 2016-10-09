@@ -354,7 +354,7 @@ namespace ScopeAnalyzer.Analyses
         IEnumerable<Tuple<IFieldAccess, IFieldReference>> fields;
         IEnumerable<IFieldDefinition> fieldDefinitions;
         // We need Schema type for handling the case of Schema.IndexOf.
-        IEnumerable<ITypeDefinition> schemaTypes;
+        ITypeDefinition schemaType;
 
         IMetadataHost host;
 
@@ -364,11 +364,11 @@ namespace ScopeAnalyzer.Analyses
         Dictionary<Instruction, ConstantPropagationDomain> preResults = new Dictionary<Instruction, ConstantPropagationDomain>();
         Dictionary<Instruction, ConstantPropagationDomain> postResults = new Dictionary<Instruction, ConstantPropagationDomain>();
 
-        public ConstantPropagationSetAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, IEnumerable<ITypeDefinition> schemas) : base(cfg)
+        public ConstantPropagationSetAnalysis(ControlFlowGraph cfg, IMethodDefinition m, IMetadataHost h, ITypeDefinition schemaType) : base(cfg)
         {
             method = m;
             host = h;
-            schemaTypes = schemas;
+            this.schemaType = schemaType;
 
             Initialize();
         }
@@ -433,7 +433,7 @@ namespace ScopeAnalyzer.Analyses
         /// <returns></returns>
         public bool IsSchema(ITypeReference tref)
         {
-            return schemaTypes.Any(s => tref.SubtypeOf(s, host));
+            return tref.SubtypeOf(schemaType, host);
         }
 
         public IEnumerable<Tuple<IFieldAccess, IFieldReference>> Fields

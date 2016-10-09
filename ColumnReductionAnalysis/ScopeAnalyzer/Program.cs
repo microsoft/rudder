@@ -234,7 +234,6 @@ namespace ScopeAnalyzer
             }
 
             var analysis = new ScopeAnalysis(host, assembly, sourceLocationProvider, referenceAssemblies, ips);
-            analysis.LoadTypes();
             analysis.Analyze();
             return analysis.Results;
         }
