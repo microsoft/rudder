@@ -526,7 +526,7 @@ namespace Backend.Model
             //this.edges.Remove(nodeField);
             if(this.edges.ContainsKey(source))
             {
-                var nodeFields = this.edges[source].Where(nf => !nf.Field.Equals(field));
+                var nodeFields = this.edges[source].Where(nf => !nf.Field.Name.Value.Equals(field.Name.Value));
                 this.edges[source] = new HashSet<NodeField>(nodeFields);
             }
         }
