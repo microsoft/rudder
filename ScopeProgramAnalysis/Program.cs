@@ -401,7 +401,13 @@ namespace ScopeProgramAnalysis
             }
 
             var closureName = "<" + entryMethod.Name + ">";
-            var containingType = entryMethod.ContainingType as ITypeDefinition;
+            var containingType = entryMethod.ContainingType.ResolvedType as ITypeDefinition;
+
+            //if(containingType is IGenericTypeInstance)
+            //{
+            //    containingType = (containingType as IGenericTypeInstance).GenericType.ResolvedType;
+            //}
+
             if (containingType == null)
             {
                 return CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());

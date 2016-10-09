@@ -497,7 +497,7 @@ namespace Backend.Model
             //}
             if(this.edges.ContainsKey(source))
             {
-                result.AddRange(this.edges[source].Where(nf => nf.Field.Equals(field)).Select(nf => nf.Node));
+                result.AddRange(this.edges[source].Where(nf => nf.Field.Name.Value.Equals(field.Name.Value)).Select(nf => nf.Node));
             }
             return result;
         }
