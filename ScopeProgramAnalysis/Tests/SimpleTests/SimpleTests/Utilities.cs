@@ -6,6 +6,8 @@ using System.Linq;
 using Microsoft.CodeAnalysis.Sarif;
 using System.Text.RegularExpressions;
 using System;
+using Backend.Analyses;
+using static ScopeProgramAnalysis.Util;
 
 namespace SimpleTests
 {
@@ -94,58 +96,6 @@ namespace SimpleTests
             return true;
         }
 
-        /// <summary>
-        /// Matches "X" with "Col(Input,X[0])", i.e., ignores everything but the column name in the "Col" representation
-        /// </summary>
-        /// <param name="columnName">A column name, e.g., "X"</param>
-        /// <param name="columnProperty">A column represented in the analysis encoding, e.g., "Col(Input,X[0])"</param>
-        /// <returns>True iff the <paramref name="columnName"/> is the same as the column name in the <paramref name="columnProperty"/></returns>
-        public static bool ColumnNameMatches(string columnName, string columnProperty)
-        {
-            var x = Regex.Match(columnProperty, @"Col\((\w+),(\w+)\[\d+\]\)");
-            if (!x.Success) return false;
-            if (x.Groups.Count != 3) return false;
-            var tableName = x.Groups[1].Value;
-            var columnNameInProperty = x.Groups[2].Value;
-            return columnName.Equals(columnNameInProperty);
-        }
 
-        /// <summary>
-        /// Returns the index of the first element satisfying the predicate. Returns -1 if no element does.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="xs"></param>
-        /// <param name="pred"></param>
-        /// <returns></returns>
-        public static int IndexOf<T>(this IEnumerable<T> xs, Func<T,bool> pred)
-        {
-            var i = 0;
-            foreach (var x in xs)
-            {
-                if (pred(x)) return i;
-                i++;
-            }
-            return -1;
-        }
-        /// <summary>
-        /// Compares two sequences 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="U"></typeparam>
-        /// <param name="ts"></param>
-        /// <param name="us"></param>
-        /// <param name="pred"></param>
-        /// <returns></returns>
-        public static bool SetEqual<T,U>(IEnumerable<T> ts, IEnumerable<U> us, Func<T,U,bool> pred)
-        {
-            if (!ts.Any() && !us.Any()) return true;
-            var t = ts.First();
-            ts = ts.Skip(1);
-            if (!us.Any()) return false;
-            var i = us.IndexOf(u => pred(t, u));
-            if (i == -1) return false;
-            us = us.Take(i).Concat(us.Skip(i + 1));
-            return SetEqual(ts, us, pred);
-        }
     }
 }

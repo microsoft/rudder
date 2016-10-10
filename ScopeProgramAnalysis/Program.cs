@@ -557,7 +557,7 @@ namespace ScopeProgramAnalysis
                 DependencyPTGDomain depAnalysisResult;
                 ISet<TraceableColumn> inputColumns;
                 ISet<TraceableColumn> outputColumns;
-                ScopeAnalyzer.Analyses.ColumnsDomain usedColumns;
+                ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns;
 
                 Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain> previousResult;
                 if (previousResults.TryGetValue(moveNextMethod, out previousResult))
@@ -565,7 +565,7 @@ namespace ScopeProgramAnalysis
                     depAnalysisResult = previousResult.Item1;
                     inputColumns = previousResult.Item2;
                     outputColumns = previousResult.Item3;
-                    usedColumns = previousResult.Item4;
+                    bagOColumnsUsedColumns = previousResult.Item4;
 
                 } else {
                     var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
@@ -575,12 +575,12 @@ namespace ScopeProgramAnalysis
 
                     var a = TypeHelper.GetDefiningUnit(processorClass) as IAssembly;
                     var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, moveNextMethod);
-                    usedColumns = z.UsedColumnsSummary;
+                    bagOColumnsUsedColumns = z.UsedColumnsSummary;
 
-                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, usedColumns));
+                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, bagOColumnsUsedColumns));
                 }
 
-                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, depAnalysisResult, inputColumns, outputColumns, factoryReducerMap, usedColumns);
+                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, depAnalysisResult, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns);
                 runResult = r;
 
                 return true;
@@ -714,7 +714,7 @@ namespace ScopeProgramAnalysis
 
 
         private static Run CreateResultsAndThenRun(string inputPath, ITypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
-            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap, ScopeAnalyzer.Analyses.ColumnsDomain usedColumns)
+            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap, ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns)
         {
             var results = new List<Result>();
 
@@ -805,17 +805,14 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
-                if (!usedColumns.IsTop && !usedColumns.IsBottom)
+                if (!bagOColumnsUsedColumns.IsTop && !bagOColumnsUsedColumns.IsBottom)
                 {
-                    var inputColumnNames = inputColumns.Select(t => t.Column.Name);
-                    var outputColumnNames = outputColumns.Select(t => t.Column.Name);
-                    var compareResuls = inputColumnNames
-                        .Union(outputColumnNames)
-                        .OrderBy(s => s)
-                        .SequenceEqual(usedColumns.Elements.Where(e => e.Value.GetType().Equals(typeof(string))).Select(e => e.Value).OrderBy(s => s));
-                    resultSummary.SetProperty("Comparison", compareResuls);
+                    var a = bagOColumnsUsedColumns.Elements.Select(e => e.Value.ToString());
+                    var b = inputColumns.Union(outputColumns).Select(tc => tc.Column).Distinct();
+                    var compareResults = Util.SetEqual(a, b, (x, y) => Util.ColumnNameMatches(x, y));
+                    resultSummary.SetProperty("Comparison", compareResults);
                 }
-                resultSummary.SetProperty("BagOColumns", usedColumns.ToString());
+                resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 
                 results.Add(resultSummary);
             }
@@ -832,7 +829,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
-                resultEmpty.SetProperty("BagOColumns", usedColumns.ToString());
+                resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 results.Add(resultEmpty);
             }
 

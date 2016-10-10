@@ -15,6 +15,7 @@ using Microsoft.Cci;
 using Backend.ThreeAddressCode.Expressions;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.Visitors;
+using System.Text.RegularExpressions;
 
 namespace Backend.Analyses
 {
@@ -158,6 +159,41 @@ namespace Backend.Analyses
                 hash ^= (uint)Type.GetHashCode();
             }
             return (int)hash;
+        }
+
+        public static bool TryParse(string s, out Column c)
+        {
+            c = null;
+            if (String.IsNullOrWhiteSpace(s)) return false;
+            var x = Regex.Match(s, @"Col\((\w+),(\w+)\[(\d+)\]\)");
+            if (x.Success) {
+                var tableName = x.Groups[1].Value;
+                var columnNameInProperty = x.Groups[2].Value;
+                var positionString = x.Groups[3].Value;
+                int position;
+                if (!Int32.TryParse(positionString, out position)) return false;
+                c = new Column() { Name = columnNameInProperty, Position = new RangeDomain(position), };
+                return true;
+            }
+            x = Regex.Match(s, @"Col\((\w+),(\d+)\)");
+            if (x.Success)
+            {
+                var tableName = x.Groups[1].Value;
+                var positionString = x.Groups[2].Value;
+                int position;
+                if (!Int32.TryParse(positionString, out position)) return false;
+                c = new Column() { Position = new RangeDomain(position), };
+                return true;
+            }
+            x = Regex.Match(s, @"Col\((\w+),(\w+)\)");
+            if (x.Success)
+            {
+                var tableName = x.Groups[1].Value;
+                var columnNameInProperty = x.Groups[2].Value;
+                c = new Column() { Name = columnNameInProperty, };
+                return true;
+            }
+            return false;
         }
 
     }

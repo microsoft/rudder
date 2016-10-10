@@ -214,12 +214,12 @@ namespace CodeUnderTest
             {
                 if (row["X"].Double != lastX)
                 {
-                    output[0].Set(lastX);
+                    output["X"].Set(lastX);
                     lastX = row["X"].Double;
                     yield return output;
                 }
             }
-            output[0].Set(lastX);
+            output["X"].Set(lastX);
             yield return output;
         }
     }
