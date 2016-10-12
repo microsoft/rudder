@@ -161,15 +161,15 @@ namespace ScopeProgramAnalysis
 
             const string oneHundredJobsDirectory = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
             //input = Path.Combine(oneHundredJobsDirectory, @"00e0c351-4bae-4970-989b-92806b1e657c\__ScopeCodeGen__.dll");
-            input = Path.Combine(oneHundredJobsDirectory, @"0b610085-e88d-455c-81ea-90c727bbdf58\__ScopeCodeGen__.dll");
-
-                string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
+            //input = Path.Combine(oneHundredJobsDirectory, @"0b610085-e88d-455c-81ea-90c727bbdf58\__ScopeCodeGen__.dll");
+            input = Path.Combine(oneHundredJobsDirectory, @"0ba011a3-fd85-4f85-92ce-e8a230d33dc3\__ScopeCodeGen__.dll");
+            string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            var log = AnalyzeOneDll(input, scopeKind, false, useScopeFactory);
+            var log = AnalyzeOneDll(input, scopeKind, useScopeFactory, false);
             WriteSarifOutput(log, outputPath);
 
 
@@ -811,6 +811,9 @@ namespace ScopeProgramAnalysis
                     var b = inputColumns.Union(outputColumns).Select(tc => tc.Column).Distinct();
                     var compareResults = Util.SetEqual(a, b, (x, y) => Util.ColumnNameMatches(x, y));
                     resultSummary.SetProperty("Comparison", compareResults);
+                } else if (bagOColumnsUsedColumns.IsTop)
+                {
+                    resultSummary.SetProperty("Comparison", inputColumns.Union(outputColumns).Any(tc => tc.Column.IsTOP));
                 }
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 
@@ -829,6 +832,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("Comparison", bagOColumnsUsedColumns.IsTop);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 results.Add(resultEmpty);
             }

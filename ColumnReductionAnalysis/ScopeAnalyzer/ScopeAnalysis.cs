@@ -145,34 +145,44 @@ namespace ScopeAnalyzer
 
             // First, look in the directory the assembly being analyzed is located in
             string pathToRuntime = Path.Combine(Path.GetDirectoryName(assemblyBeingAnalyzed.Location), scopeRuntimeNameAsDll);
-            scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-            if (scopeRuntime == null)
+            if (File.Exists(pathToRuntime))
             {
-                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
                 scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
             }
-            if (scopeRuntime == null)
+            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+            if (File.Exists(pathToRuntime))
             {
-                // Second, look in the parent directory of the direcoty the assembly being analyzed is located in.
-                pathToRuntime = Path.Combine(Directory.GetParent(Path.GetDirectoryName(pathToRuntime)).FullName, scopeRuntimeNameAsDll);
                 scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
             }
-            if (scopeRuntime == null)
+            // Second, look in the parent directory of the direcoty the assembly being analyzed is located in.
+            pathToRuntime = Path.Combine(Directory.GetParent(Path.GetDirectoryName(pathToRuntime)).FullName, scopeRuntimeNameAsDll);
+            if (File.Exists(pathToRuntime))
             {
-                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
                 scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
             }
-            if (scopeRuntime == null)
+            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+            if (File.Exists(pathToRuntime))
             {
-                // Third, look in the currently directory
-                pathToRuntime = Path.Combine(Environment.CurrentDirectory, scopeRuntimeNameAsDll);
                 scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
             }
-            if (scopeRuntime == null)
+            // Third, look in the currently directory
+            pathToRuntime = Path.Combine(Environment.CurrentDirectory, scopeRuntimeNameAsDll);
+            if (File.Exists(pathToRuntime))
             {
-                pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
                 scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
             }
+            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
+            if (File.Exists(pathToRuntime))
+            {
+                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
+                goto L;
+            }
+            L:
             if (scopeRuntime == null)
                 throw new InvalidOperationException("Cannot find runtime types for the assembly: " + assemblyBeingAnalyzed.Name);
 

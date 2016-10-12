@@ -163,6 +163,19 @@ namespace SimpleTests
             Assert.IsTrue(run.Inputs("X"));
             Assert.IsTrue(run.Outputs("X", "Y"));
         }
+        [TestMethod]
+        public void CallMethodOnInputRow()
+        {
+            var t = typeof(CallMethodOnInputRow);
+            var run = AnalyzeProcessor(t, "X: string, Y: int", "X: string, Y: int");
+
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+            Assert.IsTrue(run.ColumnDependsOn("X", "X"));
+            Assert.IsTrue(run.ColumnDependsOn("Y", "Y"));
+            Assert.IsTrue(run.Inputs("X", "Y"));
+            Assert.IsTrue(run.Outputs("X", "Y"));
+        }
 
     }
 }

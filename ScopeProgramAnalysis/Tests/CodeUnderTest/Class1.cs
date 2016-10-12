@@ -302,5 +302,29 @@ namespace CodeUnderTest
             yield break;
         }
     }
+    public class CallMethodOnInputRow : Reducer
+    {
+        public class FilterChecker
+        {
+            public FilterChecker(string s) { }
+            public bool CheckCondition(Row r) { return true; }
+        }
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            FilterChecker filterChecker = new FilterChecker((args.Length == 0) ? "" : args[0]);
+            foreach (Row current in input.Rows)
+            {
+                current.CopyTo(output);
+                if (filterChecker.CheckCondition(current))
+                    yield return output;
+            }
+            yield break;
+        }
+    }
 }
 
