@@ -693,7 +693,7 @@ namespace Backend.Model
                     if (filter != null)
                     {
                         var node_filter = Tuple.Create(SimplePTGNode, adjacents.Key);
-                        if (!filter(node_filter))
+                        if (filter(node_filter))
                             continue;
                     }
 

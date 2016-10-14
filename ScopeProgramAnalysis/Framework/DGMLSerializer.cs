@@ -36,7 +36,7 @@ namespace Backend.Serialization
                 foreach (var node in ptg.Nodes)
                 {
                     var nodeId = Convert.ToString(node.Id);
-                    var label = Serialize(node);
+                    var label = nodeId+":"+Serialize(node);
 
                     xmlWriter.WriteStartElement("Node");
                     xmlWriter.WriteAttributeString("Id", nodeId);

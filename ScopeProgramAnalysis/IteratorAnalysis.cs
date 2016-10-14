@@ -1022,7 +1022,8 @@ namespace Backend.Analyses
                         foreach (var arg in instruction.UsedVariables)
                         {
                             var nodes = this.currentPTG.GetTargets(arg, false);
-                            allNodes.UnionWith(nodes);
+                            allNodes.UnionWith(currentPTG.ReachableNodes(nodes));
+                            //allNodes.UnionWith(nodes);
                         }
 
                         currentPTG.RemoveRootEdges(result);
@@ -1030,12 +1031,13 @@ namespace Backend.Analyses
                         var returnField = new FieldReference("$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
                         foreach (var SimplePTGNode in allNodes)
                         {
-                            if (TypeHelper.TypesAreAssignmentCompatible(SimplePTGNode.Type.ResolvedType, instruction.Result.Type.ResolvedType))
+                            // I remove this filter until I can have a more permissive compatibility analysis for collections and Row methods
+                            // e.g., I need RowSet to be compatible with IEnumerable<Row>
+                            // Another option is improve the HandleRowScopeRowMethods function to do something similar I did with collections
+                            //if (TypeHelper.TypesAreAssignmentCompatible(SimplePTGNode.Type.ResolvedType, instruction.Result.Type.ResolvedType))
                             {
                                 currentPTG.PointsTo(returnNode, returnField, SimplePTGNode);
                             }
-                            else
-                            { }
                         }
                     }
 
