@@ -24,7 +24,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
-            Assert.IsTrue(run.BothAnalysesAgree());
+            Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
             Assert.IsTrue(run.Inputs("JobGUID", "JobName"));
@@ -37,7 +37,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string, NewColumn: string");
 
             Assert.IsNotNull(run);
-            Assert.IsTrue(run.BothAnalysesAgree());
+            Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
             Assert.IsTrue(run.ColumnDependsOn("NewColumn", "Concat(String,String)", "JobGUID"));
@@ -52,7 +52,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
-            Assert.IsTrue(run.BothAnalysesAgree());
+            Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
             Assert.IsTrue(run.Inputs("JobGUID", "JobName"));
@@ -88,7 +88,11 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
-            Assert.IsTrue(run.BothAnalysesAgree());
+            Assert.IsTrue(run.BagOColumnsIsTop());
+            Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
+            Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
+            Assert.IsTrue(run.Inputs("JobGUID", "JobName"));
+            Assert.IsTrue(run.Outputs("JobGUID", "JobName"));
         }
         [TestMethod]
         public void AccumulateList()
@@ -170,11 +174,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: string, Y: int", "X: string, Y: int");
 
             Assert.IsNotNull(run);
-            Assert.IsTrue(run.BothAnalysesAgree());
-            Assert.IsTrue(run.ColumnDependsOn("X", "X"));
-            Assert.IsTrue(run.ColumnDependsOn("Y", "Y"));
-            Assert.IsTrue(run.Inputs("X", "Y"));
-            Assert.IsTrue(run.Outputs("X", "Y"));
+            Assert.IsTrue(run.BothAnalysesAgree()); // Both return TOP
         }
 
     }

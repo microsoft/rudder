@@ -10,6 +10,8 @@ namespace ScopeRuntime
     }
     public abstract class ColumnData
     {
+        public virtual byte[] Binary { get; }
+        public virtual void Set(byte[] o) { }
         public virtual string String { get; }
         public virtual void Set(string o) { }
         public virtual void UnsafeSet(string o) { }

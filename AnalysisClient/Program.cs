@@ -47,7 +47,7 @@ namespace AnalysisClient
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.CreateNoWindow = true;
                     process.Start();
-                    if(!process.WaitForExit((int)(System.TimeSpan.FromMinutes(10).TotalMilliseconds)))
+                    if(!process.WaitForExit((int)(System.TimeSpan.FromMinutes(1).TotalMilliseconds)))
                     {
                         System.Console.WriteLine("{0} timed out", inputDll);
                         process.Kill();
@@ -77,26 +77,29 @@ namespace AnalysisClient
 
             var outputPath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".sarif");
 
-            var output = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, false);
-
             List<string> ret = new List<string>();
 
-            if (output == null)
+            try
             {
-                ret.Add(String.Join("\t", new string[] {
+                var output = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
+
+
+                if (output == null)
+                {
+                    ret.Add(String.Join("\t", new string[] {
                     inputDll,
                     ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
                     "__ERROR__" }));
-            }
-            else
-            {
-                ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(output, outputPath);
-                var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(output);
-                foreach (var x in depStream)
+                }
+                else
                 {
-                    var processorName = x.Item1;
-                    ScopeProgramAnalysis.ScopeProgramAnalysis.DependencyStats stats = x.Item2;
-                    ret.Add(String.Join("\t", new string[] {
+                    ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(output, outputPath);
+                    var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(output);
+                    foreach (var x in depStream)
+                    {
+                        var processorName = x.Item1;
+                        ScopeProgramAnalysis.ScopeProgramAnalysis.DependencyStats stats = x.Item2;
+                        ret.Add(String.Join("\t", new string[] {
                         inputDll,
                         ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
                         processorName,
@@ -108,7 +111,12 @@ namespace AnalysisClient
                         stats.UnreadInputs.Count.ToString(),
                         String.Join(",", stats.UnreadInputs)
                     }));
+                    }
                 }
+            }
+            catch
+            {
+                ret.Add("Caught exception while processing: " + inputDll);
             }
             var retStr = String.Join("\r\n", ret) + "\r\n";
             using (var mutex = new System.Threading.Mutex(false, "ScopeDependencyAnalysis_OutputSummaryMutex"))

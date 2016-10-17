@@ -162,7 +162,9 @@ namespace ScopeProgramAnalysis
             const string oneHundredJobsDirectory = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
             //input = Path.Combine(oneHundredJobsDirectory, @"00e0c351-4bae-4970-989b-92806b1e657c\__ScopeCodeGen__.dll");
             //input = Path.Combine(oneHundredJobsDirectory, @"0b610085-e88d-455c-81ea-90c727bbdf58\__ScopeCodeGen__.dll");
-            input = Path.Combine(oneHundredJobsDirectory, @"0ba011a3-fd85-4f85-92ce-e8a230d33dc3\__ScopeCodeGen__.dll");
+            //input = Path.Combine(oneHundredJobsDirectory, @"0ba011a3-fd85-4f85-92ce-e8a230d33dc3\__ScopeCodeGen__.dll");
+            input = Path.Combine(oneHundredJobsDirectory, @"0cb45fd4-ee48-4091-a95b-6ed802173335\__ScopeCodeGen__.dll");
+
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
@@ -491,15 +493,13 @@ namespace ScopeProgramAnalysis
                 // Now, find the entry method (potentially walking up the inheritance hierarchy again, stopping
                 // point is not necessarily the same as the class found in the walk above).
                 var entryMethod = c.Methods.Where(m => m.Name.Value == entryMethodName).SingleOrDefault();
+                var baseClass2 = c.ResolvedType;
                 while (entryMethod == null)
                 {
-                    var baseType2 = c.BaseClasses.SingleOrDefault();
-                    if (baseType2 != null)
-                    {
-                        var baseclass2 = baseType2.ResolvedType;
-                        if (baseclass2 == null) break;
-                        entryMethod = baseclass2.Methods.Where(m => m.Name.Value == entryMethodName).SingleOrDefault();
-                    }
+                    var baseType2 = baseClass2.BaseClasses.SingleOrDefault();
+                    if (baseType2 == null) break;
+                    baseClass2 = baseType2.ResolvedType;
+                    entryMethod = baseClass2.Methods.Where(m => m.Name.Value == entryMethodName).SingleOrDefault();
                 }
                 return entryMethod;
             }

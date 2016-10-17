@@ -96,6 +96,15 @@ namespace SimpleTests
             return true;
         }
 
+        public static bool BagOColumnsIsTop(this Run r)
+        {
+            var summary = r.Results.Where(result => result.Id == "Summary").FirstOrDefault();
+            if (summary == null) return false;
+            string bagOColumnsResult;
+            if (!summary.TryGetProperty("BagOColumns", out bagOColumnsResult)) return false;
+            return bagOColumnsResult == "All columns used.";
+        }
+
 
     }
 }
