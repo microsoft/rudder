@@ -24,6 +24,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
@@ -37,6 +38,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string, NewColumn: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
@@ -52,6 +54,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
@@ -88,6 +91,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.BagOColumnsIsTop());
             Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
             Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
@@ -140,6 +144,7 @@ namespace SimpleTests
             var run = AnalyzeProcessor(t, "X: int", "X: int");
 
             Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
             Assert.IsTrue(run.ColumnDependsOn("X", "X"));
             Assert.IsTrue(run.Inputs("X"));
             Assert.IsTrue(run.Outputs("X"));

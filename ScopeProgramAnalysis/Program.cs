@@ -805,6 +805,9 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
+                // Comparison means that the results are consistent, *not* that they are equal.
+                // In particular, the dependency analysis may be able to return a (non-top) result
+                // when the used-column analysis cannot.
                 if (!bagOColumnsUsedColumns.IsTop && !bagOColumnsUsedColumns.IsBottom)
                 {
                     var a = bagOColumnsUsedColumns.Elements.Select(e => e.Value.ToString());
@@ -813,7 +816,9 @@ namespace ScopeProgramAnalysis
                     resultSummary.SetProperty("Comparison", compareResults);
                 } else if (bagOColumnsUsedColumns.IsTop)
                 {
-                    resultSummary.SetProperty("Comparison", inputColumns.Union(outputColumns).Any(tc => tc.Column.IsTOP));
+                    // The used column analysis is more conservative than the dependency analysis.
+                    // Top is less-equal-to any other result
+                    resultSummary.SetProperty("Comparison", true);
                 }
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 
