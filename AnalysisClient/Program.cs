@@ -47,7 +47,7 @@ namespace AnalysisClient
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.CreateNoWindow = true;
                     process.Start();
-                    if(!process.WaitForExit((int)(System.TimeSpan.FromMinutes(1).TotalMilliseconds)))
+                    if(!process.WaitForExit((int)(System.TimeSpan.FromMinutes(5).TotalMilliseconds)))
                     {
                         System.Console.WriteLine("{0} timed out", inputDll);
                         process.Kill();

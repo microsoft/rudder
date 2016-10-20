@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Cci;
 using Backend;
 using Backend.Model;
+using System.Threading.Tasks;
 
 namespace ScopeProgramAnalysis
 {
@@ -163,7 +164,14 @@ namespace ScopeProgramAnalysis
             //input = Path.Combine(oneHundredJobsDirectory, @"00e0c351-4bae-4970-989b-92806b1e657c\__ScopeCodeGen__.dll");
             //input = Path.Combine(oneHundredJobsDirectory, @"0b610085-e88d-455c-81ea-90c727bbdf58\__ScopeCodeGen__.dll");
             //input = Path.Combine(oneHundredJobsDirectory, @"0ba011a3-fd85-4f85-92ce-e8a230d33dc3\__ScopeCodeGen__.dll");
-            input = Path.Combine(oneHundredJobsDirectory, @"0cb45fd4-ee48-4091-a95b-6ed802173335\__ScopeCodeGen__.dll");
+            // Times out for unknown reason
+            //input = Path.Combine(oneHundredJobsDirectory, @"0cb45fd4-ee48-4091-a95b-6ed802173335\__ScopeCodeGen__.dll");
+            // Times out for unknown reason
+            input = Path.Combine(oneHundredJobsDirectory, @"0e86b352-b968-40fd-8377-8b3a5812aa61\__ScopeCodeGen__.dll");
+            // No __ScopeCodeGen__ assembly
+            //input = Path.Combine(oneHundredJobsDirectory, @"000ef3c1-abb3-4a54-8ea1-60c74139d936\__ScopeCodeGen__.dll");
+            // __ScopeCodeGen__ assembly, but no processors found
+            //input = Path.Combine(oneHundredJobsDirectory, @"00a41169-9711-4a14-bf02-7d068ad6dded\__ScopeCodeGen__.dll");
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -171,7 +179,7 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            var log = AnalyzeOneDll(input, scopeKind, useScopeFactory, false);
+            var log = AnalyzeDll(input, scopeKind, useScopeFactory, false);
             WriteSarifOutput(log, outputPath);
 
 
@@ -186,15 +194,6 @@ namespace ScopeProgramAnalysis
         }
 
         public enum ScopeMethodKind { Producer, Reducer, All };
-
-        private static SarifLog AnalyzeOneDll(string input, ScopeMethodKind kind, 
-            bool useScopeFactory = true, bool interProcAnalysis = false)
-        {
-            //var folder = Path.GetDirectoryName(input);
-            //var referenceFiles = Directory.GetFiles(folder, "*.dll", SearchOption.TopDirectoryOnly).Where(fp => Path.GetFileName(fp).ToLower(CultureInfo.InvariantCulture) != Path.GetFileName(input).ToLower(CultureInfo.InvariantCulture)).ToList();
-            //referenceFiles.AddRange(Directory.GetFiles(folder, "*.exe", SearchOption.TopDirectoryOnly));
-            return AnalyzeDll(input, kind, useScopeFactory, interProcAnalysis);
-        }
 
         private void ComputeColumns(string xmlFile, string processNumber)
         {
@@ -231,9 +230,35 @@ namespace ScopeProgramAnalysis
             //    .Select((c, i) => { var a = c.Split(':'); return new Column(a[0], new RangeDomain(i), a[1]); });
         }
 
-
-        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null, TimeSpan timeout = default(TimeSpan))
         {
+            if (timeout == default(TimeSpan))
+            {
+                timeout = TimeSpan.FromMinutes(1);
+            }
+            var task = Task.Run(() => AnalyzeDll2(inputPath, kind, useScopeFactory, interProc, outputStream));
+            if (task.Wait(timeout))
+                return task.Result;
+            else
+            {
+                var log = CreateSarifOutput();
+                var r = CreateRun(inputPath, "No results", "Timeout", new List<Result>());
+                log.Runs.Add(r);
+                return log;
+            }
+        }
+
+        public static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        {
+            var log = CreateSarifOutput();
+
+            if (!File.Exists(inputPath))
+            {
+                var r = CreateRun(inputPath, "No results", "File not found", new List<Result>());
+                log.Runs.Add(r);
+                return log;
+            }
+
             MyLoader loader;
             ScopeProgramAnalysis program;
             IAssembly assembly;
@@ -289,11 +314,11 @@ namespace ScopeProgramAnalysis
 
             if (!scopeMethodTuples.Any() && errorMessages.Count == 0)
             {
-                System.Console.WriteLine("No processors found in {0}", inputPath);
-                return null;
+                //Console.WriteLine("No processors found in {0}", inputPath);
+                var r = CreateRun(inputPath, "No results", "No processors found", new List<Result>());
+                log.Runs.Add(r);
+                return log;
             }
-
-            var log = CreateSarifOutput();
 
             foreach (var errorMessage in errorMessages)
             {
