@@ -248,7 +248,7 @@ namespace ScopeProgramAnalysis
             }
         }
 
-        public static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        private static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             var log = CreateSarifOutput();
 
@@ -300,9 +300,9 @@ namespace ScopeProgramAnalysis
                 {
                     if (outputStream != null)
                         outputStream.WriteLine("Failed to obtain methods from the ScopeFactory. ");
-                    System.Console.WriteLine("Failed to obtain methods from the ScopeFactory.");
+                    //Console.WriteLine("Failed to obtain methods from the ScopeFactory.");
 
-                    //System.Console.WriteLine("Now trying to find methods in the the assembly");
+                    //Console.WriteLine("Now trying to find methods in the the assembly");
                     //scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
                 }
             }
@@ -344,7 +344,7 @@ namespace ScopeProgramAnalysis
                 var entryMethodDef = methodTuple.Item2;
                 var moveNextMethod = methodTuple.Item3;
                 var getEnumMethod = methodTuple.Item4;
-                System.Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
+                Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
 
                 Schema inputSchema = null;
                 Schema outputSchema = null;
@@ -382,8 +382,8 @@ namespace ScopeProgramAnalysis
                 }
                 else
                 {
-                    System.Console.WriteLine("Could not analyze {0}", inputPath);
-                    System.Console.WriteLine("Reason: {0}\n", errorReason.Reason);
+                    Console.WriteLine("Could not analyze {0}", inputPath);
+                    Console.WriteLine("Reason: {0}\n", errorReason.Reason);
 
                     AnalysisStats.TotalofDepAnalysisErrors++;
                     AnalysisStats.AddAnalysisReason(errorReason);
@@ -546,7 +546,14 @@ namespace ScopeProgramAnalysis
             var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
             loadedAssembly = assemblyAndProvider.Item1;
 
-            loader.LoadScopeRuntime();
+            if (inputPath.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
+            {
+                inputPath = new Uri(inputPath).LocalPath;
+            }
+            var d = Path.GetDirectoryName(Path.GetFullPath(inputPath));
+            if (!Directory.Exists(d))
+                throw new InvalidOperationException("Can't find directory from path: " + inputPath);
+            loader.LoadScopeRuntime(d);
 
             loader.LoadCoreAssembly();
 
@@ -635,13 +642,14 @@ namespace ScopeProgramAnalysis
         {
             public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
             public List<string> UnreadInputs = new List<string>();
+            public bool AnalysesAgree;
             public bool TopHappened;
             public bool OutputHasTop;
             public bool InputHasTop;
             public int ColumnsSchemaInput;
             public int ColumnsSchemaOutput;
-
-
+            public bool Error;
+            public string ErrorReason;
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -665,6 +673,14 @@ namespace ScopeProgramAnalysis
                 }
 
                 var ret = new DependencyStats();
+
+                if (processorName == "No results")
+                {
+                    ret.Error = true;
+                    ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
+                    yield return Tuple.Create(processorName, ret);
+                    yield break;
+                }
 
                 var visitedColumns = new HashSet<string>();
                 var inputColumnsRead = new HashSet<string>();
@@ -729,6 +745,7 @@ namespace ScopeProgramAnalysis
 
                         columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
                         ret.ColumnsSchemaOutput = columnProperty.Count;
+                        ret.AnalysesAgree = result.GetProperty<bool>("Comparison");
 
                         yield return Tuple.Create(processorName, ret);
                         ret = new DependencyStats();

@@ -10,8 +10,6 @@ namespace ScopeProgramAnalysis.Framework
     {
         public static IPlatformType PlatformTypes; 
 
-        private string assemblyFolder;
-        private string assemblyParentFolder;
         private HashSet<IAssemblyReference> failedAssemblies;
         private Tuple<IAssembly, ISourceLocationProvider> mainAssemably;
         private MetadataReaderHost cciHost;
@@ -101,8 +99,9 @@ namespace ScopeProgramAnalysis.Framework
             {
                 fileName = new Uri(fileName).LocalPath;
             }
-            this.assemblyFolder = Path.GetDirectoryName(fileName);
-            this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
+            var d = Path.GetFullPath(fileName);
+            var assemblyFolder = Path.GetDirectoryName(d);
+            var assemblyParentFolder = Directory.GetParent(assemblyFolder).FullName;
             cciHost.AddLibPath(assemblyFolder);
             cciHost.AddLibPath(assemblyParentFolder);
             this.mainAssemably = this.LoadAssembly(fileName);
@@ -122,7 +121,7 @@ namespace ScopeProgramAnalysis.Framework
         //        }
         //        catch (Exception e)
         //        {
-        //            System.Console.WriteLine("We could not solve this reference: {0}", reference.Name);
+        //            Console.WriteLine("We could not solve this reference: {0}", reference.Name);
         //            failedAssemblies.Add(reference);
         //            throw e;
         //        }
@@ -130,7 +129,7 @@ namespace ScopeProgramAnalysis.Framework
         //    return assembly;
         //}
 
-        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyReferenceName)
+        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyReferenceName, string directory)
         {
             //if(assemblyReferenceName=="mscorlib")
             //{
@@ -139,24 +138,50 @@ namespace ScopeProgramAnalysis.Framework
 
             var extensions = new string[] { ".dll", ".exe" };
             var referencePath = "";
+            bool found = false;
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var parentOfCurrent = Directory.GetParent(currentDirectory).FullName;
+            var parentOfParameter = Directory.GetParent(directory).FullName;
+
             foreach (var extension in extensions)
             {
-                referencePath = Path.Combine(assemblyFolder, assemblyReferenceName) + extension;
+                referencePath = Path.Combine(directory, assemblyReferenceName) + extension;
                 if (File.Exists(referencePath))
+                {
+                    found = true;
                     break;
-                referencePath = Path.Combine(assemblyParentFolder, assemblyReferenceName) + extension;
+                }
+                referencePath = Path.Combine(parentOfParameter, assemblyReferenceName) + extension;
                 if (File.Exists(referencePath))
+                {
+                    found = true;
                     break;
+                }
+                referencePath = Path.Combine(currentDirectory, assemblyReferenceName) + extension;
+                if (File.Exists(referencePath))
+                {
+                    found = true;
+                    break;
+                }
+                referencePath = Path.Combine(parentOfCurrent, assemblyReferenceName) + extension;
+                if (File.Exists(referencePath))
+                {
+                    found = true;
+                    break;
+                }
             }
             //var cciAssemblyFromReference = cciHost.LoadUnitFrom(referencePath) as Cci.IModule;
             //// var cciAssemblyFromReference = cciHost.LoadUnit(assemblyReference.AssemblyIdentity) as Cci.IAssembly;
             //return cciAssemblyFromReference;
-            return LoadAssembly(referencePath);
+            if (found)
+                return LoadAssembly(referencePath);
+            else
+                throw new InvalidOperationException("Cannot find ScopeRuntime");
         }
 
-        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime()
+        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(string path)
         {
-            return TryToLoadAssembly("ScopeRuntime");
+            return TryToLoadAssembly("ScopeRuntime", path);
         }
         //public Assembly LoadAssemblyAndReferences(string fileName)
         //{

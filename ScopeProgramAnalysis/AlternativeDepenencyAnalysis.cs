@@ -264,8 +264,8 @@ namespace ScopeProgramAnalysis
                     inferer.Visit(cfgNode);
                 }
             }
-            System.Console.WriteLine("Finish Dep analysis");
-            System.Console.WriteLine(depGraph);
+            Console.WriteLine("Finish Dep analysis");
+            Console.WriteLine(depGraph);
             var depGraphDGML = DGMLSerializer.Serialize(depGraph);
 
             var cfgGraphDGML = DGMLSerializer.Serialize(cfg);
@@ -370,7 +370,7 @@ namespace ScopeProgramAnalysis
             //        }
             //   }
             //}
-            //System.Console.WriteLine(dependencyGraph);
+            //Console.WriteLine(dependencyGraph);
         }
 
 

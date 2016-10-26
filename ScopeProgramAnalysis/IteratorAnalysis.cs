@@ -1077,8 +1077,8 @@ namespace Backend.Analyses
                         }
                         catch (Exception e)
                         {
-                            System.Console.WriteLine("Could not analyze {0}", resolvedCallee.ToString());
-                            System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
+                            //Console.WriteLine("Could not analyze {0}", resolvedCallee.ToString());
+                            //Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                             AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt,
                                         String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToString())));
                             AnalysisStats.TotalofFrameworkErrors++;
@@ -1975,8 +1975,8 @@ namespace Backend.Analyses
                     }
                     catch (Exception e)
                     {
-                        System.Console.WriteLine("Could not analyze delegate {0}", resolvedCallee.ToString());
-                        System.Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
+                        //Console.WriteLine("Could not analyze delegate {0}", resolvedCallee.ToString());
+                        //Console.WriteLine("Exception {0}\n{1}", e.Message, e.StackTrace);
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCall,
                                     String.Format(CultureInfo.InvariantCulture, "Callee {2} throw exception {0}\n{1}", e.Message, e.StackTrace.ToString(), resolvedCallee.ToString())));
                         AnalysisStats.TotalofFrameworkErrors++;

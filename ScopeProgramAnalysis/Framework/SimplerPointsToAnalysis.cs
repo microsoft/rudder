@@ -479,7 +479,7 @@ namespace Backend.Analyses
                     // ptg.PointsTo(node, access.Field, ptg.Null);
                     if (!reachable)
                     {
-                        //System.Console.WriteLine("In {0}:{1:X4}.  Variable {2} field {3} has no object to load and {2} is not a parameter.", 
+                        //Console.WriteLine("In {0}:{1:X4}.  Variable {2} field {3} has no object to load and {2} is not a parameter.", 
                         //    this.method.ToString(), offset, instance, field);
                         if(field.Name.Value=="[]")
                         {
