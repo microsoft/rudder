@@ -971,71 +971,57 @@ namespace ScopeProgramAnalysis
 
             foreach (var factoryMethod in factoryMethods)
             {
-                var ins = factoryMethod.Body.Operations.Where(op => op.OperationCode == OperationCode.Newobj).Single().Value as IMethodReference;
-
-                var reducerClass = ins.ContainingType;
-
-                var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClass.FullName()));
-
-                if (isCompilerGenerated)
-                    continue;
-
-                ITypeDefinition reducerClassDefinition = null;
                 try
                 {
-                    reducerClassDefinition = reducerClass.ResolvedType;
-
-                    if (reducerClassDefinition is Dummy)
+                    var nonNullEntryMethods = factoryMethod.Body.Operations
+                        .Where(op => op.OperationCode == OperationCode.Newobj)
+                        .Select(e => e.Value)
+                        .OfType<IMethodReference>()
+                        .Select(e => FindEntryMethod(host, e.ContainingType.ResolvedType))
+                        .Where(e => e != null && !(e is Dummy))
+                        ;
+                    if (nonNullEntryMethods.Count() != 1)
                     {
-                        errorMessages.Add(Tuple.Create(reducerClassDefinition, String.Format("Could not resolve reducer class '{0}'", reducerClass.GetName())));
                         continue;
                     }
+                    var entryMethod = nonNullEntryMethods.First();
+                    var reducerClassDefinition = entryMethod.ContainingTypeDefinition;
 
-                    if (reducerClassDefinition != null)
+                    var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClassDefinition.FullName()));
+
+                    if (isCompilerGenerated)
+                        continue;
+
+                    if (processorsToAnalyze.Contains(reducerClassDefinition))
+                        continue;
+
+                    processorsToAnalyze.Add(reducerClassDefinition);
+
+                    // Closure classes are always named types. Using the type case means the Name property is defined.
+                    var candidateClosures = reducerClassDefinition.NestedTypes.OfType<INamedTypeDefinition>()
+                                   .Where(c => this.ClousureFilters.Any(filter => c.Name.Value.StartsWith(filter)));
+                    if (!candidateClosures.Any())
                     {
-                        var entryMethod = FindEntryMethod(host, reducerClassDefinition);
-                        if (entryMethod == null)
-                        {
-                            errorMessages.Add(Tuple.Create(reducerClassDefinition, "Entry method not found"));
-                            continue;
-                        }
-                        var containingType = entryMethod.ContainingType.ResolvedType;
-                        if (containingType == null)
-                        {
-                            continue;
-                        }
+                        errorMessages.Add(Tuple.Create(reducerClassDefinition, "Iterator not found"));
+                        continue;
+                    }
+                    foreach (var candidateClosure in candidateClosures)
+                    {
+                        var getEnumMethods = candidateClosure.Methods
+                                                    .Where(m => m.Name.Value == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
+                        var getEnumeratorMethod = getEnumMethods.Single();
 
-                        if (processorsToAnalyze.Contains(containingType))
-                            continue;
-
-                        processorsToAnalyze.Add(containingType.ResolvedType);
-
-                        // Closure classes are always named types. Using the type case means the Name property is defined.
-                        var candidateClosures = containingType.NestedTypes.OfType<INamedTypeDefinition>()
-                                       .Where(c => this.ClousureFilters.Any(filter => c.Name.Value.StartsWith(filter)));
-                        if (!candidateClosures.Any())
+                        var moveNextMethods = candidateClosure.Methods
+                                                    .Where(md => md.Body != null && md.Name.Value.Equals(this.MethodUnderAnalysisName));
+                        foreach (var moveNextMethod in moveNextMethods)
                         {
-                            errorMessages.Add(Tuple.Create(reducerClassDefinition, "Iterator not found"));
-                            continue;
-                        }
-                        foreach (var candidateClosure in candidateClosures)
-                        {
-                            var getEnumMethods = candidateClosure.Methods
-                                                        .Where(m => m.Name.Value == ScopeAnalysisConstants.SCOPE_ROW_ENUMERATOR_METHOD);
-                            var getEnumeratorMethod = getEnumMethods.Single();
+                            scopeMethodTuplesToAnalyze.Add(Tuple.Create(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod));
 
-                            var moveNextMethods = candidateClosure.Methods
-                                                        .Where(md => md.Body != null && md.Name.Value.Equals(this.MethodUnderAnalysisName));
-                            foreach (var moveNextMethod in moveNextMethods)
+                            // TODO: Hack for reuse. Needs refactor
+                            if (factoryMethod != null)
                             {
-                                scopeMethodTuplesToAnalyze.Add(Tuple.Create(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod));
-
-                                // TODO: Hack for reuse. Needs refactor
-                                if (factoryMethod != null)
-                                {
-                                    var processID = factoryMethod.Name.Value.Substring(factoryMethod.Name.Value.IndexOf("Process_"));
-                                    this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ITypeDefinition);
-                                }
+                                var processID = factoryMethod.Name.Value.Substring(factoryMethod.Name.Value.IndexOf("Process_"));
+                                this.factoryReducerMap.Add(processID, entryMethod.ContainingType as ITypeDefinition);
                             }
                         }
                     }
