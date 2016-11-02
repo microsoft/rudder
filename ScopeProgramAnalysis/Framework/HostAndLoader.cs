@@ -80,10 +80,6 @@ namespace ScopeProgramAnalysis.Framework
                 }
             }
 
-            //if (pdbReader != null)
-            //{
-            //    pdbReader.Dispose();
-            //}
             sourceProviderForAssembly.Add(module.ContainingAssembly, pdbReader);
 
             if (module.ContainingAssembly.NamespaceRoot.Members.Any(m => m.Name.Value == "ScopeRuntime"))
@@ -108,175 +104,52 @@ namespace ScopeProgramAnalysis.Framework
             return this.mainAssemably;
         }
 
-
-        //public IAssembly TryToLoadReferencedAssembly(IAssemblyReference reference)
-        //{
-        //    var assembly = this.ourHost.Assemblies.SingleOrDefault(a => a.MatchReference(reference));
-        //    if (assembly == null && !failedAssemblies.Contains(reference))
-        //    {
-        //        try
-        //        {
-        //            AnalysisStats.TotalDllsFound++;
-        //            assembly = TryToLoadAssembly(reference.Name.Value);
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            Console.WriteLine("We could not solve this reference: {0}", reference.Name);
-        //            failedAssemblies.Add(reference);
-        //            throw e;
-        //        }
-        //    }
-        //    return assembly;
-        //}
-
-        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyReferenceName, string directory)
+        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyName, string directory)
         {
-            //if(assemblyReferenceName=="mscorlib")
-            //{
-            //    return LoadCoreAssembly();
-            //}
-
             var extensions = new string[] { ".dll", ".exe" };
-            var referencePath = "";
+            var path = "";
             bool found = false;
-            var currentDirectory = Directory.GetCurrentDirectory();
-            var parentOfCurrent = Directory.GetParent(currentDirectory).FullName;
-            var parentOfParameter = Directory.GetParent(directory).FullName;
+            var d = directory;
 
-            foreach (var extension in extensions)
+            while (!found)
             {
-                referencePath = Path.Combine(directory, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
+                foreach (var extension in extensions)
                 {
-                    found = true;
-                    break;
+                    path = Path.Combine(d, assemblyName + extension);
+                    if (File.Exists(path))
+                    {
+                        found = true;
+                        break;
+                    }
                 }
-                referencePath = Path.Combine(parentOfParameter, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
+                if (!found)
                 {
-                    found = true;
-                    break;
+                    d = Directory.GetParent(d).FullName;
+                    if (!Directory.Exists(d))
+                        break;
                 }
-                referencePath = Path.Combine(currentDirectory, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
-                {
-                    found = true;
-                    break;
-                }
-                referencePath = Path.Combine(parentOfCurrent, assemblyReferenceName) + extension;
-                if (File.Exists(referencePath))
-                {
-                    found = true;
-                    break;
-                }
+
             }
-            //var cciAssemblyFromReference = cciHost.LoadUnitFrom(referencePath) as Cci.IModule;
-            //// var cciAssemblyFromReference = cciHost.LoadUnit(assemblyReference.AssemblyIdentity) as Cci.IAssembly;
-            //return cciAssemblyFromReference;
             if (found)
-                return LoadAssembly(referencePath);
+                return LoadAssembly(path);
             else
-                throw new InvalidOperationException("Cannot find ScopeRuntime");
+                return null;
         }
 
         internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(string path)
         {
-            return TryToLoadAssembly("ScopeRuntime", path);
+            Tuple<IAssembly, ISourceLocationProvider> t;
+            t = TryToLoadAssembly("ScopeRuntime", path);
+            if (t == null)
+            {
+                var currentDirectory = Directory.GetCurrentDirectory();
+                t = TryToLoadAssembly("ScopeRuntime", currentDirectory);
+            }
+            if (t == null)
+                throw new InvalidOperationException("Cannot find ScopeRuntime");
+            return t;
         }
-        //public Assembly LoadAssemblyAndReferences(string fileName)
-        //{
-        //    var module = cciHost.LoadUnitFrom(fileName) as Cci.IModule;
-
-        //    if (module == null || module == Cci.Dummy.Module || module == Cci.Dummy.Assembly)
-        //        throw new Exception("The input is not a valid CLR module or assembly.");
-
-        //    var pdbFileName = Path.ChangeExtension(fileName, "pdb");
-        //    Cci.PdbReader pdbReader = null;
-
-        //    if (File.Exists(pdbFileName))
-        //    {
-        //        using (var pdbStream = File.OpenRead(pdbFileName))
-        //        {
-        //            pdbReader = new Cci.PdbReader(pdbStream, cciHost);
-        //        }
-        //    }
-        //    var assembly = this.ExtractAssembly(module, pdbReader);
-
-        //    if (pdbReader != null)
-        //    {
-        //        pdbReader.Dispose();
-        //    }
-
-        //    ourHost.Assemblies.Add(assembly);
-        //    this.assemblyFolder = Path.GetDirectoryName(fileName);
-        //    this.assemblyParentFolder = Directory.GetParent(Path.GetDirectoryName(fileName)).FullName;
-        //    cciHost.AddLibPath(assemblyFolder);
-        //    cciHost.AddLibPath(assemblyParentFolder);
-
-        //    foreach (var assemblyReference in module.AssemblyReferences)
-        //    {
-        //        try
-        //        {
-        //            Cci.IModule cciAssemblyFromReference = TryToLoadCCIAssembly(assemblyReference);
-
-        //            if (cciAssemblyFromReference == null || cciAssemblyFromReference == Cci.Dummy.Assembly)
-        //                throw new Exception("The input is not a valid CLR module or assembly.");
-
-        //            var pdbLocation = cciAssemblyFromReference.DebugInformationLocation;
-        //            if (File.Exists(pdbFileName))
-        //            {
-        //                using (var pdbStream = File.OpenRead(pdbFileName))
-        //                {
-        //                    pdbReader = new Cci.PdbReader(pdbStream, cciHost);
-        //                }
-        //            }
-        //            var assemblyFromRef = this.ExtractAssembly(cciAssemblyFromReference, pdbReader);
-        //            ourHost.Assemblies.Add(assemblyFromRef);
-        //            if (pdbReader != null)
-        //            {
-        //                pdbReader.Dispose();
-        //            }
-        //        }
-        //        catch (Exception e)
-        //        {
-
-        //        }
-        //    }
-        //    return assembly;
-
-        //}
-
 
     }
 
-    //public class MyHost : Host
-    //{
-    //    public MyLoader Loader { get; set; }
-
-    //    public override ITypeDefinition ResolveReference(INamedTypeReference typeToResolve)
-    //    {
-    //        var resolvedType = base.ResolveReference(typeToResolve);
-    //        if (resolvedType == null)
-    //        {
-    //            try
-    //            {
-    //                Loader.TryToLoadReferencedAssembly(typeToResolve.ContainingAssembly);
-    //                resolvedType = base.ResolveReference(typeToResolve);
-    //            }
-    //            catch (Exception e)
-    //            {
-    //                AnalysisStats.DllThatFailedToLoad.Add(typeToResolve.ContainingAssembly.Name);
-    //                AnalysisStats.TotalDllsFailedToLoad++;
-    //                System.Diagnostics.Debug.WriteLine("Failed to load {0}: {1}", typeToResolve.ContainingAssembly.Name, e.Message);
-    //            }
-
-    //        }
-    //        return resolvedType;
-    //    }
-    //    public override ITypeDefinitionMember ResolveReference(ITypeMemberReference member)
-    //    {
-    //        return base.ResolveReference(member);
-    //    }
-
-    //}
 }

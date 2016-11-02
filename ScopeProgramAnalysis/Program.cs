@@ -254,7 +254,7 @@ namespace ScopeProgramAnalysis
 
             if (!File.Exists(inputPath))
             {
-                var r = CreateRun(inputPath, "No results", "File not found", new List<Result>());
+                var r = CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + inputPath, new List<Result>());
                 log.Runs.Add(r);
                 return log;
             }
@@ -654,6 +654,7 @@ namespace ScopeProgramAnalysis
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
         {
+            var dependencyStats = new List<Tuple<string, DependencyStats>>();
             foreach (var run in log.Runs)
             {
                 var tool = run.Tool.Name;
@@ -672,15 +673,17 @@ namespace ScopeProgramAnalysis
                     processorName = run.Id;
                 }
 
-                var ret = new DependencyStats();
 
                 if (processorName == "No results")
                 {
-                    ret.Error = true;
-                    ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
-                    yield return Tuple.Create(processorName, ret);
-                    yield break;
+                    var ret2 = new DependencyStats();
+                    ret2.Error = true;
+                    ret2.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
+                    dependencyStats.Add(Tuple.Create(processorName, ret2));
+                    continue;
                 }
+
+                var ret = new DependencyStats();
 
                 var visitedColumns = new HashSet<string>();
                 var inputColumnsRead = new HashSet<string>();
@@ -747,11 +750,11 @@ namespace ScopeProgramAnalysis
                         ret.ColumnsSchemaOutput = columnProperty.Count;
                         ret.AnalysesAgree = result.GetProperty<bool>("Comparison");
 
-                        yield return Tuple.Create(processorName, ret);
-                        ret = new DependencyStats();
                     }
                 }
+                dependencyStats.Add(Tuple.Create(processorName, ret));
             }
+            return dependencyStats;
         }
 
 
@@ -862,6 +865,11 @@ namespace ScopeProgramAnalysis
                     // Top is less-equal-to any other result
                     resultSummary.SetProperty("Comparison", true);
                 }
+                else
+                {
+                    // Should look into why this might be the case.
+                    resultSummary.SetProperty("Comparison", false);
+                }
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 
                 results.Add(resultSummary);
@@ -968,6 +976,10 @@ namespace ScopeProgramAnalysis
                             /*&& m.ReturnType.ToString() == this.ClassFilter*/);
 
             // var referencesLoaded = false;
+            if (!factoryMethods.Any())
+            {
+                errorMessages.Add(Tuple.Create((ITypeDefinition)operationFactoryClass, "No factory methods found"));
+            }
 
             foreach (var factoryMethod in factoryMethods)
             {
@@ -1029,7 +1041,8 @@ namespace ScopeProgramAnalysis
                 catch (Exception e)
                 {
                     AnalysisStats.TotalofDepAnalysisErrors++;
-                    System.Console.WriteLine("Error in Dependency Analysis", e.Message);
+                    Console.WriteLine("Error in Dependency Analysis", e.Message);
+                    errorMessages.Add(Tuple.Create((ITypeDefinition)operationFactoryClass, "Exception occurred while looking for processors"));
                 }
 
             }
@@ -1137,6 +1150,9 @@ namespace ScopeProgramAnalysis
                     var outputColumns = ParseColumns(outputSchema.Item2.Value);
                     d.Add(className, Tuple.Create(new Schema(inputColumns), new Schema(outputColumns)));
                 }
+            } else
+            {
+                throw new FileNotFoundException("Cannot find ScopeVertexDef.xml");
             }
             return d;
         }
