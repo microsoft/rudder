@@ -254,7 +254,8 @@ namespace ScopeProgramAnalysis
 
             if (!File.Exists(inputPath))
             {
-                var r = CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + inputPath, new List<Result>());
+                var fileName = Path.GetFileName(inputPath);
+                var r = CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + fileName, new List<Result>());
                 log.Runs.Add(r);
                 return log;
             }
@@ -322,7 +323,7 @@ namespace ScopeProgramAnalysis
 
             foreach (var errorMessage in errorMessages)
             {
-                var r = CreateRun(inputPath, errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
+                var r = CreateRun(inputPath, errorMessage.Item1 == null ? "No results" : errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
                 log.Runs.Add(r);
             }
 
@@ -642,7 +643,7 @@ namespace ScopeProgramAnalysis
         {
             public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
             public List<string> UnreadInputs = new List<string>();
-            public bool AnalysesAgree;
+            public bool UsedColumnTop;
             public bool TopHappened;
             public bool OutputHasTop;
             public bool InputHasTop;
@@ -748,8 +749,8 @@ namespace ScopeProgramAnalysis
 
                         columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
                         ret.ColumnsSchemaOutput = columnProperty.Count;
-                        ret.AnalysesAgree = result.GetProperty<bool>("Comparison");
-
+                        ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
+                        ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
@@ -850,26 +851,33 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
-                // Comparison means that the results are consistent, *not* that they are equal.
-                // In particular, the dependency analysis may be able to return a (non-top) result
-                // when the used-column analysis cannot.
-                if (!bagOColumnsUsedColumns.IsTop && !bagOColumnsUsedColumns.IsBottom)
-                {
-                    var a = bagOColumnsUsedColumns.Elements.Select(e => e.Value.ToString());
-                    var b = inputColumns.Union(outputColumns).Select(tc => tc.Column).Distinct();
-                    var compareResults = Util.SetEqual(a, b, (x, y) => Util.ColumnNameMatches(x, y));
-                    resultSummary.SetProperty("Comparison", compareResults);
-                } else if (bagOColumnsUsedColumns.IsTop)
-                {
-                    // The used column analysis is more conservative than the dependency analysis.
-                    // Top is less-equal-to any other result
-                    resultSummary.SetProperty("Comparison", true);
-                }
-                else
-                {
-                    // Should look into why this might be the case.
-                    resultSummary.SetProperty("Comparison", false);
-                }
+                // Cannot compare the dependency analysis and the used-column analysis.
+                // It can be that D <= UC or that UC <= D. (Where <= means the partial order where
+                // any result is less-than-or-equal to "top".)
+                // So just set a property for each as to whether they returned "top".
+                resultSummary.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
+                resultSummary.SetProperty("DependencyAnalysisTop", depAnalysisResult.IsTop);
+
+                //// Comparison means that the results are consistent, *not* that they are equal.
+                //// In particular, the dependency analysis may be able to return a (non-top) result
+                //// when the used-column analysis cannot.
+                //if (!bagOColumnsUsedColumns.IsTop && !bagOColumnsUsedColumns.IsBottom)
+                //{
+                //    var a = bagOColumnsUsedColumns.Elements.Select(e => e.Value.ToString());
+                //    var b = inputColumns.Union(outputColumns).Select(tc => tc.Column).Distinct();
+                //    var compareResults = Util.SetEqual(a, b, (x, y) => Util.ColumnNameMatches(x, y));
+                //    resultSummary.SetProperty("Comparison", compareResults);
+                //} else if (bagOColumnsUsedColumns.IsTop)
+                //{
+                //    // The used column analysis is more conservative than the dependency analysis.
+                //    // Top is less-equal-to any other result
+                //    resultSummary.SetProperty("Comparison", true);
+                //}
+                //else
+                //{
+                //    // Should look into why this might be the case.
+                //    resultSummary.SetProperty("Comparison", false);
+                //}
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 
                 results.Add(resultSummary);
@@ -887,7 +895,8 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
-                resultEmpty.SetProperty("Comparison", bagOColumnsUsedColumns.IsTop);
+                resultEmpty.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
+                resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 results.Add(resultEmpty);
             }
@@ -978,7 +987,7 @@ namespace ScopeProgramAnalysis
             // var referencesLoaded = false;
             if (!factoryMethods.Any())
             {
-                errorMessages.Add(Tuple.Create((ITypeDefinition)operationFactoryClass, "No factory methods found"));
+                errorMessages.Add(Tuple.Create((ITypeDefinition)null, "No factory methods found"));
             }
 
             foreach (var factoryMethod in factoryMethods)
