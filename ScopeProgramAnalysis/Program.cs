@@ -420,7 +420,7 @@ namespace ScopeProgramAnalysis
             {
                 return CreateRun(inputPath, processorName, "Processor class not found", new List<Result>());
             }
-            var entryMethod = FindEntryMethod(host, processorClass);
+            var entryMethod = FindEntryMethod(loader.RuntimeTypes.concurrentProcessor, processorClass);
             if (entryMethod == null)
             {
                 return CreateRun(inputPath, processorName, "Entry method not found", new List<Result>());
@@ -480,11 +480,37 @@ namespace ScopeProgramAnalysis
         /// <summary>
         /// Searches for the Reduce or Process method in a processor.
         /// </summary>
-        /// <param name="host">Used to resolve the base class references as the inheritance hierarchy is searched.</param>
+        /// <param name="concurrentProcessorType">This parameter is needed in case <paramref name="c"/> is
+        /// a type that implemented ConcurrentProcessor which means the real processor is the type
+        /// argument used in the ConcurrentProcessor.</param>
         /// <param name="c">The initial class to begin the search at.</param>
         /// <returns>The processor's method, null if not found</returns>
-        private static IMethodDefinition FindEntryMethod(IMetadataHost host, ITypeDefinition c)
+        private static IMethodDefinition FindEntryMethod(ITypeDefinition concurrentProcessorType, ITypeDefinition c)
         {
+            // If c is a subtype of ConcurrentProcessor, then c should really be the first generic argument
+            // which is the type of the real processor. Note that this is tricky to find since c might
+            // be a non-generic type that is a subtype of another type that in turn is a subtype of
+            // ConcurrentProcessor. I.e., c is of type T <: U<A> <: ConcurrentProcessor<A,B,C>
+            var found = false;
+            var c2 = c;
+            IGenericTypeInstanceReference gtir = null;
+            while (!found)
+            {
+                gtir = c2 as IGenericTypeInstanceReference;
+                if (gtir != null && TypeHelper.TypesAreEquivalent(gtir.GenericType.ResolvedType, concurrentProcessorType))
+        {
+                    found = true;
+                    break;
+                }
+                var baseClass = c2.BaseClasses.SingleOrDefault();
+                if (baseClass == null) break;
+                c2 = baseClass.ResolvedType;
+            }
+            if (found)
+            {
+                c = gtir.GenericArguments.ElementAt(0).ResolvedType;
+            }
+
             // First, walk up the inheritance hierarchy until we find out whether this is a processor or a reducer.
             string entryMethodName = null;
             var baseType = c.BaseClasses.SingleOrDefault();
@@ -540,13 +566,6 @@ namespace ScopeProgramAnalysis
 
             var host = new PeReader.DefaultHost();
 
-            loader = new MyLoader(host);
-
-            Types.Initialize(host);
-
-            var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
-            loadedAssembly = assemblyAndProvider.Item1;
-
             if (inputPath.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
             {
                 inputPath = new Uri(inputPath).LocalPath;
@@ -554,12 +573,15 @@ namespace ScopeProgramAnalysis
             var d = Path.GetDirectoryName(Path.GetFullPath(inputPath));
             if (!Directory.Exists(d))
                 throw new InvalidOperationException("Can't find directory from path: " + inputPath);
-            loader.LoadScopeRuntime(d);
 
-            loader.LoadCoreAssembly();
+            loader = new MyLoader(host, d);
+
+            Types.Initialize(host);
+
+            var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
+            loadedAssembly = assemblyAndProvider.Item1;
 
             program = new ScopeProgramAnalysis(loader);
-
         }
 
         private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>>();
@@ -608,7 +630,7 @@ namespace ScopeProgramAnalysis
 
                     var a = TypeHelper.GetDefiningUnit(processorClass) as IAssembly;
                     var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, moveNextMethod);
-                    bagOColumnsUsedColumns = z.UsedColumnsSummary;
+                    bagOColumnsUsedColumns = z.UsedColumnsSummary ?? ScopeAnalyzer.Analyses.ColumnsDomain.Top;
 
                     previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, bagOColumnsUsedColumns));
                 }
@@ -998,7 +1020,7 @@ namespace ScopeProgramAnalysis
                         .Where(op => op.OperationCode == OperationCode.Newobj)
                         .Select(e => e.Value)
                         .OfType<IMethodReference>()
-                        .Select(e => FindEntryMethod(host, e.ContainingType.ResolvedType))
+                        .Select(e => FindEntryMethod(loader.RuntimeTypes.concurrentProcessor, e.ContainingType.ResolvedType))
                         .Where(e => e != null && !(e is Dummy))
                         ;
                     if (nonNullEntryMethods.Count() != 1)
@@ -1076,7 +1098,7 @@ namespace ScopeProgramAnalysis
                     if (isCompilerGenerated)
                         continue;
 
-                    var entryMethod = FindEntryMethod(host, candidateClass);
+                    var entryMethod = FindEntryMethod(loader.RuntimeTypes.concurrentProcessor, candidateClass);
                     if (entryMethod == null) continue;
 
                     var containingType = entryMethod.ContainingType.ResolvedType;

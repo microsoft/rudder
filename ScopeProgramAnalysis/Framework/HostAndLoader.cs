@@ -14,10 +14,43 @@ namespace ScopeProgramAnalysis.Framework
         private Tuple<IAssembly, ISourceLocationProvider> mainAssemably;
         private MetadataReaderHost cciHost;
         private IDictionary<IAssembly, ISourceLocationProvider> sourceProviderForAssembly;
+        private RuntimeTypeStruct runtimeTypes;
+        public RuntimeTypeStruct RuntimeTypes {  get { return runtimeTypes; } }
+
+        public class RuntimeTypeStruct
+        {
+            public ITypeDefinition rowType = null;
+            public ITypeDefinition rowSetType = null;
+            public ITypeDefinition reducerType = null;
+            public ITypeDefinition processorType = null;
+            public ITypeDefinition concurrentProcessor;
+            public ITypeDefinition combinerType = null;
+            public ITypeDefinition columnType = null;
+            public ITypeDefinition schemaType = null;
+
+            public RuntimeTypeStruct(IMetadataHost host, IAssembly scopeRuntime)
+            {
+                processorType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.Processor");
+                reducerType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.Reducer");
+                rowType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.Row");
+                rowSetType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.RowSet");
+                columnType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.ColumnData");
+                schemaType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.Schema");
+                combinerType = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.Combiner");
+                concurrentProcessor = UnitHelper.FindType(host.NameTable, scopeRuntime, "ScopeRuntime.ConcurrentProcessor",3);
+
+                if (reducerType == null || processorType == null || rowSetType == null ||
+                    rowType == null || columnType == null || schemaType == null || combinerType == null || concurrentProcessor == null)
+                    throw new InvalidOperationException(
+                        String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}\tCombiner:{6}\tConcurrentProcessor:{7}",
+                            reducerType != null, processorType != null, rowSetType != null, rowType != null, columnType != null, schemaType != null, combinerType != null, concurrentProcessor != null));
+
+            }
+        }
 
         public IMetadataHost Host { get { return cciHost; }  }
 
-        public MyLoader(MetadataReaderHost host) 
+        public MyLoader(MetadataReaderHost host, string directory) 
         {
             this.cciHost = host;
             sourceProviderForAssembly = new Dictionary<IAssembly, ISourceLocationProvider>();
@@ -25,11 +58,9 @@ namespace ScopeProgramAnalysis.Framework
                 PlatformTypes = host.PlatformType;
 
             this.failedAssemblies = new HashSet<IAssemblyReference>();
-        }
-        public MyLoader()
-        {
-            this.cciHost = new PeReader.DefaultHost();
-            this.failedAssemblies = new HashSet<IAssemblyReference>();
+            LoadCoreAssembly();
+
+            LoadRuntimeTypes(directory);
         }
 
         public ISourceLocationProvider GetSourceLocationProvider(IAssembly assembly)
@@ -150,6 +181,11 @@ namespace ScopeProgramAnalysis.Framework
             return t;
         }
 
+        private void LoadRuntimeTypes(string directory)
+        {
+            var scopeRuntime = LoadScopeRuntime(directory).Item1;
+            this.runtimeTypes = new RuntimeTypeStruct(this.Host, scopeRuntime);
+        }
     }
 
 }

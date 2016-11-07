@@ -93,6 +93,7 @@ namespace ScopeAnalyzer
         ITypeDefinition rowSetType = null;
         ITypeDefinition reducerType = null;
         ITypeDefinition processorType = null;
+        ITypeDefinition concurrentProcessor;
         ITypeDefinition combinerType = null;
         ITypeDefinition columnType = null;
         ITypeDefinition schemaType = null;
@@ -103,8 +104,6 @@ namespace ScopeAnalyzer
         // User of the ScopeAnalysis can provide (in constructor) names of the processor methods of interest using this structure.
         // If this structure is null, the analysis will analyze all processors, otherwise it will analyze only ones listed here.
         IEnumerable<string> interestingProcessors;
-
-
 
         public ScopeAnalysis(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> refAssemblies, IEnumerable<string> ips)
         {
@@ -193,12 +192,13 @@ namespace ScopeAnalyzer
             columnType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.ColumnData");
             schemaType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Schema");
             combinerType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Combiner");
+            concurrentProcessor = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.ConcurrentProcessor");
 
             if (reducerType == null || processorType == null || rowSetType == null || 
-                rowType == null || columnType == null || schemaType == null || combinerType == null)
+                rowType == null || columnType == null || schemaType == null || combinerType == null || concurrentProcessor == null)
                 throw new MissingScopeMetadataException(
-                    String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}\tCombiner:{6}",
-                        reducerType != null, processorType != null, rowSetType != null, rowType != null, columnType != null, schemaType != null, combinerType != null));
+                    String.Format("Could not load all necessary Scope types: Reducer:{0}\tProcessor:{1}\tRowSet:{2}\tRow:{3}\tColumn:{4}\tSchema:{5}\tCombiner:{6}\tConcurrentProcessor:{7}",
+                        reducerType != null, processorType != null, rowSetType != null, rowType != null, columnType != null, schemaType != null, combinerType != null, concurrentProcessor != null));
         }
 
         /// <summary>
