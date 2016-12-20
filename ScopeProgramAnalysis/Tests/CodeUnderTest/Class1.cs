@@ -326,5 +326,32 @@ namespace CodeUnderTest
             yield break;
         }
     }
+
+    public class ScopeMap01 : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.Clone();
+            var newcol = new ColumnInfo("ScopeMapColumn", typeof(string));
+            output_schema.Add(newcol);
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            foreach (Row current in input.Rows)
+            {
+                current.CopyTo(output);
+                var scopeMap = current[0].Value as ScopeRuntime.ScopeMap<string, int>;
+                if (scopeMap.ContainsKey("a"))
+                {
+                    var foo = scopeMap["a"];
+                    output[1].Set(foo);
+                }
+                yield return output;
+            }
+            yield break;
+        }
+
+    }
 }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -28,6 +29,9 @@ namespace ScopeRuntime
         public virtual void Set(long o) { }
         public virtual void UnsafeSet(long o) { }
         public virtual void CopyTo(ColumnData destination) { }
+        public virtual object Value { get; }
+        public virtual void Set(object o) { }
+        public virtual void UnsafeSet(object o) { }
     }
     public class ColumnInfo
     {
@@ -118,5 +122,35 @@ namespace ScopeRuntime
 
         public virtual Schema Produces(string[] requestedColumns, string[] args, Schema leftSchema, string leftTable, Schema rightSchema, string rightTable) { return null; }
         public abstract System.Collections.Generic.IEnumerable<Row> Combine(RowSet left, RowSet right, Row outputRow, string[] args);
+    }
+
+    public abstract class ScopeArray<T> : IEnumerable<T>, IEnumerable
+    {
+        public abstract IEnumerator<T> GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
+        public abstract bool Contains(T t);
+        public abstract int Count { get; }
+        public abstract T this[int index] { get; }
+    }
+
+    public abstract class ScopeMap<K, V> : IEnumerable<KeyValuePair<K, V>>, IEnumerable
+    {
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
+
+        public abstract IEnumerator<KeyValuePair<K, V>> GetEnumerator();
+        public abstract bool ContainsKey(K k);
+        public abstract int Count { get; }
+        public abstract V this[K key] { get; }
+        public abstract ScopeArray<K> Keys { get; }
+        public abstract ScopeArray<V> Values { get; }
+
+
     }
 }

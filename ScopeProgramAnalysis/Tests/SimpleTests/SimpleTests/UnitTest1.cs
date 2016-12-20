@@ -181,6 +181,16 @@ namespace SimpleTests
             Assert.IsNotNull(run);
             Assert.IsTrue(run.BothAnalysesAgree()); // Both return TOP
         }
+        [TestMethod]
+        public void CallScopeMap01()
+        {
+            var t = typeof(ScopeMap01);
+            var run = AnalyzeProcessor(t, "X: string", "X: string, a: int");
+
+            var s = SarifRunToString(run);
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+        }
 
     }
 }
