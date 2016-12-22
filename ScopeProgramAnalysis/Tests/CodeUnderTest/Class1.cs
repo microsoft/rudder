@@ -353,5 +353,49 @@ namespace CodeUnderTest
         }
 
     }
+
+    public class FirstRowReducer : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            return input.CloneWithSource();
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            using (var enumerator = input.Rows.GetEnumerator())
+            {
+                if (enumerator.MoveNext())
+                {
+                    Row current = enumerator.Current;
+                    yield return current;
+                }
+            }
+            yield break;
+        }
+
+    }
+    public class RowCountReducer : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            return input.CloneWithSource();
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            long limit = long.Parse(args[0]);
+            long currentCount = 0L;
+            foreach (Row current in input.Rows)
+            {
+                currentCount += 1L;
+                if (currentCount > limit)
+                {
+                    break;
+                }
+                yield return current;
+            }
+            yield break;
+        }
+
+    }
 }
 

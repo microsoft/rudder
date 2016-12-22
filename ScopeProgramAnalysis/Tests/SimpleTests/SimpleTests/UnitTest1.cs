@@ -187,6 +187,25 @@ namespace SimpleTests
             var t = typeof(ScopeMap01);
             var run = AnalyzeProcessor(t, "X: string", "X: string, a: int");
 
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+        }
+        [TestMethod]
+        public void CallFirstRowReducer()
+        {
+            var t = typeof(FirstRowReducer);
+            var run = AnalyzeProcessor(t, "X: string, Y: int", "X: string, Y: int");
+
+            var s = SarifRunToString(run);
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+        }
+        [TestMethod]
+        public void CallRowCountReducer()
+        {
+            var t = typeof(RowCountReducer);
+            var run = AnalyzeProcessor(t, "X: string, Y: int", "X: string, Y: int");
+
             var s = SarifRunToString(run);
             Assert.IsNotNull(run);
             Assert.IsTrue(run.BothAnalysesAgree());
