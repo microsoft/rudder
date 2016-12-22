@@ -292,7 +292,7 @@ namespace ScopeProgramAnalysis
 
             program.MethodUnderAnalysisName = "MoveNext";
 
-            IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> scopeMethodTuples;
+            IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> scopeMethodTuples;
             List<Tuple<ITypeDefinition, string>> errorMessages;
             if (useScopeFactory)
             {
@@ -345,6 +345,7 @@ namespace ScopeProgramAnalysis
                 var entryMethodDef = methodTuple.Item2;
                 var moveNextMethod = methodTuple.Item3;
                 var getEnumMethod = methodTuple.Item4;
+                var factoryMethod = methodTuple.Item5;
                 Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
 
                 Schema inputSchema = null;
@@ -363,7 +364,7 @@ namespace ScopeProgramAnalysis
                 Run run;
                 AnalysisReason errorReason;
                 
-                var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethodDef, moveNextMethod, getEnumMethod, inputSchema, outputSchema, out run, out errorReason);
+                var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethodDef, moveNextMethod, getEnumMethod, factoryMethod, inputSchema, outputSchema, out run, out errorReason);
                 if (ok)
                 {
                     log.Runs.Add(run);
@@ -466,7 +467,7 @@ namespace ScopeProgramAnalysis
             var i = new Schema(inputColumns);
             var o = new Schema(outputColumns);
 
-            var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethod, moveNextMethod, getEnumMethod, i, o, out run, out errorReason);
+            var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethod, moveNextMethod, getEnumMethod, null, i, o, out run, out errorReason);
             if (ok)
             {
                 return run;
@@ -498,7 +499,7 @@ namespace ScopeProgramAnalysis
             {
                 gtir = c2 as IGenericTypeInstanceReference;
                 if (gtir != null && TypeHelper.TypesAreEquivalent(gtir.GenericType.ResolvedType, concurrentProcessorType))
-        {
+                {
                     found = true;
                     break;
                 }
@@ -594,6 +595,7 @@ namespace ScopeProgramAnalysis
             IMethodDefinition entryMethodDef,
             IMethodDefinition moveNextMethod,
             IMethodDefinition getEnumMethod,
+            IMethodDefinition factoryMethod,
             Schema inputSchema,
             Schema outputSchema,
             out Run runResult,
@@ -635,7 +637,7 @@ namespace ScopeProgramAnalysis
                     previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, bagOColumnsUsedColumns));
                 }
 
-                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, depAnalysisResult, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns);
+                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns);
                 runResult = r;
 
                 return true;
@@ -673,6 +675,7 @@ namespace ScopeProgramAnalysis
             public int ColumnsSchemaOutput;
             public bool Error;
             public string ErrorReason;
+            public string DeclaredPassthroughColumns;
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -773,6 +776,7 @@ namespace ScopeProgramAnalysis
                         ret.ColumnsSchemaOutput = columnProperty.Count;
                         ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
                         ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
+                        ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
@@ -781,7 +785,9 @@ namespace ScopeProgramAnalysis
         }
 
 
-        private static Run CreateResultsAndThenRun(string inputPath, ITypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, DependencyPTGDomain depAnalysisResult,
+        private static Run CreateResultsAndThenRun(string inputPath, ITypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, IMethodDefinition factoryMethod,
+            DependencyPTGDomain depAnalysisResult,
+            Schema inputSchema,
             ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap, ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns)
         {
             var results = new List<Result>();
@@ -790,6 +796,13 @@ namespace ScopeProgramAnalysis
 
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
+
+            string declaredPassthroughString = "";
+            if (factoryMethod != null)
+            {
+                var declaredPassthrough = GetDeclaredPassthroughColumns(factoryMethod, inputSchema);
+                declaredPassthroughString = String.Join(",", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+            }
 
             if (!depAnalysisResult.IsTop)
             {
@@ -901,6 +914,7 @@ namespace ScopeProgramAnalysis
                 //    resultSummary.SetProperty("Comparison", false);
                 //}
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
+                resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
 
                 results.Add(resultSummary);
             }
@@ -920,6 +934,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
                 resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
+                resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
                 results.Add(resultEmpty);
             }
 
@@ -964,6 +979,38 @@ namespace ScopeProgramAnalysis
             return r;
         }
 
+        private static Dictionary<string, string> GetDeclaredPassthroughColumns(IMethodDefinition factoryMethod, Schema inputSchema)
+        {
+            var d = new Dictionary<string, string>();
+            if (factoryMethod == null) goto L;
+            // Call the factory method to get an instance of the processor.
+            var factoryClass = factoryMethod.ContainingType;
+            var assembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(factoryClass).ResolvedUnit.Location);
+            if (assembly == null) goto L;
+            var factoryClass2 = assembly.GetType(TypeHelper.GetTypeName(factoryClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
+            if (factoryClass2 == null) goto L;
+            var factoryMethod2 = factoryClass2.GetMethod(factoryMethod.Name.Value);
+            if (factoryMethod2 == null) goto L;
+            var instance = factoryMethod2.Invoke(null, null);
+            if (instance == null) goto L;
+            var producesMethod = factoryMethod2.ReturnType.GetMethod("Produces");
+            if (producesMethod == null) goto L;
+            // Schema Produces(string[] columns, string[] args, Schema input)
+            string[] arg1 = null;
+            string[] arg2 = null;
+            var inputSchemaAsString = String.Join(",", inputSchema.Columns.Select(e => e.Name + ": " + e.Type));
+            var inputSchema2 = new ScopeRuntime.Schema(inputSchemaAsString);
+            var specifiedOutputSchema = producesMethod.Invoke(instance, new object[] { arg1, arg2, inputSchema2, });
+            if (specifiedOutputSchema == null) goto L;
+            foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
+            {
+                if (column.Source != null)
+                    d.Add(column.Name, column.Source.Name);
+            }
+            L:
+            return d;
+        }
+
         private static void LoadExternalReferences(IEnumerable<string> referenceFiles, MyLoader loader)
         {
             foreach (var referenceFileName in referenceFiles)
@@ -988,19 +1035,19 @@ namespace ScopeProgramAnalysis
         /// 4) the MoveNextMethod that contains the actual reducer/producer code
         /// </summary>
         /// <returns></returns>
-        private IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyze(IAssembly assembly, out List<Tuple<ITypeDefinition, string>> errorMessages)
+        private IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyze(IAssembly assembly, out List<Tuple<ITypeDefinition, string>> errorMessages)
         {
             errorMessages = new List<Tuple<ITypeDefinition, string>>();
 
             var processorsToAnalyze = new HashSet<ITypeDefinition>();
 
-            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
+            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
             var operationFactoryClass = assembly.GetAllTypes().OfType<INamedTypeDefinition>()
                                         .Where(c => c.Name.Value == "__OperatorFactory__" && c is INestedTypeDefinition &&  (c as INestedTypeDefinition).ContainingType.GetName() == "___Scope_Generated_Classes___").SingleOrDefault();
 
             if (operationFactoryClass == null)
-                return new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
+                return new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
             // Hack: use actual ScopeRuntime Types
             var factoryMethods = operationFactoryClass.Methods.Where(m => m.Name.Value.StartsWith("Create_Process_", StringComparison.Ordinal)
@@ -1058,7 +1105,7 @@ namespace ScopeProgramAnalysis
                                                     .Where(md => md.Body != null && md.Name.Value.Equals(this.MethodUnderAnalysisName));
                         foreach (var moveNextMethod in moveNextMethods)
                         {
-                            scopeMethodTuplesToAnalyze.Add(Tuple.Create(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod));
+                            scopeMethodTuplesToAnalyze.Add(Tuple.Create(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod, factoryMethod));
 
                             // TODO: Hack for reuse. Needs refactor
                             if (factoryMethod != null)
@@ -1080,9 +1127,9 @@ namespace ScopeProgramAnalysis
             return scopeMethodTuplesToAnalyze;
         }
 
-        public IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblies()
+        public IEnumerable<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>> ObtainScopeMethodsToAnalyzeFromAssemblies()
         {
-            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
+            var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
             var candidateClasses = host.LoadedUnits.OfType<IAssembly>()
                 .Where(a => a.Name.Value != "mscorlib")
@@ -1121,7 +1168,7 @@ namespace ScopeProgramAnalysis
                                                         .Where(m => m.Name.Value.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.Value.EndsWith(">.GetEnumerator"));
                             var getEnumeratorMethod = getEnumMethods.First();
 
-                            scopeMethodTuplesToAnalyze.Add(Tuple.Create(candidateClass, entryMethod, moveNextMethod, getEnumeratorMethod));
+                            scopeMethodTuplesToAnalyze.Add(Tuple.Create(candidateClass, entryMethod, moveNextMethod, getEnumeratorMethod, (IMethodDefinition) null));
 
                         }
                     }

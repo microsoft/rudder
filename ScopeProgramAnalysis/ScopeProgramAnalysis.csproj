@@ -55,6 +55,9 @@
     <Reference Include="Microsoft.Cci.SourceModel">
       <HintPath>..\analysis-net\Dependencies\Microsoft.Cci.SourceModel.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Scope.Interfaces">
+      <HintPath>..\OtherBinaries\Microsoft.Scope.Interfaces.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.6.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -62,6 +65,9 @@
     <Reference Include="Sarif, Version=1.5.27.0, Culture=neutral, PublicKeyToken=a567ef0185dba9aa, processorArchitecture=MSIL">
       <HintPath>..\packages\Sarif.Sdk.1.5.27\lib\net45\Sarif.dll</HintPath>
       <Private>True</Private>
+    </Reference>
+    <Reference Include="scoperuntime">
+      <HintPath>..\OtherBinaries\scoperuntime.exe</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Collections.Immutable, Version=1.1.37.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
