@@ -38,6 +38,8 @@ namespace ScopeRuntime
         public ColumnInfo(string name, ColumnDataType type) { }
         public ColumnInfo(string name, string type) { }
         public ColumnInfo(string name, Type type) { }
+        public ColumnInfo Source { get; set; }
+
 
     }
     public class Schema

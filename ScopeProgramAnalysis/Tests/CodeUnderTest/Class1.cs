@@ -397,5 +397,51 @@ namespace CodeUnderTest
         }
 
     }
+    [Reads("A"), Writes("OutputColumn")]
+    public class ConditionalColumnReducer : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var s = new Schema();
+            ColumnInfo columnInfo = new ColumnInfo("OutputColumn", typeof(string));
+            if (input.Contains("A"))
+            {
+                columnInfo.Source = input[input.IndexOf("A")];
+            }
+            else
+            {
+                columnInfo.Source = input[input.IndexOf("B")];
+            }
+            s.Add(columnInfo);
+            return s;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            var indexOfA = -1;
+            var indexOfB = -1;
+            if (input.Schema.Contains("A"))
+            {
+                indexOfA = input.Schema["A"];
+            }
+            else
+            {
+                indexOfB = input.Schema["B"];
+            }
+            foreach (Row current in input.Rows)
+            {
+                if (indexOfA >= 0)
+                {
+                    current[indexOfA].CopyTo(output[0]);
+                }
+                else
+                {
+                    current[indexOfB].CopyTo(output[0]);
+                }
+                yield return output;
+            }
+            yield break;
+        }
+
+    }
 }
 

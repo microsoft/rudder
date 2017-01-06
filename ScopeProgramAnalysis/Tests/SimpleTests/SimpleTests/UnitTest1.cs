@@ -210,6 +210,16 @@ namespace SimpleTests
             Assert.IsNotNull(run);
             Assert.IsTrue(run.BothAnalysesAgree());
         }
+        [TestMethod]
+        public void CallConditionalColumnReducer()
+        {
+            var t = typeof(ConditionalColumnReducer);
+            var run = AnalyzeProcessor(t, "A: string", "OutputColumn: string");
+
+            var s = SarifRunToString(run);
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+        }
 
     }
 }
