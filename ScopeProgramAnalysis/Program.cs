@@ -167,11 +167,15 @@ namespace ScopeProgramAnalysis
             // Times out for unknown reason
             //input = Path.Combine(oneHundredJobsDirectory, @"0cb45fd4-ee48-4091-a95b-6ed802173335\__ScopeCodeGen__.dll");
             // Times out for unknown reason
-            input = Path.Combine(oneHundredJobsDirectory, @"0e86b352-b968-40fd-8377-8b3a5812aa61\__ScopeCodeGen__.dll");
+            //input = Path.Combine(oneHundredJobsDirectory, @"0e86b352-b968-40fd-8377-8b3a5812aa61\__ScopeCodeGen__.dll");
             // No __ScopeCodeGen__ assembly
             //input = Path.Combine(oneHundredJobsDirectory, @"000ef3c1-abb3-4a54-8ea1-60c74139d936\__ScopeCodeGen__.dll");
             // __ScopeCodeGen__ assembly, but no processors found
             //input = Path.Combine(oneHundredJobsDirectory, @"00a41169-9711-4a14-bf02-7d068ad6dded\__ScopeCodeGen__.dll");
+            //input = @"C:\dev\Bugs\Parasail\099f4b11-eeeb-4357-87aa-2de336b6eb46\__ScopeCodeGen__.dll";
+            input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\7d7e61ab-6687-4e2d-99fc-636bf4eb3e0d\__ScopeCodeGen__.dll";
+
+            //input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\17764c26-9312-4d0a-9ac1-9ae08e0303ee\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -802,6 +806,9 @@ namespace ScopeProgramAnalysis
             {
                 var declaredPassthrough = GetDeclaredPassthroughColumns(factoryMethod, inputSchema);
                 declaredPassthroughString = String.Join(",", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+            } else
+            {
+                declaredPassthroughString = "Null Factory Method";
             }
 
             if (!depAnalysisResult.IsTop)
@@ -982,32 +989,37 @@ namespace ScopeProgramAnalysis
         private static Dictionary<string, string> GetDeclaredPassthroughColumns(IMethodDefinition factoryMethod, Schema inputSchema)
         {
             var d = new Dictionary<string, string>();
-            if (factoryMethod == null) goto L;
+            if (factoryMethod == null) { d.Add("666", "no factoryMethod"); return d; }
             // Call the factory method to get an instance of the processor.
             var factoryClass = factoryMethod.ContainingType;
             var assembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(factoryClass).ResolvedUnit.Location);
-            if (assembly == null) goto L;
+            if (assembly == null) { d.Add("666", "no assembly"); return d; }
             var factoryClass2 = assembly.GetType(TypeHelper.GetTypeName(factoryClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
-            if (factoryClass2 == null) goto L;
+            if (factoryClass2 == null) { d.Add("666", "no factoryClass2"); return d; }
             var factoryMethod2 = factoryClass2.GetMethod(factoryMethod.Name.Value);
-            if (factoryMethod2 == null) goto L;
+            if (factoryMethod2 == null) { d.Add("666", "no factoryMethod2" + " (" + factoryMethod.Name.Value + ")"); return d; }
             var instance = factoryMethod2.Invoke(null, null);
-            if (instance == null) goto L;
+            if (instance == null) { d.Add("666", "no instance"); return d; }
             var producesMethod = factoryMethod2.ReturnType.GetMethod("Produces");
-            if (producesMethod == null) goto L;
+            if (producesMethod == null) { d.Add("666", "no producesMethod"); return d; }
             // Schema Produces(string[] columns, string[] args, Schema input)
-            string[] arg1 = null;
-            string[] arg2 = null;
-            var inputSchemaAsString = String.Join(",", inputSchema.Columns.Select(e => e.Name + ": " + e.Type));
-            var inputSchema2 = new ScopeRuntime.Schema(inputSchemaAsString);
-            var specifiedOutputSchema = producesMethod.Invoke(instance, new object[] { arg1, arg2, inputSchema2, });
-            if (specifiedOutputSchema == null) goto L;
-            foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
+            try
             {
-                if (column.Source != null)
-                    d.Add(column.Name, column.Source.Name);
+                string[] arg1 = null;
+                string[] arg2 = null;
+                var inputSchemaAsString = String.Join(",", inputSchema.Columns.Select(e => e.Name + ": " + e.Type));
+                var inputSchema2 = new ScopeRuntime.Schema(inputSchemaAsString);
+                var specifiedOutputSchema = producesMethod.Invoke(instance, new object[] { arg1, arg2, inputSchema2, });
+                if (specifiedOutputSchema == null) { d.Add("666", "no specifiedOutputSchema"); return d; }
+                foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
+                {
+                    if (column.Source != null)
+                        d.Add(column.Name, column.Source.Name);
+                }
+            } catch
+            {
+                d.Add("666", "exception during Produces");
             }
-            L:
             return d;
         }
 
