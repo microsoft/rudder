@@ -126,6 +126,20 @@ namespace ScopeProgramAnalysis.Framework
             return basicType != null && basicType.Name.Value == "ScopeMapUsage";
         }
 
+        public static bool IsScopeMap(this ITypeReference type)
+        {
+            var basicType = type as IGenericTypeInstanceReference;
+            if (basicType != null)
+            {
+                var resolvedClass = basicType.ResolvedType as IGenericTypeInstance;
+                if (resolvedClass != null)
+                {
+                    return  TypeHelper.TypesAreEquivalentAssumingGenericMethodParametersAreEquivalentIfTheirIndicesMatch(resolvedClass.GenericType, ScopeTypes.ScopeMap);
+                }
+            }
+            return false;
+        }
+
         public static bool IsGenericEnumerator(this ITypeReference type)
         {
             var basicType = type as IGenericTypeInstanceReference;

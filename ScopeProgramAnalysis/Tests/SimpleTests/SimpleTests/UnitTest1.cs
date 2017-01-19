@@ -186,6 +186,7 @@ namespace SimpleTests
         {
             var t = typeof(ScopeMap01);
             var run = AnalyzeProcessor(t, "X: string", "X: string, a: int");
+            var s = SarifRunToString(run);
 
             Assert.IsNotNull(run);
             Assert.IsTrue(run.BothAnalysesAgree());
@@ -198,6 +199,8 @@ namespace SimpleTests
 
             var s = SarifRunToString(run);
             Assert.IsNotNull(run);
+            // Diego: This test fail because the processor does not read any input columns and do not write an output column explicitly 
+            // It seems the doing yield return is not enough
             Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
@@ -208,13 +211,15 @@ namespace SimpleTests
 
             var s = SarifRunToString(run);
             Assert.IsNotNull(run);
+            // Diego: This test fail because the processor does not read any input columns and do not write an output column explicitly 
+            // It seems the doing yield return is not enough
             Assert.IsTrue(run.BothAnalysesAgree());
         }
         [TestMethod]
         public void CallConditionalColumnReducer()
         {
             var t = typeof(ConditionalColumnReducer);
-            var run = AnalyzeProcessor(t, "A: string", "OutputColumn: string");
+            var run = AnalyzeProcessor(t, "A: string, B: string", "OutputColumn: string");
 
             var s = SarifRunToString(run);
             Assert.IsNotNull(run);

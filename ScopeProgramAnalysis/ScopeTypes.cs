@@ -20,6 +20,7 @@ namespace ScopeProgramAnalysis
         public static  INamedTypeReference Row;
         public static  INamedTypeReference RowSet;
         public static  INamedTypeReference RowList;
+        public static  INamedTypeReference ScopeMap;
 
         public static  INamedTypeReference ColumnData;
         public static INamedTypeReference ColumnData_Generic;
@@ -50,6 +51,7 @@ namespace ScopeProgramAnalysis
                 else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
                 else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
                 else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
+                else if (type.FullName() == "ScopeRuntime.ScopeMap<K, V>") ScopeMap = type;
                 if (type.ContainingNamespace() == "ScopeRuntime")
                     scopeTypes.Add(type);
             }

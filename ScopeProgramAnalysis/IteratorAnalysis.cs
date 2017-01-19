@@ -244,6 +244,29 @@ namespace Backend.Analyses
         }
     }
 
+    public class TraceableScopeMap: TraceableColumn
+    {
+        public string Key { get; private set; }
+        public TraceableScopeMap(TraceableTable table, Column column, String key) : base(table,column)
+        {
+            this.Key = key;
+        }
+        public override string ToString()
+        {
+            return String.Format(CultureInfo.InvariantCulture, "Col({0},{1}[{2}])", TableName, Column, Key);
+        }
+        public override bool Equals(object obj)
+        {
+            var oth = obj as TraceableScopeMap;
+            return oth != null && oth.Key.Equals(this.Key)
+                               && base.Equals(oth);
+        }
+        public override int GetHashCode()
+        {
+            return base.GetHashCode() + Key.GetHashCode() ;
+        }
+    }
+
 
     public class TraceableCounter : Traceable
     {
@@ -1556,6 +1579,25 @@ namespace Backend.Analyses
 
                     CheckFailure(methodCallStmt, arg1);
 
+                }
+                else if(methodInvoked.ContainingType.IsScopeMap())
+                {
+                    if(methodInvoked.Name.Value=="ContainsKey")
+                    {
+
+                    }
+                    else if (methodInvoked.Name.Value == "get_Item")
+                    {
+                        var receiver = methodCallStmt.Arguments[0];
+                        var arg1 = methodCallStmt.Arguments[1];
+                        // receiver is of type ScopeMap and should have at least one input column in the traceables
+                        var traceables = this.State.GetTraceables(receiver);
+                        var key = (this.equalities.GetValue(arg1) as Constant).Value as string;
+                        var scopeMapTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableScopeMap(t.Table, t.Column, key));
+                        UpdatePTAForPure(methodCallStmt);
+
+                        this.State.AssignTraceables(methodCallStmt.Result, scopeMapTraceables);
+                    }
                 }
                 else if(methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
                 {
