@@ -99,17 +99,25 @@ namespace AnalysisClient
                     {
                         var processorName = x.Item1;
                         ScopeProgramAnalysis.ScopeProgramAnalysis.DependencyStats stats = x.Item2;
+
                         ret.Add(String.Join("\t", new string[] {
                         inputDll,
-                        ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
+                        //ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
                         processorName,
+
+                        // Diego's analysis
+                        stats.DependencyTime.ToString(),
                         stats.InputHasTop.ToString(),
                         stats.OutputHasTop.ToString(),
                         stats.TopHappened.ToString(),
                         stats.PassThroughColumns.Count.ToString(),
-                        String.Join(",",stats.PassThroughColumns),
+                        String.Join("|",stats.PassThroughColumns),
                         stats.UnreadInputs.Count.ToString(),
-                        String.Join(",", stats.UnreadInputs)
+                        String.Join("|", stats.UnreadInputs),
+
+                        // Zvonimir's analysis
+                        stats.UsedColumnTime.ToString(),
+                        stats.UsedColumnColumns
                     }));
                     }
                 }
