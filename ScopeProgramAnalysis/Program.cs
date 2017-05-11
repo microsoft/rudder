@@ -685,9 +685,10 @@ namespace ScopeProgramAnalysis
 
         public class DependencyStats
         {
+            // Diego's analysis
+            public long DependencyTime; // in milliseconds
             public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
             public List<string> UnreadInputs = new List<string>();
-            public bool UsedColumnTop;
             public bool TopHappened;
             public bool OutputHasTop;
             public bool InputHasTop;
@@ -696,8 +697,11 @@ namespace ScopeProgramAnalysis
             public bool Error;
             public string ErrorReason;
             public string DeclaredPassthroughColumns;
-            public long UsedColumnTime;
-            public long DependencyTime;
+
+            // Zvonimir's analysis
+            public long UsedColumnTime; // in milliseconds
+            public bool UsedColumnTop;
+            public string UsedColumnColumns;
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -800,8 +804,10 @@ namespace ScopeProgramAnalysis
                         ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                         ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
 
-                        ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                         ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
+
+                        ret.UsedColumnColumns = result.GetProperty("BagOColumns");
+                        ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
