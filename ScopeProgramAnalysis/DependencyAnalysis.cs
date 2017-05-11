@@ -8,6 +8,8 @@ using Backend.ThreeAddressCode.Values;
 using Backend.ThreeAddressCode.Expressions;
 using Microsoft.Cci;
 using ScopeProgramAnalysis.Framework;
+using System;
+using System.Diagnostics;
 
 namespace ScopeProgramAnalysis
 {
@@ -103,8 +105,11 @@ namespace ScopeProgramAnalysis
             this.equalities = new Dictionary<IVariable, IExpression>();
         }
 
-        public DependencyPTGDomain AnalyzeMoveNextMethod()
+        public Tuple<DependencyPTGDomain, TimeSpan> AnalyzeMoveNextMethod()
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             // 1) Analyze the entry method that creates, populates  and return the clousure 
             var cfgEntry = entryMethod.DoAnalysisPhases(host, sourceLocationProvider);
             var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, this.entryMethod); // , this.specialFields);
@@ -147,8 +152,8 @@ namespace ScopeProgramAnalysis
             // Now I analyze the Movenext method with the proper initialization 
             var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 
-            
-            return result;
+            sw.Stop();
+            return Tuple.Create(result, sw.Elapsed);
         }
 
         private IEnumerable<IMethodReference> GetMethodsToInline()

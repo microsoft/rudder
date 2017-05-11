@@ -15,6 +15,7 @@ using Microsoft.Cci;
 using Backend;
 using Backend.Model;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace ScopeProgramAnalysis
 {
@@ -173,9 +174,11 @@ namespace ScopeProgramAnalysis
             // __ScopeCodeGen__ assembly, but no processors found
             //input = Path.Combine(oneHundredJobsDirectory, @"00a41169-9711-4a14-bf02-7d068ad6dded\__ScopeCodeGen__.dll");
             //input = @"C:\dev\Bugs\Parasail\099f4b11-eeeb-4357-87aa-2de336b6eb46\__ScopeCodeGen__.dll";
-            input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\7d7e61ab-6687-4e2d-99fc-636bf4eb3e0d\__ScopeCodeGen__.dll";
+            //input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\7d7e61ab-6687-4e2d-99fc-636bf4eb3e0d\__ScopeCodeGen__.dll";
+            //input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\79dde6c1-efa3-44e6-a842-8397dea70df4\__ScopeCodeGen__.dll";
 
             //input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\17764c26-9312-4d0a-9ac1-9ae08e0303ee\__ScopeCodeGen__.dll";
+            input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\75f9adff-7f3e-47f5-b282-99518ee7f8b3\__ScopeCodeGen__.dll";
 
             string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -239,6 +242,10 @@ namespace ScopeProgramAnalysis
             if (timeout == default(TimeSpan))
             {
                 timeout = TimeSpan.FromMinutes(1);
+            }
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                timeout = TimeSpan.FromMilliseconds(-1);
             }
             var task = Task.Run(() => AnalyzeDll2(inputPath, kind, useScopeFactory, interProc, outputStream));
             if (task.Wait(timeout))
@@ -396,6 +403,7 @@ namespace ScopeProgramAnalysis
                 }
 
             }
+            var foo = ExtractDependencyStats(log);
             return log;
         }
 
@@ -589,7 +597,7 @@ namespace ScopeProgramAnalysis
             program = new ScopeProgramAnalysis(loader);
         }
 
-        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain>>();
+        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>>();
         private static bool AnalyzeProcessor(
             string inputPath,
             MyLoader loader,
@@ -619,29 +627,37 @@ namespace ScopeProgramAnalysis
                 ISet<TraceableColumn> inputColumns;
                 ISet<TraceableColumn> outputColumns;
                 ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns;
+                TimeSpan depAnalysisTime;
+                TimeSpan bagOColumnsTime;
 
-                Tuple<DependencyPTGDomain, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain> previousResult;
+                Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan> previousResult;
                 if (previousResults.TryGetValue(moveNextMethod, out previousResult))
                 {
                     depAnalysisResult = previousResult.Item1;
-                    inputColumns = previousResult.Item2;
-                    outputColumns = previousResult.Item3;
-                    bagOColumnsUsedColumns = previousResult.Item4;
+                    depAnalysisTime = previousResult.Item2;
+                    inputColumns = previousResult.Item3;
+                    outputColumns = previousResult.Item4;
+                    bagOColumnsUsedColumns = previousResult.Item5;
+                    bagOColumnsTime = previousResult.Item6;
 
                 } else {
+
                     var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, interprocAnalysisManager, moveNextMethod, entryMethodDef, getEnumMethod);
-                    depAnalysisResult = dependencyAnalysis.AnalyzeMoveNextMethod();
+                    var tup = dependencyAnalysis.AnalyzeMoveNextMethod();
+                    depAnalysisResult = tup.Item1;
+                    depAnalysisTime = tup.Item2;
                     inputColumns = dependencyAnalysis.InputColumns;
                     outputColumns = dependencyAnalysis.OutputColumns;
 
                     var a = TypeHelper.GetDefiningUnit(processorClass) as IAssembly;
                     var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, moveNextMethod);
                     bagOColumnsUsedColumns = z.UsedColumnsSummary ?? ScopeAnalyzer.Analyses.ColumnsDomain.Top;
+                    bagOColumnsTime = z.ElapsedTime;
 
-                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, inputColumns, outputColumns, bagOColumnsUsedColumns));
+                    previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, depAnalysisTime, inputColumns, outputColumns, bagOColumnsUsedColumns, bagOColumnsTime));
                 }
 
-                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns);
+                var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, depAnalysisTime, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns, bagOColumnsTime);
                 runResult = r;
 
                 return true;
@@ -680,6 +696,8 @@ namespace ScopeProgramAnalysis
             public bool Error;
             public string ErrorReason;
             public string DeclaredPassthroughColumns;
+            public long UsedColumnTime;
+            public long DependencyTime;
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -781,6 +799,9 @@ namespace ScopeProgramAnalysis
                         ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
                         ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                         ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
+
+                        ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
+                        ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
@@ -791,8 +812,12 @@ namespace ScopeProgramAnalysis
 
         private static Run CreateResultsAndThenRun(string inputPath, ITypeDefinition processorClass, IMethodDefinition entryMethod, IMethodDefinition moveNextMethod, IMethodDefinition factoryMethod,
             DependencyPTGDomain depAnalysisResult,
+            TimeSpan depAnalysiTime,
             Schema inputSchema,
-            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap, ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns)
+            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap,
+            ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns,
+            TimeSpan bagOColumnsTime
+            )
         {
             var results = new List<Result>();
 
@@ -804,8 +829,14 @@ namespace ScopeProgramAnalysis
             string declaredPassthroughString = "";
             if (factoryMethod != null)
             {
-                var declaredPassthrough = GetDeclaredPassthroughColumns(factoryMethod, inputSchema);
-                declaredPassthroughString = String.Join(",", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+                try
+                {
+                    var declaredPassthrough = GetDeclaredPassthroughColumns(factoryMethod, inputSchema);
+                    declaredPassthroughString = String.Join(",", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+                } catch (Exception e)
+                {
+                    declaredPassthroughString = "Exception while trying to get declared passthrough: " + e.Message;
+                }
             } else
             {
                 declaredPassthroughString = "Null Factory Method";
@@ -923,6 +954,9 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
 
+                resultSummary.SetProperty("BagOColumnsTime", (int) bagOColumnsTime.TotalMilliseconds);
+                resultSummary.SetProperty("DependencyAnalysisTime", (int) depAnalysiTime.TotalMilliseconds);
+
                 results.Add(resultSummary);
             }
             else
@@ -942,6 +976,8 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+                resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
+                resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysiTime.TotalMilliseconds);
                 results.Add(resultEmpty);
             }
 
@@ -1308,6 +1344,10 @@ namespace ScopeProgramAnalysis
             string sarifText = SarifLogToString(log);
             try
             {
+                //if (!File.Exists(outputFilePath))
+                //{
+                //    File.CreateText(outputFilePath);
+                //}
                 File.WriteAllText(outputFilePath, sarifText);
             }
             catch (Exception e)

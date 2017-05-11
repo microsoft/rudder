@@ -16,6 +16,7 @@ namespace ScopeAnalyzer
     using Backend.Analyses;
     using Backend.Model;
     using Backend.Transformations;
+    using System.Diagnostics;
     using System.IO;
 
     /// <summary>
@@ -57,6 +58,8 @@ namespace ScopeAnalyzer
         public IMethodDefinition Method { get; }
 
         public IMetadataHost Host { get; }
+
+        public TimeSpan ElapsedTime { get; set; }
 
         public ScopeMethodAnalysisResult (IMethodDefinition m, IMetadataHost h)
         {
@@ -211,8 +214,15 @@ namespace ScopeAnalyzer
 
         public static ScopeMethodAnalysisResult AnalyzeMethodWithBagOColumnsAnalysis(IMetadataHost host, IAssembly assembly, IEnumerable<IAssembly> refAssemblies, IMethodDefinition method)
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             var me = new ScopeAnalysis(host, assembly, null, refAssemblies, null);
             var r = me.AnalyzeMethod(method);
+
+            sw.Stop();
+            r.ElapsedTime = sw.Elapsed;
+
             return r;
         }
 

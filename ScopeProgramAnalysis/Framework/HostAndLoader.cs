@@ -98,7 +98,7 @@ namespace ScopeProgramAnalysis.Framework
             var module = cciHost.LoadUnitFrom(fileName) as IModule;
 
             if (module == null || module == Dummy.Module || module == Dummy.Assembly)
-                throw new Exception("The input is not a valid CLR module or assembly.");
+                throw new Exception(String.Format("The input '{0}' is not a valid CLR module or assembly.", fileName));
 
             var pdbFileName = Path.ChangeExtension(fileName, "pdb");
             PdbReader pdbReader = null;
@@ -141,12 +141,14 @@ namespace ScopeProgramAnalysis.Framework
             var path = "";
             bool found = false;
             var d = directory;
+            var pathsTried = new List<string>();
 
             while (!found)
             {
                 foreach (var extension in extensions)
                 {
                     path = Path.Combine(d, assemblyName + extension);
+                    pathsTried.Add(path);
                     if (File.Exists(path))
                     {
                         found = true;
@@ -162,23 +164,53 @@ namespace ScopeProgramAnalysis.Framework
 
             }
             if (found)
-                return LoadAssembly(path);
+            {
+                try
+                {
+                    return LoadAssembly(path);
+                }
+                catch (Exception e)
+                {
+                    var length = new System.IO.FileInfo(path).Length;
+                    var msg = "Length: " + length + "|" +
+                        "Paths: " + String.Join(",", pathsTried) + e.Message;
+                    throw new Exception(msg);
+                }
+            }
             else
                 return null;
         }
 
         internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(string path)
         {
-            Tuple<IAssembly, ISourceLocationProvider> t;
-            t = TryToLoadAssembly("ScopeRuntime", path);
-            if (t == null)
+            var thisAssembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var embeddedAssemblyStream = thisAssembly.GetManifestResourceStream("ScopeProgramAnalysis.scoperuntime.exe");
+            if (!Directory.Exists("MyScopeRuntime"))
             {
-                var currentDirectory = Directory.GetCurrentDirectory();
-                t = TryToLoadAssembly("ScopeRuntime", currentDirectory);
+                var d = Directory.CreateDirectory("MyScopeRuntime");
             }
-            if (t == null)
-                throw new InvalidOperationException("Cannot find ScopeRuntime");
+            var path2 = "MyScopeRuntime\\ScopeRuntime.exe";
+            if (!File.Exists(path2))
+            {
+                using (var fileStream = File.Create(path2))
+                {
+                    embeddedAssemblyStream.Seek(0, SeekOrigin.Begin);
+                    embeddedAssemblyStream.CopyTo(fileStream);
+                }
+            }
+            var t = LoadAssembly(path2);
             return t;
+
+            //Tuple<IAssembly, ISourceLocationProvider> t;
+            //t = TryToLoadAssembly("ScopeRuntime", path);
+            //if (t == null)
+            //{
+            //    var currentDirectory = Directory.GetCurrentDirectory();
+            //    t = TryToLoadAssembly("ScopeRuntime", currentDirectory);
+            //}
+            //if (t == null)
+            //    throw new InvalidOperationException("Cannot find ScopeRuntime");
+            //return t;
         }
 
         private void LoadRuntimeTypes(string directory)
