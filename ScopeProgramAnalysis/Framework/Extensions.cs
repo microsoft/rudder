@@ -18,6 +18,7 @@ namespace ScopeProgramAnalysis.Framework
         public static ControlFlowGraph DoAnalysisPhases(this IMethodDefinition method, IMetadataHost host, ISourceLocationProvider locationProvider, 
                                                             IEnumerable<IMethodReference> methodsToTryToInline = null)
         {
+            AnalysisStats.extraAnalysisOverHead.Start();
             var disassembler = new Disassembler(host, method, locationProvider);
 
             var methodBody = disassembler.Execute();
@@ -69,6 +70,7 @@ namespace ScopeProgramAnalysis.Framework
             ssa.Transform();
             ssa.Prune(liveVariables);
             methodBody.UpdateVariables();
+            AnalysisStats.extraAnalysisOverHead.Start();
             return cfg;
         }
 

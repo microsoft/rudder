@@ -107,6 +107,7 @@ namespace ScopeProgramAnalysis
 
         public Tuple<DependencyPTGDomain, TimeSpan> AnalyzeMoveNextMethod()
         {
+            AnalysisStats.extraAnalysisOverHead = new Stopwatch();
             var sw = new Stopwatch();
             sw.Start();
 
@@ -153,7 +154,7 @@ namespace ScopeProgramAnalysis
             var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 
             sw.Stop();
-            return Tuple.Create(result, sw.Elapsed);
+            return Tuple.Create(result, sw.Elapsed- AnalysisStats.extraAnalysisOverHead.Elapsed);
         }
 
         private IEnumerable<IMethodReference> GetMethodsToInline()
