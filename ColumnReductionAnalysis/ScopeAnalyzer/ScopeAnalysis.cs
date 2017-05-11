@@ -107,6 +107,7 @@ namespace ScopeAnalyzer
         // User of the ScopeAnalysis can provide (in constructor) names of the processor methods of interest using this structure.
         // If this structure is null, the analysis will analyze all processors, otherwise it will analyze only ones listed here.
         IEnumerable<string> interestingProcessors;
+        private TimeSpan nonAnalysisOverhead;
 
         public ScopeAnalysis(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> refAssemblies, IEnumerable<string> ips)
         {
@@ -372,6 +373,8 @@ namespace ScopeAnalyzer
         /// <returns></returns>
         private ControlFlowGraph PrepareMethod(IMethodDefinition methodDefinition)
         {
+            var sw2 = new Stopwatch();
+            sw2.Start();
             var disassembler = new Disassembler(mhost, methodDefinition, sourceLocationProvider);
             var methodBody = disassembler.Execute();
 
@@ -412,6 +415,8 @@ namespace ScopeAnalyzer
             ssa.Transform();
             ssa.Prune(liveVariables);
             methodBody.UpdateVariables();
+            sw2.Stop();
+            this.nonAnalysisOverhead = sw2.Elapsed;
             return cfg;
 
             //var cfg = ControlFlowGraph.GenerateNormalControlFlow(methodBody);

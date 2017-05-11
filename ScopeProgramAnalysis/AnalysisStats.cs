@@ -6,6 +6,7 @@ using System.IO;
 using System.Globalization;
 using Backend.ThreeAddressCode.Instructions;
 using Microsoft.Cci;
+using System.Diagnostics;
 
 namespace ScopeProgramAnalysis
 {
@@ -35,6 +36,7 @@ namespace ScopeProgramAnalysis
     }
     public static class AnalysisStats
     {
+        public static Stopwatch extraAnalysisOverHead; 
         public static int TotalNumberFolders { get; set; }
         public static int TotalDllsFound { get; set; }
         public static int TotalDllsFailedToLoad{ get; set; }
