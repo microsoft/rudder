@@ -81,10 +81,10 @@ namespace AnalysisClient
 
             try
             {
-                var output = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
+                var sarifLog = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
 
 
-                if (output == null)
+                if (sarifLog == null)
                 {
                     ret.Add(String.Join("\t", new string[] {
                     inputDll,
@@ -93,8 +93,8 @@ namespace AnalysisClient
                 }
                 else
                 {
-                    ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(output, outputPath);
-                    var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(output);
+                    ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(sarifLog, outputPath);
+                    var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(sarifLog);
                     foreach (var x in depStream)
                     {
                         var processorName = x.Item1;
@@ -105,15 +105,22 @@ namespace AnalysisClient
                         //ScopeProgramAnalysis.AnalysisStats.StatsAsString(),
                         processorName,
 
+                        // Schema
+                        stats.SchemaInputColumnsCount.ToString(),
+                        stats.SchemaOutputColumnsCount.ToString(),
+
                         // Diego's analysis
                         stats.DependencyTime.ToString(),
                         stats.InputHasTop.ToString(),
                         stats.OutputHasTop.ToString(),
                         stats.TopHappened.ToString(),
+
                         stats.PassThroughColumns.Count.ToString(),
                         String.Join("|",stats.PassThroughColumns),
                         stats.UnreadInputs.Count.ToString(),
                         String.Join("|", stats.UnreadInputs),
+                        stats.ComputedInputColumnsCount.ToString(),
+                        stats.ComputedOutputColumnsCount.ToString(),
 
                         // Zvonimir's analysis
                         stats.UsedColumnTime.ToString(),
