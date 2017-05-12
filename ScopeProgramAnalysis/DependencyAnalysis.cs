@@ -154,7 +154,8 @@ namespace ScopeProgramAnalysis
             var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 
             sw.Stop();
-            return Tuple.Create(result, sw.Elapsed - AnalysisStats.extraAnalysisOverHead.Elapsed);
+            //return Tuple.Create(result, sw.Elapsed - AnalysisStats.extraAnalysisOverHead.Elapsed);
+            return Tuple.Create(result, sw.Elapsed);
         }
 
         private IEnumerable<IMethodReference> GetMethodsToInline()

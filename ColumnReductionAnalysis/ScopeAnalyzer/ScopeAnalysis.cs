@@ -224,7 +224,8 @@ namespace ScopeAnalyzer
             var r = me.AnalyzeMethod(method);
 
             sw.Stop();
-            r.ElapsedTime = sw.Elapsed-me.nonAnalysisOverhead;
+            //r.ElapsedTime = sw.Elapsed-me.nonAnalysisOverhead;
+            r.ElapsedTime = sw.Elapsed;
 
             return r;
         }
