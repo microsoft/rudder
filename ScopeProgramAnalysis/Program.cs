@@ -685,6 +685,9 @@ namespace ScopeProgramAnalysis
 
         public class DependencyStats
         {
+            public int SchemaInputColumnsCount;
+            public int SchemaOutputColumnsCount;
+
             // Diego's analysis
             public long DependencyTime; // in milliseconds
             public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
@@ -692,8 +695,8 @@ namespace ScopeProgramAnalysis
             public bool TopHappened;
             public bool OutputHasTop;
             public bool InputHasTop;
-            public int ColumnsSchemaInput;
-            public int ColumnsSchemaOutput;
+            public int ComputedInputColumnsCount;
+            public int ComputedOutputColumnsCount;
             public bool Error;
             public string ErrorReason;
             public string DeclaredPassthroughColumns;
@@ -786,20 +789,22 @@ namespace ScopeProgramAnalysis
                         var totalInputColumns = columnProperty.Count;
                         ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)") || columnProperty.Contains("_TOP_");
                         var inputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
+                        ret.ComputedInputColumnsCount = inputColumns.Count();
 
                         columnProperty = result.GetProperty<List<string>>("Outputs");
                         var totalOutputColumns = columnProperty.Count;
                         ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)") || columnProperty.Contains("_TOP_");
+                        ret.ComputedOutputColumnsCount = totalOutputColumns;
 
                         columnProperty = result.GetProperty<List<string>>("SchemaInputs");
-                        ret.ColumnsSchemaInput = columnProperty.Count;
+                        ret.SchemaInputColumnsCount = columnProperty.Count;
                         if (!ret.InputHasTop)
                         {
                             ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
                         }
 
                         columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
-                        ret.ColumnsSchemaOutput = columnProperty.Count;
+                        ret.SchemaOutputColumnsCount = columnProperty.Count;
                         ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
                         ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                         ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
