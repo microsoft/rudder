@@ -709,6 +709,7 @@ namespace ScopeProgramAnalysis
             public int NumberUsedColumns { get; internal set; }
             public List<string> UnWrittenOutputs = new List<string>();
             public ISet<string> UnionColumns = new HashSet<string>();
+            public bool ZvoTop;
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -836,11 +837,14 @@ namespace ScopeProgramAnalysis
                         int nuo = 0;
                         if(!result.TryGetProperty<int>("BagNOColumns", out nuo))
                         {
-                            ret.NumberUsedColumns = -1;
+                            ret.NumberUsedColumns = ret.UnionColumns.Count;
+                            ret.ZvoTop = true;
                         }
                         else
                         {
-                            ret.NumberUsedColumns = nuo;
+                            ret.ZvoTop = ret.UsedColumnColumns == "All columns used.";
+                            ret.NumberUsedColumns = ret.ZvoTop ? ret.UnionColumns.Count : nuo;
+
                         }
                         ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                     }
@@ -1018,7 +1022,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
                 resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
-                resultEmpty.SetProperty("BagNOColumns", -1);
+                resultEmpty.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
                 resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
                 resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysiTime.TotalMilliseconds);

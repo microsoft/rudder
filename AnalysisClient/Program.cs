@@ -100,6 +100,7 @@ namespace AnalysisClient
                         "ITOP?",
                         "OTOP",
                         "TOP?",
+                        "ZvoTOP?",
                         "PT",
                         "UnreadInputs",
                         "UnwrittenOuputs",
@@ -163,6 +164,9 @@ namespace AnalysisClient
                         stats.InputHasTop.ToString(),
                         stats.OutputHasTop.ToString(),
                         stats.TopHappened.ToString(),
+                        // Zvonimir's analysis
+                        stats.ZvoTop.ToString(),
+                        // Diego's analysis
                         String.Join("|",stats.PassThroughColumns),
                         String.Join("|", stats.UnreadInputs),
                         String.Join("|", stats.UnWrittenOutputs),
