@@ -887,6 +887,9 @@ namespace ScopeProgramAnalysis
                 declaredPassthroughString = "Null Factory Method";
             }
 
+            var inputSchemaString = InputSchema.Columns.Select(t => t.ToString());
+            var outputSchemaString = OutputSchema.Columns.Select(t => t.ToString());
+
             if (!depAnalysisResult.IsTop)
             {
                 if (depAnalysisResult.Dependencies.A4_Ouput.Any())
@@ -963,9 +966,6 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("Inputs", inputsString);
                 resultSummary.SetProperty("Outputs", outputsString);
 
-                var inputSchemaString = InputSchema.Columns.Select(t => t.ToString());
-                var outputSchemaString = OutputSchema.Columns.Select(t => t.ToString());
-
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
@@ -1017,8 +1017,8 @@ namespace ScopeProgramAnalysis
                 resultEmpty.Id = "Summary";
                 resultEmpty.SetProperty("Inputs", new List<string>() { "_TOP_" });
                 resultEmpty.SetProperty("Outputs", new List<string>() { "_TOP_" });
-                resultEmpty.SetProperty("SchemaInputs", new List<string>() { "_TOP_" });
-                resultEmpty.SetProperty("SchemaOutputs", new List<string>() { "_TOP_" });
+                resultEmpty.SetProperty("SchemaInputs", inputSchemaString);
+                resultEmpty.SetProperty("SchemaOutputs", outputSchemaString);
                 resultEmpty.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
                 resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
