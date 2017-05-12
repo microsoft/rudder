@@ -70,7 +70,7 @@ namespace AnalysisClient
             string[] directories = folder.Split(Path.DirectorySeparatorChar);
 
             var outputSummaryFile = Path.Combine(tempPath, "summary.txt");
-
+            
             //var logPath = Path.Combine(tempPath, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".log");
 
             //var outputStream = File.CreateText(logPath);
@@ -78,7 +78,41 @@ namespace AnalysisClient
             var outputPath = Path.Combine(outputFolder, directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(dllToAnalyze), ".sarif");
 
             List<string> ret = new List<string>();
+            if (!File.Exists(outputSummaryFile))
+            {
+                using (var mutex = new System.Threading.Mutex(false, "ScopeDependencyAnalysis_OutputSummaryMutex"))
+                {
+                    mutex.WaitOne();
+                    ret.Add(String.Join("\t", new string[] {
+                        "DLL",
+                        "Processor",
+                        "#SInputs",
+                        "#SOuputs",
+                        "DepTime",
+                        "#PT",
+                        "#UnreadInputs",
+                        "#UnwrittenOutputs",
+                        "#Inputs",
+                        "#Ouputs",
+                        "SvoTime",
+                        "#UsedCols",
+                        "#ALLCols",
+                        "ITOP?",
+                        "OTOP",
+                        "TOP?",
+                        "PT",
+                        "UnreadInputs",
+                        "UnwrittenOuputs",
+                        "UsedCols",
+                        "AllCols"
+                        }));
 
+                    File.AppendAllText(outputSummaryFile, String.Join("\r\n", ret) + "\r\n");
+                    ret.Clear();
+                    mutex.ReleaseMutex();
+                }
+                
+            }
             try
             {
                 var sarifLog = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
@@ -95,6 +129,8 @@ namespace AnalysisClient
                 {
                     ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(sarifLog, outputPath);
                     var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(sarifLog);
+             
+                    
                     foreach (var x in depStream)
                     {
                         var processorName = x.Item1;
@@ -111,27 +147,37 @@ namespace AnalysisClient
 
                         // Diego's analysis
                         stats.DependencyTime.ToString(),
+                        stats.PassThroughColumns.Count.ToString(),
+                        stats.UnreadInputs.Count.ToString(),
+                        stats.UnWrittenOutputs.Count.ToString(),
+                        stats.ComputedInputColumnsCount.ToString(),
+                        stats.ComputedOutputColumnsCount.ToString(),
+                        
+                        // Zvonimir's analysis
+                        stats.UsedColumnTime.ToString(),
+                        stats.NumberUsedColumns.ToString(),
+                        // All columns
+                        stats.UnionColumns.Count().ToString(),
+                        
+                        // Diego's analysis
                         stats.InputHasTop.ToString(),
                         stats.OutputHasTop.ToString(),
                         stats.TopHappened.ToString(),
-
-                        stats.PassThroughColumns.Count.ToString(),
                         String.Join("|",stats.PassThroughColumns),
-                        stats.UnreadInputs.Count.ToString(),
                         String.Join("|", stats.UnreadInputs),
-                        stats.ComputedInputColumnsCount.ToString(),
-                        stats.ComputedOutputColumnsCount.ToString(),
-
+                        String.Join("|", stats.UnWrittenOutputs),
+    
                         // Zvonimir's analysis
-                        stats.UsedColumnTime.ToString(),
-                        stats.UsedColumnColumns
-                    }));
+                        stats.UsedColumnColumns,
+                        // All columns
+                        String.Join("|", stats.UnionColumns)
+                   }));
                     }
                 }
             }
-            catch
+            catch(Exception e)
             {
-                ret.Add("Caught exception while processing: " + inputDll);
+                ret.Add("Caught exception while processing: " + e.ToString() +"\n" +e.InnerException.StackTrace.ToString() + inputDll);
             }
             var retStr = String.Join("\r\n", ret) + "\r\n";
             using (var mutex = new System.Threading.Mutex(false, "ScopeDependencyAnalysis_OutputSummaryMutex"))

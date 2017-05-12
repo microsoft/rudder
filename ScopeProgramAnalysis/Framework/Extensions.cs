@@ -70,7 +70,7 @@ namespace ScopeProgramAnalysis.Framework
             ssa.Transform();
             ssa.Prune(liveVariables);
             methodBody.UpdateVariables();
-            AnalysisStats.extraAnalysisOverHead.Start();
+            AnalysisStats.extraAnalysisOverHead.Stop();
             return cfg;
         }
 

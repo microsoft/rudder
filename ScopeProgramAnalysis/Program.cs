@@ -705,6 +705,10 @@ namespace ScopeProgramAnalysis
             public long UsedColumnTime; // in milliseconds
             public bool UsedColumnTop;
             public string UsedColumnColumns;
+
+            public int NumberUsedColumns { get; internal set; }
+            public List<string> UnWrittenOutputs = new List<string>();
+            public ISet<string> UnionColumns = new HashSet<string>();
         }
 
         public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
@@ -791,8 +795,11 @@ namespace ScopeProgramAnalysis
                         var inputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
                         ret.ComputedInputColumnsCount = inputColumns.Count();
 
+
                         columnProperty = result.GetProperty<List<string>>("Outputs");
                         var totalOutputColumns = columnProperty.Count;
+                        var outputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
+
                         ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)") || columnProperty.Contains("_TOP_");
                         ret.ComputedOutputColumnsCount = totalOutputColumns;
 
@@ -803,8 +810,22 @@ namespace ScopeProgramAnalysis
                             ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
                         }
 
+
                         columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
                         ret.SchemaOutputColumnsCount = columnProperty.Count;
+                        if (!ret.InputHasTop)
+                        {
+                            ret.UnWrittenOutputs = columnProperty.Where(schemaOuput => !outputColumns.Contains(schemaOuput)).ToList();
+                        }
+
+
+                        ret.UnionColumns = new HashSet<string>();
+                        var schemaOutputs = result.GetProperty<List<string>>("SchemaOutputs").Select(c => c.Contains("[")? c.Substring(0, c.IndexOf('[')):c);
+                        var schemaInputs = result.GetProperty<List<string>>("SchemaInputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
+                        ret.UnionColumns.AddRange(schemaInputs);
+                        ret.UnionColumns.UnionWith(schemaOutputs);
+
+
                         ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
                         ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                         ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
@@ -812,6 +833,15 @@ namespace ScopeProgramAnalysis
                         ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
 
                         ret.UsedColumnColumns = result.GetProperty("BagOColumns");
+                        int nuo = 0;
+                        if(!result.TryGetProperty<int>("BagNOColumns", out nuo))
+                        {
+                            ret.NumberUsedColumns = -1;
+                        }
+                        else
+                        {
+                            ret.NumberUsedColumns = nuo;
+                        }
                         ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                     }
                 }
@@ -963,6 +993,8 @@ namespace ScopeProgramAnalysis
                 //    resultSummary.SetProperty("Comparison", false);
                 //}
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
+                resultSummary.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
+
                 resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
 
                 resultSummary.SetProperty("BagOColumnsTime", (int) bagOColumnsTime.TotalMilliseconds);
@@ -986,6 +1018,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
                 resultEmpty.SetProperty("DependencyAnalysisTop", false);
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
+                resultEmpty.SetProperty("BagNOColumns", -1);
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
                 resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
                 resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysiTime.TotalMilliseconds);

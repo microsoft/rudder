@@ -219,10 +219,12 @@ namespace ScopeAnalyzer
             sw.Start();
 
             var me = new ScopeAnalysis(host, assembly, null, refAssemblies, null);
+            me.nonAnalysisOverhead = TimeSpan.Zero;
+
             var r = me.AnalyzeMethod(method);
 
             sw.Stop();
-            r.ElapsedTime = sw.Elapsed;
+            r.ElapsedTime = sw.Elapsed-me.nonAnalysisOverhead;
 
             return r;
         }
