@@ -1385,8 +1385,9 @@ namespace ScopeProgramAnalysis
             var fileDataKey = UriHelper.MakeValidUri(inputPath);
             var fileData = FileData.Create(new Uri(fileDataKey, UriKind.RelativeOrAbsolute), false);
             run.Files.Add(fileDataKey, fileData);
+            run.ToolNotifications = new List<Notification>();
             if (!String.IsNullOrWhiteSpace(notification))
-                run.ToolNotifications = new List<Notification>() { new Notification { Message = notification, }, };
+                run.ToolNotifications.Add(new Notification { Message = notification, });
 
             run.Results = results;
 
