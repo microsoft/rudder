@@ -747,111 +747,116 @@ namespace ScopeProgramAnalysis
 
                 var visitedColumns = new HashSet<string>();
                 var inputColumnsRead = new HashSet<string>();
-                foreach (var result in run.Results)
+                if (run.Results.Any())
                 {
-                    if (result.Id == "SingleColumn")
+                    foreach (var result in run.Results)
                     {
-                        var columnProperty = result.GetProperty("column");
-                        if (!columnProperty.StartsWith("Col(")) continue;
-                        var columnName = columnProperty.Contains(",") ? columnProperty.Split(',')[1].Trim('"', ')') : columnProperty;
-                        if (columnName == "_All_")
+                        if (result.Id == "SingleColumn")
                         {
-                            // ignore this for now because it is more complicated
-                            continue;
-                        }
-                        if (columnName == "_TOP_")
-                        {
-                            ret.TopHappened = true;
-                        }
-                        if (visitedColumns.Contains(columnName))
-                            continue;
-
-                        visitedColumns.Add(columnName);
-
-                        var dataDependencies = result.GetProperty<List<string>>("data depends");
-                        if (dataDependencies.Count == 1)
-                        {
-                            var inputColumn = dataDependencies[0];
-                            if (!inputColumn.StartsWith("Col(Input"))
+                            var columnProperty = result.GetProperty("column");
+                            if (!columnProperty.StartsWith("Col(")) continue;
+                            var columnName = columnProperty.Contains(",") ? columnProperty.Split(',')[1].Trim('"', ')') : columnProperty;
+                            if (columnName == "_All_")
                             {
-                                // then it is dependent on only one thing, but that thing is not a column.
+                                // ignore this for now because it is more complicated
                                 continue;
                             }
-                            if (inputColumn.Contains("TOP"))
+                            if (columnName == "_TOP_")
                             {
-                                // a pass through column cannot depend on TOP
-                                continue;
+                                ret.TopHappened = true;
                             }
-                            // then it is a pass-through column
-                            var inputColumnName = inputColumn.Contains(",") ? inputColumn.Split(',')[1].Trim('"', ')') : inputColumn;
-                            ret.PassThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
+                            if (visitedColumns.Contains(columnName))
+                                continue;
+
+                            visitedColumns.Add(columnName);
+
+                            var dataDependencies = result.GetProperty<List<string>>("data depends");
+                            if (dataDependencies.Count == 1)
+                            {
+                                var inputColumn = dataDependencies[0];
+                                if (!inputColumn.StartsWith("Col(Input"))
+                                {
+                                    // then it is dependent on only one thing, but that thing is not a column.
+                                    continue;
+                                }
+                                if (inputColumn.Contains("TOP"))
+                                {
+                                    // a pass through column cannot depend on TOP
+                                    continue;
+                                }
+                                // then it is a pass-through column
+                                var inputColumnName = inputColumn.Contains(",") ? inputColumn.Split(',')[1].Trim('"', ')') : inputColumn;
+                                ret.PassThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
+                            }
+                        }
+                        else if (result.Id == "Summary")
+                        {
+                            // Do nothing
+                            var columnProperty = result.GetProperty<List<string>>("Inputs");
+                            var totalInputColumns = columnProperty.Count;
+                            ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)") || columnProperty.Contains("_TOP_");
+                            var inputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
+                            ret.ComputedInputColumnsCount = inputColumns.Count();
+
+
+                            columnProperty = result.GetProperty<List<string>>("Outputs");
+                            var totalOutputColumns = columnProperty.Count;
+                            var outputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
+
+                            ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)") || columnProperty.Contains("_TOP_");
+                            ret.ComputedOutputColumnsCount = totalOutputColumns;
+
+                            columnProperty = result.GetProperty<List<string>>("SchemaInputs");
+                            ret.SchemaInputColumnsCount = columnProperty.Count;
+                            if (!ret.InputHasTop)
+                            {
+                                ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
+                            }
+
+
+                            columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
+                            ret.SchemaOutputColumnsCount = columnProperty.Count;
+                            if (!ret.InputHasTop)
+                            {
+                                ret.UnWrittenOutputs = columnProperty.Where(schemaOuput => !outputColumns.Contains(schemaOuput)).ToList();
+                            }
+
+
+                            ret.UnionColumns = new HashSet<string>();
+                            var schemaOutputs = result.GetProperty<List<string>>("SchemaOutputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
+                            var schemaInputs = result.GetProperty<List<string>>("SchemaInputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
+                            ret.UnionColumns.AddRange(schemaInputs);
+                            ret.UnionColumns.UnionWith(schemaOutputs);
+
+
+                            ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
+                            ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
+                            ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
+
+                            ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
+
+                            ret.UsedColumnColumns = result.GetProperty("BagOColumns");
+                            int nuo = 0;
+                            if (!result.TryGetProperty<int>("BagNOColumns", out nuo))
+                            {
+                                ret.NumberUsedColumns = ret.UnionColumns.Count;
+                                ret.ZvoTop = true;
+                            }
+                            else
+                            {
+                                ret.ZvoTop = ret.UsedColumnColumns == "All columns used.";
+                                ret.NumberUsedColumns = ret.ZvoTop ? ret.UnionColumns.Count : nuo;
+
+                            }
+                            ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                         }
                     }
-                    else if (result.Id == "Summary")
+                } else
+                {
+                    if (run.ToolNotifications.Any())
                     {
-                        // Do nothing
-                        var columnProperty = result.GetProperty<List<string>>("Inputs");
-                        var totalInputColumns = columnProperty.Count;
-                        ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)") || columnProperty.Contains("_TOP_");
-                        var inputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
-                        ret.ComputedInputColumnsCount = inputColumns.Count();
-
-
-                        columnProperty = result.GetProperty<List<string>>("Outputs");
-                        var totalOutputColumns = columnProperty.Count;
-                        var outputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
-
-                        ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)") || columnProperty.Contains("_TOP_");
-                        ret.ComputedOutputColumnsCount = totalOutputColumns;
-
-                        columnProperty = result.GetProperty<List<string>>("SchemaInputs");
-                        ret.SchemaInputColumnsCount = columnProperty.Count;
-                        if (!ret.InputHasTop)
-                        {
-                            ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
-                        }
-
-
-                        columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
-                        ret.SchemaOutputColumnsCount = columnProperty.Count;
-                        if (!ret.InputHasTop)
-                        {
-                            ret.UnWrittenOutputs = columnProperty.Where(schemaOuput => !outputColumns.Contains(schemaOuput)).ToList();
-                        }
-
-
-                        ret.UnionColumns = new HashSet<string>();
-                        var schemaOutputs = result.GetProperty<List<string>>("SchemaOutputs").Select(c => c.Contains("[")? c.Substring(0, c.IndexOf('[')):c);
-                        var schemaInputs = result.GetProperty<List<string>>("SchemaInputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
-                        ret.UnionColumns.AddRange(schemaInputs);
-                        ret.UnionColumns.UnionWith(schemaOutputs);
-
-
-                        ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
-                        ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
-                        ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
-
-                        ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
-
-                        ret.UsedColumnColumns = result.GetProperty("BagOColumns");
-                        int nuo = 0;
-                        if(!result.TryGetProperty<int>("BagNOColumns", out nuo))
-                        {
-                            ret.NumberUsedColumns = ret.UnionColumns.Count;
-                            ret.ZvoTop = true;
-                        }
-                        else
-                        {
-                            ret.ZvoTop = ret.UsedColumnColumns == "All columns used.";
-                            ret.NumberUsedColumns = ret.ZvoTop ? ret.UnionColumns.Count : nuo;
-
-                        }
-                        ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
-                        if (run.ToolNotifications.Any())
-                        {
-                            ret.Error = true;
-                            ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
-                        }
+                        ret.Error = true;
+                        ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
