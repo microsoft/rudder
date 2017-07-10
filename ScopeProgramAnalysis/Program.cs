@@ -847,6 +847,11 @@ namespace ScopeProgramAnalysis
 
                         }
                         ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
+                        if (run.ToolNotifications.Any())
+                        {
+                            ret.Error = true;
+                            ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
+                        }
                     }
                 }
                 dependencyStats.Add(Tuple.Create(processorName, ret));
