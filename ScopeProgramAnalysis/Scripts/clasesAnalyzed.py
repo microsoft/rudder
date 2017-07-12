@@ -10,24 +10,21 @@ totalFiles = 0
 for f in onlyfiles:
 	with open(f) as file:
 		totalFiles+=1
-		while True:
-			line = file.readline()
-			if not line: break
-			if '\"id\": \"Summary\"' in line:
-				lines = file.readlines()[1:]
-				for line in lines:
-					if '\"id\"' in line:
-						if '\"id\": \"Summary\"' in line:
-							break
+		#print(file)
+		line = file.readline()
+		while line:
+			if '\"id\"' in line:
+				if '\"id\": \"Summary\"' not in line:
+					if '\"id\": \"SingleColumn\"' not in line:
 						if(line.find('ScopeFilterTransformer_')==-1 and line.find('ScopeTransformer_')==-1 \
-							and line.find('ScopeGrouper_')==-1  and line.find('ScopeProcessorCrossApplyExpressionWrapper')==-1 \
-							and line.find('ScopeReducer_')==-1 and line.find('ScopeRuntime.')==-1) \
-							and line.find('\"SingleColumn\"')==-1:
+						and line.find('ScopeGrouper_')==-1  and line.find('ScopeProcessorCrossApplyExpressionWrapper')==-1 \
+						and line.find('ScopeReducer_')==-1 and line.find('ScopeRuntime.')==-1) \
+						and line.find('\"SingleColumn\"')==-1 \
+						and line.find("|Process")!=-1:
 							totalBench+=1
-							print(line)
-							break
-						#else:
-
+							#print(line)
+			line = file.readline()
+	
 							
 			
 

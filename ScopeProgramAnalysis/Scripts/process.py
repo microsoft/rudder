@@ -42,7 +42,7 @@ for f in onlyfiles:
 						and row[0].find('ScopeReducer_')==-1 and row[0].find('ScopeRuntime.')==-1):
 						#print(row[0])
 						totalBenchWithinfo+=1
-						print(row)
+						#print(row[0])
 						p = int(row[1])
 						t = int(row[2])
 						if(row[2]>=0 and row[3]>=0):
