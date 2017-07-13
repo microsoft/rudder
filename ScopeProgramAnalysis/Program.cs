@@ -262,6 +262,7 @@ namespace ScopeProgramAnalysis
         private static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             var log = CreateSarifOutput();
+            log.SchemaUri = new Uri("http://step0");
 
             if (!File.Exists(inputPath))
             {
@@ -348,9 +349,14 @@ namespace ScopeProgramAnalysis
                 allSchemas = program.ReadSchemasFromXML2(inputPath);
             }
 
+            var processorNumber = 0;
+
             foreach (var methodTuple in scopeMethodTuples)
             {
+                processorNumber++;
                 AnalysisStats.TotalMethods++;
+
+                log.SchemaUri = new Uri(log.SchemaUri.ToString() + String.Format("/processor{0}", processorNumber));
 
                 var processorClass = methodTuple.Item1;
                 var entryMethodDef = methodTuple.Item2;
@@ -370,14 +376,16 @@ namespace ScopeProgramAnalysis
                 {
                     continue; // BUG! Silent failure
                 }
-                
 
+                log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/aboutToAnalyze");
                 Run run;
                 AnalysisReason errorReason;
                 
                 var ok = AnalyzeProcessor(inputPath, loader, program.interprocAnalysisManager, program.factoryReducerMap, processorClass, entryMethodDef, moveNextMethod, getEnumMethod, factoryMethod, inputSchema, outputSchema, out run, out errorReason);
                 if (ok)
                 {
+                    log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeOK");
+
                     log.Runs.Add(run);
 
                     if (outputStream != null)
@@ -395,6 +403,8 @@ namespace ScopeProgramAnalysis
                 }
                 else
                 {
+                    log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeNotOK/" + errorReason.Reason);
+
                     Console.WriteLine("Could not analyze {0}", inputPath);
                     Console.WriteLine("Reason: {0}\n", errorReason.Reason);
 
@@ -664,10 +674,14 @@ namespace ScopeProgramAnalysis
             }
             catch (Exception e)
             {
-                var body = MethodBodyProvider.Instance.GetBody(moveNextMethod);
-                errorReason = new AnalysisReason(moveNextMethod, body.Instructions[0],
-                                String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()));
-                return false;
+                var r = CreateRun(inputPath, "Internal Exception", String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()), new List<Result>());
+                runResult = r;
+                return true;
+
+                //var body = MethodBodyProvider.Instance.GetBody(moveNextMethod);
+                //errorReason = new AnalysisReason(moveNextMethod, body.Instructions[0],
+                //                String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()));
+                //return false;
             }
             finally
             {
@@ -851,7 +865,8 @@ namespace ScopeProgramAnalysis
                             ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
                         }
                     }
-                } else
+                }
+                else
                 {
                     if (run.ToolNotifications.Any())
                     {
@@ -1117,21 +1132,6 @@ namespace ScopeProgramAnalysis
             return d;
         }
 
-        private static void LoadExternalReferences(IEnumerable<string> referenceFiles, MyLoader loader)
-        {
-            foreach (var referenceFileName in referenceFiles)
-            {
-                try
-                {
-                    loader.LoadAssembly(referenceFileName);
-                }
-                catch (Exception e)
-                {
-                    AnalysisStats.DllThatFailedToLoad.Add(referenceFileName);
-                    AnalysisStats.TotalDllsFailedToLoad++;
-                }
-            }
-        }
         /// <summary>
         /// Analyze the ScopeFactory class to get all the Processor/Reducer classes to analyze
         /// For each one obtain:

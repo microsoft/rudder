@@ -16,6 +16,7 @@ using Backend.ThreeAddressCode.Expressions;
 using Backend.ThreeAddressCode.Instructions;
 using Backend.Visitors;
 using System.Text.RegularExpressions;
+using RuntimeLoader;
 
 namespace Backend.Analyses
 {

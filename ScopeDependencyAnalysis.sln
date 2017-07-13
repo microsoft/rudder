@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeAnalyzer", "ColumnRedu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeRuntime", "ScopeProgramAnalysis\Tests\ScopeRuntime\ScopeRuntime.csproj", "{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScopeRuntimeLoader", "ScopeRuntimeLoader\ScopeRuntimeLoader.csproj", "{6F190722-B514-4F7E-8B8B-D7FDF6BAA106}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -65,6 +67,10 @@ Global
 		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B82D9314-1EF8-4B8C-9E7A-17597ECED6CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F190722-B514-4F7E-8B8B-D7FDF6BAA106}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F190722-B514-4F7E-8B8B-D7FDF6BAA106}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F190722-B514-4F7E-8B8B-D7FDF6BAA106}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F190722-B514-4F7E-8B8B-D7FDF6BAA106}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

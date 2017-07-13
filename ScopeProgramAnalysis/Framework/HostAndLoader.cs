@@ -87,39 +87,6 @@ namespace ScopeProgramAnalysis.Framework
             return module.ContainingAssembly;
         }
 
-        public Tuple<IAssembly,ISourceLocationProvider> LoadAssembly(string fileName)
-        {
-            var unit = cciHost.LoadedUnits.SingleOrDefault(u => u.Location == fileName);
-            if(unit!=null)
-            {
-                return Tuple.Create(unit as IAssembly, sourceProviderForAssembly[unit as IAssembly]);
-            }
-
-            var module = cciHost.LoadUnitFrom(fileName) as IModule;
-
-            if (module == null || module == Dummy.Module || module == Dummy.Assembly)
-                throw new Exception(String.Format("The input '{0}' is not a valid CLR module or assembly.", fileName));
-
-            var pdbFileName = Path.ChangeExtension(fileName, "pdb");
-            PdbReader pdbReader = null;
-
-            if (File.Exists(pdbFileName))
-            {
-                using (var pdbStream = File.OpenRead(pdbFileName))
-                {
-                    pdbReader = new PdbReader(pdbStream, cciHost);
-                }
-            }
-
-            sourceProviderForAssembly.Add(module.ContainingAssembly, pdbReader);
-
-            if (module.ContainingAssembly.NamespaceRoot.Members.Any(m => m.Name.Value == "ScopeRuntime"))
-                ScopeTypes.InitializeScopeTypes(cciHost);
-
-
-            return Tuple.Create(module.ContainingAssembly, pdbReader as ISourceLocationProvider);
-        }
-
         public Tuple<IAssembly, ISourceLocationProvider> LoadMainAssembly(string fileName)
         {
             if (fileName.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
@@ -131,7 +98,7 @@ namespace ScopeProgramAnalysis.Framework
             var assemblyParentFolder = Directory.GetParent(assemblyFolder).FullName;
             cciHost.AddLibPath(assemblyFolder);
             cciHost.AddLibPath(assemblyParentFolder);
-            this.mainAssemably = this.LoadAssembly(fileName);
+            this.mainAssemably = RuntimeLoader.RuntimeLoader.LoadAssembly(this.Host, fileName);
             return this.mainAssemably;
         }
 
@@ -167,7 +134,7 @@ namespace ScopeProgramAnalysis.Framework
             {
                 try
                 {
-                    return LoadAssembly(path);
+                    return RuntimeLoader.RuntimeLoader.LoadAssembly(this.Host, path);
                 }
                 catch (Exception e)
                 {
@@ -181,41 +148,9 @@ namespace ScopeProgramAnalysis.Framework
                 return null;
         }
 
-        internal Tuple<IAssembly, ISourceLocationProvider> LoadScopeRuntime(string path)
-        {
-            var thisAssembly = System.Reflection.Assembly.GetExecutingAssembly();
-            var embeddedAssemblyStream = thisAssembly.GetManifestResourceStream("ScopeProgramAnalysis.scoperuntime.exe");
-            if (!Directory.Exists("MyScopeRuntime"))
-            {
-                var d = Directory.CreateDirectory("MyScopeRuntime");
-            }
-            var path2 = "MyScopeRuntime\\ScopeRuntime.exe";
-            if (!File.Exists(path2))
-            {
-                using (var fileStream = File.Create(path2))
-                {
-                    embeddedAssemblyStream.Seek(0, SeekOrigin.Begin);
-                    embeddedAssemblyStream.CopyTo(fileStream);
-                }
-            }
-            var t = LoadAssembly(path2);
-            return t;
-
-            //Tuple<IAssembly, ISourceLocationProvider> t;
-            //t = TryToLoadAssembly("ScopeRuntime", path);
-            //if (t == null)
-            //{
-            //    var currentDirectory = Directory.GetCurrentDirectory();
-            //    t = TryToLoadAssembly("ScopeRuntime", currentDirectory);
-            //}
-            //if (t == null)
-            //    throw new InvalidOperationException("Cannot find ScopeRuntime");
-            //return t;
-        }
-
         private void LoadRuntimeTypes(string directory)
         {
-            var scopeRuntime = LoadScopeRuntime(directory).Item1;
+            var scopeRuntime = RuntimeLoader.RuntimeLoader.LoadScopeRuntime(this.Host);
             this.runtimeTypes = new RuntimeTypeStruct(this.Host, scopeRuntime);
         }
     }

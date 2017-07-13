@@ -10,6 +10,7 @@ using Microsoft.Cci;
 using ScopeProgramAnalysis.Framework;
 using System;
 using System.Diagnostics;
+using RuntimeLoader;
 
 namespace ScopeProgramAnalysis
 {

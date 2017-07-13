@@ -142,52 +142,8 @@ namespace ScopeAnalyzer
         /// </summary>
         private void LoadRuntimeTypes(IAssembly assemblyBeingAnalyzed)
         {
-            // Look for Scope types in an assembly named ScopeRuntime.
-            IAssembly scopeRuntime = null;
-            var scopeRuntimeNameAsDll = "ScopeRuntime.dll";
 
-            // First, look in the directory the assembly being analyzed is located in
-            string pathToRuntime = Path.Combine(Path.GetDirectoryName(assemblyBeingAnalyzed.Location), scopeRuntimeNameAsDll);
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            // Second, look in the parent directory of the direcoty the assembly being analyzed is located in.
-            pathToRuntime = Path.Combine(Directory.GetParent(Path.GetDirectoryName(pathToRuntime)).FullName, scopeRuntimeNameAsDll);
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            // Third, look in the currently directory
-            pathToRuntime = Path.Combine(Environment.CurrentDirectory, scopeRuntimeNameAsDll);
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            pathToRuntime = Path.ChangeExtension(pathToRuntime, ".exe");
-            if (File.Exists(pathToRuntime))
-            {
-                scopeRuntime = this.Host.LoadUnitFrom(pathToRuntime) as IAssembly;
-                goto L;
-            }
-            L:
-            if (scopeRuntime == null)
-                throw new InvalidOperationException("Cannot find runtime types for the assembly: " + assemblyBeingAnalyzed.Name);
+            var scopeRuntime = RuntimeLoader.RuntimeLoader.LoadScopeRuntime(this.Host);
 
             processorType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Processor");
             reducerType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Reducer");

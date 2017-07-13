@@ -116,9 +116,10 @@
       <Project>{90c431c8-ab8c-444f-904c-350c236d27de}</Project>
       <Name>ScopeAnalyzer</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="scoperuntime.exe" />
+    <ProjectReference Include="..\ScopeRuntimeLoader\ScopeRuntimeLoader.csproj">
+      <Project>{6f190722-b514-4f7e-8b8b-d7fdf6baa106}</Project>
+      <Name>ScopeRuntimeLoader</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

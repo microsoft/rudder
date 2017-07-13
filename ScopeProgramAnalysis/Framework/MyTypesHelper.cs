@@ -2,6 +2,7 @@
 using Backend;
 using Backend.Utils;
 using Microsoft.Cci;
+using RuntimeLoader;
 
 namespace ScopeProgramAnalysis.Framework
 {
