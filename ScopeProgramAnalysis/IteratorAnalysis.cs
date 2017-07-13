@@ -1716,16 +1716,24 @@ namespace Backend.Analyses
                 {
                     var tables = scopeData.GetTableFromSchemaMap(arg);
                     var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
-                    if (tableKind == ProtectedRowKind.Output)
+                    var table = tables.OfType<TraceableTable>().FirstOrDefault();
+                    if (table != null)
                     {
-                        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        if (table.TableKind == ProtectedRowKind.Output)
+                        {
+                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                        }
+                        result = schema;
                     }
-                    result = schema;
+                    else
+                    {
+                        this.State.SetTOP();
+                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Table not available as traceable argument"));
+                    }
                 }
                 else
                 {
-                    if(this.State.HasTraceables(arg))
+                    if (this.State.HasTraceables(arg))
                     {
                         var table = this.State.GetTraceables(arg).OfType<TraceableTable>().FirstOrDefault(); // BUG: what if there are more than one?
                         if (table != null)
@@ -1742,6 +1750,7 @@ namespace Backend.Analyses
                         {
                             this.State.SetTOP();
                             AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Table not available as traceable argument"));
+                            return result;
                         }
                     }
                     this.State.SetTOP();

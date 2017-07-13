@@ -258,3 +258,4 @@ paket-files/
 /analysis-net-cci-version-9-26/
 /OtherBinaries
 /ScopeProgramAnalysis/ScopeRuntime.exe
+/ScopeRuntimeLoader/scoperuntime.exe
