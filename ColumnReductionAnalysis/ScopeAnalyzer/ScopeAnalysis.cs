@@ -87,6 +87,7 @@ namespace ScopeAnalyzer
 
 
         IMetadataHost mhost;
+        RuntimeLoader.RuntimeLoader myScopeRuntimeLoader;
         IAssembly assembly;
         // We need reference assemblies to get necessary type definitions.
         IEnumerable<IAssembly> refAssemblies;
@@ -112,6 +113,7 @@ namespace ScopeAnalyzer
         public ScopeAnalysis(IMetadataHost host, IAssembly assembly, ISourceLocationProvider sourceLocationProvider, IEnumerable<IAssembly> refAssemblies, IEnumerable<string> ips)
         {
             this.mhost = host;
+            this.myScopeRuntimeLoader = new RuntimeLoader.RuntimeLoader(host);
             this.assembly = assembly;
             this.refAssemblies = refAssemblies;
             this.sourceLocationProvider = sourceLocationProvider;
@@ -142,8 +144,7 @@ namespace ScopeAnalyzer
         /// </summary>
         private void LoadRuntimeTypes(IAssembly assemblyBeingAnalyzed)
         {
-
-            var scopeRuntime = RuntimeLoader.RuntimeLoader.LoadScopeRuntime(this.Host);
+            var scopeRuntime = myScopeRuntimeLoader.LoadScopeRuntime();
 
             processorType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Processor");
             reducerType = UnitHelper.FindType(this.Host.NameTable, scopeRuntime, "ScopeRuntime.Reducer");

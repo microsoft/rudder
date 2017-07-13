@@ -83,10 +83,15 @@ namespace RuntimeLoader
 
     public class RuntimeLoader
     {
-        private static IAssembly cachedScopeRuntime = null;
-        private static IDictionary<IAssembly, ISourceLocationProvider> sourceProviderForAssembly = new Dictionary<IAssembly, ISourceLocationProvider>();
+        private IMetadataHost host;
+        private IAssembly cachedScopeRuntime = null;
 
-        public static IAssembly LoadScopeRuntime(IMetadataHost host)
+        public RuntimeLoader(IMetadataHost host)
+        {
+            this.host = host;
+        }
+
+        public IAssembly LoadScopeRuntime()
         {
             if (cachedScopeRuntime == null)
             {
@@ -105,8 +110,8 @@ namespace RuntimeLoader
                         embeddedAssemblyStream.CopyTo(fileStream);
                     }
                 }
-                var t = LoadAssembly(host, path2);
-                var scopeRuntime = t.Item1;
+                var t = LoadAssembly(path2);
+                var scopeRuntime = t;
 
                 ScopeTypes.InitializeScopeTypes(host);
                 cachedScopeRuntime = scopeRuntime;
@@ -114,12 +119,12 @@ namespace RuntimeLoader
 
             return cachedScopeRuntime;
         }
-        public static Tuple<IAssembly, ISourceLocationProvider> LoadAssembly(IMetadataHost host, string fileName)
+        public IAssembly LoadAssembly(string fileName)
         {
             var unit = host.LoadedUnits.SingleOrDefault(u => u.Location == fileName);
             if (unit != null)
             {
-                return Tuple.Create(unit as IAssembly, sourceProviderForAssembly[unit as IAssembly]);
+                return unit as IAssembly;
             }
 
             var module = host.LoadUnitFrom(fileName) as IModule;
@@ -127,20 +132,7 @@ namespace RuntimeLoader
             if (module == null || module == Dummy.Module || module == Dummy.Assembly)
                 throw new Exception(String.Format("The input '{0}' is not a valid CLR module or assembly.", fileName));
 
-            var pdbFileName = Path.ChangeExtension(fileName, "pdb");
-            PdbReader pdbReader = null;
-
-            if (File.Exists(pdbFileName))
-            {
-                using (var pdbStream = File.OpenRead(pdbFileName))
-                {
-                    pdbReader = new PdbReader(pdbStream, host);
-                }
-            }
-
-            sourceProviderForAssembly.Add(module.ContainingAssembly, pdbReader);
-
-            return Tuple.Create(module.ContainingAssembly, pdbReader as ISourceLocationProvider);
+            return module.ContainingAssembly;
         }
 
 

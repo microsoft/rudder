@@ -601,8 +601,7 @@ namespace ScopeProgramAnalysis
 
             Types.Initialize(host);
 
-            var assemblyAndProvider = loader.LoadMainAssembly(inputPath);
-            loadedAssembly = assemblyAndProvider.Item1;
+            loadedAssembly = loader.LoadMainAssembly(inputPath);
 
             program = new ScopeProgramAnalysis(loader);
         }
@@ -1237,7 +1236,8 @@ namespace ScopeProgramAnalysis
         {
             var scopeMethodTuplesToAnalyze = new HashSet<Tuple<ITypeDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition, IMethodDefinition>>();
 
-            var candidateClasses = host.LoadedUnits.OfType<IAssembly>()
+            var alreadyLoadedAssemblies = new List<IAssembly>(host.LoadedUnits.OfType<IAssembly>());
+            var candidateClasses = alreadyLoadedAssemblies
                 .Where(a => a.Name.Value != "mscorlib")
                 .SelectMany(a => a.GetAllTypes().OfType<ITypeDefinition>())
                 ;

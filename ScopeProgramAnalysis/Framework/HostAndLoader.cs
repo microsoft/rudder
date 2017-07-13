@@ -11,8 +11,9 @@ namespace ScopeProgramAnalysis.Framework
         public static IPlatformType PlatformTypes; 
 
         private HashSet<IAssemblyReference> failedAssemblies;
-        private Tuple<IAssembly, ISourceLocationProvider> mainAssemably;
+        private IAssembly mainAssemably;
         private MetadataReaderHost cciHost;
+        private RuntimeLoader.RuntimeLoader myRuntimeLoader;
         private IDictionary<IAssembly, ISourceLocationProvider> sourceProviderForAssembly;
         private RuntimeTypeStruct runtimeTypes;
         public RuntimeTypeStruct RuntimeTypes {  get { return runtimeTypes; } }
@@ -53,6 +54,7 @@ namespace ScopeProgramAnalysis.Framework
         public MyLoader(MetadataReaderHost host, string directory) 
         {
             this.cciHost = host;
+            this.myRuntimeLoader = new RuntimeLoader.RuntimeLoader(host);
             sourceProviderForAssembly = new Dictionary<IAssembly, ISourceLocationProvider>();
             if (PlatformTypes == null)
                 PlatformTypes = host.PlatformType;
@@ -87,7 +89,7 @@ namespace ScopeProgramAnalysis.Framework
             return module.ContainingAssembly;
         }
 
-        public Tuple<IAssembly, ISourceLocationProvider> LoadMainAssembly(string fileName)
+        public IAssembly LoadMainAssembly(string fileName)
         {
             if (fileName.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
             {
@@ -98,11 +100,11 @@ namespace ScopeProgramAnalysis.Framework
             var assemblyParentFolder = Directory.GetParent(assemblyFolder).FullName;
             cciHost.AddLibPath(assemblyFolder);
             cciHost.AddLibPath(assemblyParentFolder);
-            this.mainAssemably = RuntimeLoader.RuntimeLoader.LoadAssembly(this.Host, fileName);
+            this.mainAssemably = myRuntimeLoader.LoadAssembly(fileName);
             return this.mainAssemably;
         }
 
-        private Tuple<IAssembly, ISourceLocationProvider> TryToLoadAssembly(string assemblyName, string directory)
+        private IAssembly TryToLoadAssembly(string assemblyName, string directory)
         {
             var extensions = new string[] { ".dll", ".exe" };
             var path = "";
@@ -134,7 +136,7 @@ namespace ScopeProgramAnalysis.Framework
             {
                 try
                 {
-                    return RuntimeLoader.RuntimeLoader.LoadAssembly(this.Host, path);
+                    return myRuntimeLoader.LoadAssembly(path);
                 }
                 catch (Exception e)
                 {
@@ -150,7 +152,7 @@ namespace ScopeProgramAnalysis.Framework
 
         private void LoadRuntimeTypes(string directory)
         {
-            var scopeRuntime = RuntimeLoader.RuntimeLoader.LoadScopeRuntime(this.Host);
+            var scopeRuntime = myRuntimeLoader.LoadScopeRuntime();
             this.runtimeTypes = new RuntimeTypeStruct(this.Host, scopeRuntime);
         }
     }
