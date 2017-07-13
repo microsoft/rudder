@@ -99,7 +99,6 @@
     <Compile Include="IteratorStateAnalysis.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="RangeAnalysis.cs" />
-    <Compile Include="ScopeTypes.cs" />
     <Compile Include="Framework\SimplerPointsToAnalysis.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
