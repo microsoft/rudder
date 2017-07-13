@@ -82,7 +82,7 @@ namespace Compare
                         processorName = run.Id;
                     }
 
-                    Console.WriteLine("Processor '{0}', Number '{1}'", processorName, processNumber);
+                    Console.WriteLine("Processor '{0}'+ Number '{1}'", processorName, processNumber);
 
                     var visitedColumns = new HashSet<string>();
 
@@ -180,7 +180,7 @@ namespace Compare
             foreach(var entry in analysisStats)
             {
                 var data = entry.Value;
-                Console.WriteLine("{0}, {1}, {2}, {3}, {4}, {5}", entry.Key, data.PassThrough, 
+                Console.WriteLine("{0}+ {1}+ {2}+ {3}+ {4}+ {5}", entry.Key, data.PassThrough, 
                                 data.TotalOutputColumns, data.TotalInputColumns, 
                                 data.TotalSchemaOutputs, data.TotalSchemaInputs);
             }

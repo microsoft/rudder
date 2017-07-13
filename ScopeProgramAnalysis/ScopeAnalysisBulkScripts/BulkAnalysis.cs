@@ -19,17 +19,18 @@ namespace ScopeAnalysisBulkScripts
 
         static void Main(string[] args)
         {
-            var doOnlyPassthrough = true;
+            var doOnlyPassthrough = false;
             var doAnalysis = !doOnlyPassthrough;
 
-            var analysisClient = @"C:\Users\t-diga\Source\Repos\rudder-github\AnalysisClient\bin\Debug\AnalysisClient.exe";
-            var outputAnalyzer = @"C:\Users\t-diga\Source\Repos\rudder-github\CompareAnalysisOutput\Compare\bin\Debug\Compare.exe";
+            var analysisClient = @"C:\Users\Diego\Source\Repos\rudder\AnalysisClient\bin\Debug\AnalysisClient.exe";
+            var outputAnalyzer = @"C:\Users\Diego\Source\Repos\rudder\CompareAnalysisOutput\Compare\bin\Debug\Compare.exe";
 
 
-            var inputFolder = @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
-            if(doOnlyPassthrough)
+            var inputFolder = @"C:\Temp\Scope\First100JobsFromMadan";
+                // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+            if (doOnlyPassthrough)
             {
-                inputFolder = @"C:\temp\Madam";
+                inputFolder = @"C:\temp\Scope\out";
             }
             //inputFolder = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
             //var inputFolder = @"D:\Madam3";
@@ -37,7 +38,7 @@ namespace ScopeAnalysisBulkScripts
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
-            var outputFolder = @"C:\Temp\Madam";
+            var outputFolder = @"C:\Temp\Scope\out";
             //outputFolder = @"C:\Temp\Mike100";
             //outputFolder = @"C:\temp\ZvoList";
 
