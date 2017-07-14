@@ -666,6 +666,8 @@ namespace ScopeProgramAnalysis
 
                     previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, depAnalysisTime, inputColumns, outputColumns, bagOColumnsUsedColumns, bagOColumnsTime));
                 }
+                var producesAnalyzer = new ProducesMethodAnalyzer(loader, processorClass);
+                var overApproximatedPassthrough = producesAnalyzer.InferAnnotations(inputSchema);
 
                 var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, depAnalysisTime, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns, bagOColumnsTime);
                 runResult = r;
@@ -896,6 +898,8 @@ namespace ScopeProgramAnalysis
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
 
+                
+
             string declaredPassthroughString = "";
             if (factoryMethod != null)
             {
@@ -903,6 +907,7 @@ namespace ScopeProgramAnalysis
                 {
                     var declaredPassthrough = ExecuteProducesMethod(factoryMethod, inputSchema);
                     declaredPassthroughString = String.Join("|", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+
                 } catch (Exception e)
                 {
                     declaredPassthroughString = "Exception while trying to get declared passthrough: " + e.Message;
