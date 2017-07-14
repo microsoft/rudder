@@ -1124,7 +1124,8 @@ namespace ScopeProgramAnalysis
                     if (column.Source != null)
                         d.Add(column.Name, column.Source.Name);
                 }
-            } catch
+            }
+            catch
             {
                 d.Add("666", "exception during Produces");
             }
