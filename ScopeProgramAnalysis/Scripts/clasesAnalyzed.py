@@ -22,7 +22,6 @@ for f in onlyfiles:
 						and line.find('\"SingleColumn\"')==-1 \
 						and line.find("|Process")!=-1:
 							totalBench+=1
-							#print(line)
 			line = file.readline()
 	
 							

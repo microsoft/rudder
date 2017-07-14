@@ -21,6 +21,8 @@ totalOutputFound = 0
 totalInputFound = 0
 totalOutputSchema = 0
 totalInputSchema = 0
+totalZvoTime = 0
+totalDepTime = 0;
 for f in onlyfiles:
 	with open(f) as file:
 		totalFiles+=1
@@ -39,6 +41,7 @@ for f in onlyfiles:
 					totalBench+=1
 					if(row[0].find('ScopeFilterTransformer_')==-1 and row[0].find('ScopeTransformer_')==-1 \
 						and row[0].find('ScopeGrouper_')==-1  and row[0].find('ScopeProcessorCrossApplyExpressionWrapper')==-1 \
+						and row[0].find('ScopeCrossApplyProcessor_')==-1 \
 						and row[0].find('ScopeReducer_')==-1 and row[0].find('ScopeRuntime.')==-1):
 						#print(row[0])
 						totalBenchWithinfo+=1
@@ -50,8 +53,12 @@ for f in onlyfiles:
 							totalInputFound+= int(row[3])
 							totalOutputSchema+= int(row[4])
 							totalInputSchema+= int(row[5])
+							totalZvoTime += int(row[6])
+							totalDepTime +=int(row[7])
 
 							if(p>=0): 
+								if(p>0):
+									print(f,' ',row[0])
 								if(t>0): 
 									ratio = float (p)/ float(t)
 								else:
@@ -96,4 +103,5 @@ print('Max Pass-Trough' , maxPassthrough)
 print('File name' , fileWithMax)
 print('Total Input:', totalInputFound, ' Total Schema:', totalInputSchema, 'Ratio:', float(totalInputFound)/float(totalInputSchema)*100)
 print('Total Output:', totalOutputFound, ' Total Schema:', totalOutputSchema, 'Ratio:', float(totalOutputFound)/float(totalOutputSchema)*100)
-	
+print('Total Zvo time', totalZvoTime)
+print('Total Dep time', totalDepTime)
