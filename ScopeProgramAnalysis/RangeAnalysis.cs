@@ -269,7 +269,7 @@ namespace ScopeProgramAnalysis
             {
                 int value = -1;
                 
-                if (TypeHelper.IsPrimitiveInteger(K.Type))
+                if (TypeHelper.IsPrimitiveInteger(K.Type) && !(K.Value is Int64 || K.Value is UInt64))
                 {
                     value = (int)K.Value;
                     return new RangeDomain(value, value);

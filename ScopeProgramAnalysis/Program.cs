@@ -42,6 +42,7 @@ namespace ScopeProgramAnalysis
                     new Regex(@"^___Scope_Generated_Classes___.ScopeOptimizedClass_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeTransformer_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeGrouper_\d+$", RegexOptions.Compiled),
+                    new Regex(@"^___Scope_Generated_Classes___.ScopeCrossApplyProcessor_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeProcessorCrossApplyExpressionWrapper_\d+$", RegexOptions.Compiled),
                     new Regex(@"^___Scope_Generated_Classes___.ScopeReducer__\d+$", RegexOptions.Compiled)
                     // ScopeRuntime.
@@ -900,8 +901,8 @@ namespace ScopeProgramAnalysis
             {
                 try
                 {
-                    var declaredPassthrough = GetDeclaredPassthroughColumns(factoryMethod, inputSchema);
-                    declaredPassthroughString = String.Join(",", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+                    var declaredPassthrough = ExecuteProducesMethod(factoryMethod, inputSchema);
+                    declaredPassthroughString = String.Join("|", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
                 } catch (Exception e)
                 {
                     declaredPassthroughString = "Exception while trying to get declared passthrough: " + e.Message;
@@ -1094,7 +1095,7 @@ namespace ScopeProgramAnalysis
             return r;
         }
 
-        private static Dictionary<string, string> GetDeclaredPassthroughColumns(IMethodDefinition factoryMethod, Schema inputSchema)
+        private static Dictionary<string, string> ExecuteProducesMethod(IMethodDefinition factoryMethod, Schema inputSchema)
         {
             var d = new Dictionary<string, string>();
             if (factoryMethod == null) { d.Add("666", "no factoryMethod"); return d; }
@@ -1129,6 +1130,7 @@ namespace ScopeProgramAnalysis
             {
                 d.Add("666", "exception during Produces");
             }
+
             return d;
         }
 
