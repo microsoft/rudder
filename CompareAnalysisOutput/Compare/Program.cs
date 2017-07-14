@@ -40,6 +40,8 @@ namespace Compare
             public int TotalInputColumns { get; internal set; }
             public int TotalSchemaInputs { get; internal set; }
             public int TotalSchemaOutputs { get; internal set; }
+            public long ZvonimirAnalysisTime { get; internal set; }
+            public long DepencyAnalysysTime { get; internal set; }
         }
 
         static int ComputePassThroughColumns(string sarifFile)
@@ -140,12 +142,19 @@ namespace Compare
 
                             columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
                             var columnsSchemaOutput = columnProperty.Count;
+
+                            var zvoTime = result.GetProperty<int>("BagOColumnsTime");
+                            var depAnalysisTime = result.GetProperty<int>("DependencyAnalysisTime");
+
+
                             analysisStats.Add(processorName, new Stats() {
                                         PassThrough = !topHappened? passThroughColumns.Count: -1,
                                         TotalOutputColumns = !outputHasTop ? totalOutputColumns :-1,
                                         TotalInputColumns = !inputHasTop ? totalInputColumns:-1,
                                         TotalSchemaInputs = columnsSchemaInput,
-                                        TotalSchemaOutputs =  columnsSchemaOutput
+                                        TotalSchemaOutputs =  columnsSchemaOutput,
+                                        ZvonimirAnalysisTime = zvoTime,
+                                        DepencyAnalysysTime = depAnalysisTime
                             });
                         }
                     }
@@ -180,9 +189,10 @@ namespace Compare
             foreach(var entry in analysisStats)
             {
                 var data = entry.Value;
-                Console.WriteLine("{0}+ {1}+ {2}+ {3}+ {4}+ {5}", entry.Key, data.PassThrough, 
+                Console.WriteLine("{0}+ {1}+ {2}+ {3}+ {4}+ {5} +{6} +{7}", entry.Key, data.PassThrough, 
                                 data.TotalOutputColumns, data.TotalInputColumns, 
-                                data.TotalSchemaOutputs, data.TotalSchemaInputs);
+                                data.TotalSchemaOutputs, data.TotalSchemaInputs,
+                                data.ZvonimirAnalysisTime, data.DepencyAnalysysTime);
             }
 
             return 0; // success
