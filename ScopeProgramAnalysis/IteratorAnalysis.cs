@@ -1272,7 +1272,7 @@ namespace Backend.Analyses
                 }
 
                 // for Add we need to add an element the collection using a fake field "$item"
-                else if (methodInvoked.Name.Value == "Add" 
+                else if (methodInvoked.Name.Value.StartsWith("Add") 
                     && (methodInvoked.ContainingType.IsCollection() || methodInvoked.ContainingType.IsDictionary() || methodInvoked.ContainingType.IsSet()))
                 {
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);

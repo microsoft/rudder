@@ -164,6 +164,9 @@ namespace ScopeProgramAnalysis.Framework
 
         public static bool IsClassOrStruct(this ITypeReference type)
         {
+            // BUG: type cannot be NULL!
+            if (type == null)
+                return true;
             if (type.IsValueType)
             {
                 if (type.ResolvedType.IsStruct)
