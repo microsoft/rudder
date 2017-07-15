@@ -666,6 +666,8 @@ namespace ScopeProgramAnalysis
 
                     previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, depAnalysisTime, inputColumns, outputColumns, bagOColumnsUsedColumns, bagOColumnsTime));
                 }
+                var producesAnalyzer = new ProducesMethodAnalyzer(loader, processorClass);
+                var overApproximatedPassthrough = producesAnalyzer.InferAnnotations(inputSchema);
 
                 var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, depAnalysisTime, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns, bagOColumnsTime);
                 runResult = r;
@@ -898,17 +900,25 @@ namespace ScopeProgramAnalysis
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
 
+                
+
             string declaredPassthroughString = "";
             string declaredDependencyString = "";
             if (factoryMethod != null)
             {
                 try
                 {
+<<<<<<< HEAD
                     var resultOfProducesMethod = ExecuteProducesMethod(factoryMethod, inputSchema);
                     var declaredPassThroughDictionary = resultOfProducesMethod.Item1;
                     declaredPassthroughString = String.Join("|", declaredPassThroughDictionary.Select(e => e.Key + " <: " + e.Value));
                     var dependenceDictionary = resultOfProducesMethod.Item2;
                     declaredDependencyString = String.Join("|", dependenceDictionary.Select(e => e.Key + " <: " + e.Value));
+=======
+                    var declaredPassthrough = ExecuteProducesMethod(factoryMethod, inputSchema);
+                    declaredPassthroughString = String.Join("|", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+
+>>>>>>> aa57025760a6032e8306e06491ef42d8704e22ba
                 } catch (Exception e)
                 {
                     declaredPassthroughString = "Exception while trying to execute produces method: " + e.Message;
