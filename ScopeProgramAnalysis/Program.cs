@@ -714,6 +714,7 @@ namespace ScopeProgramAnalysis
             public bool Error;
             public string ErrorReason;
             public string DeclaredPassthroughColumns;
+            public string DeclaredDependencies;
 
             // Zvonimir's analysis
             public long UsedColumnTime; // in milliseconds
@@ -846,6 +847,7 @@ namespace ScopeProgramAnalysis
                             ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
                             ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
                             ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
+                            ret.DeclaredDependencies = result.GetProperty("DeclaredDependency");
 
                             ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
 
@@ -897,15 +899,19 @@ namespace ScopeProgramAnalysis
             var outputModifies = new HashSet<Traceable>();
 
             string declaredPassthroughString = "";
+            string declaredDependencyString = "";
             if (factoryMethod != null)
             {
                 try
                 {
-                    var declaredPassthrough = ExecuteProducesMethod(factoryMethod, inputSchema);
-                    declaredPassthroughString = String.Join("|", declaredPassthrough.Select(e => e.Key + " <: " + e.Value));
+                    var resultOfProducesMethod = ExecuteProducesMethod(factoryMethod, inputSchema);
+                    var declaredPassThroughDictionary = resultOfProducesMethod.Item1;
+                    declaredPassthroughString = String.Join("|", declaredPassThroughDictionary.Select(e => e.Key + " <: " + e.Value));
+                    var dependenceDictionary = resultOfProducesMethod.Item2;
+                    declaredDependencyString = String.Join("|", dependenceDictionary.Select(e => e.Key + " <: " + e.Value));
                 } catch (Exception e)
                 {
-                    declaredPassthroughString = "Exception while trying to get declared passthrough: " + e.Message;
+                    declaredPassthroughString = "Exception while trying to execute produces method: " + e.Message;
                 }
             } else
             {
@@ -1025,6 +1031,7 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
 
                 resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+                resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
 
                 resultSummary.SetProperty("BagOColumnsTime", (int) bagOColumnsTime.TotalMilliseconds);
                 resultSummary.SetProperty("DependencyAnalysisTime", (int) depAnalysiTime.TotalMilliseconds);
@@ -1049,6 +1056,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 resultEmpty.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+                resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
                 resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
                 resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysiTime.TotalMilliseconds);
                 results.Add(resultEmpty);
@@ -1095,22 +1103,24 @@ namespace ScopeProgramAnalysis
             return r;
         }
 
-        private static Dictionary<string, string> ExecuteProducesMethod(IMethodDefinition factoryMethod, Schema inputSchema)
+        private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(IMethodDefinition factoryMethod, Schema inputSchema)
         {
-            var d = new Dictionary<string, string>();
-            if (factoryMethod == null) { d.Add("666", "no factoryMethod"); return d; }
+            var sourceDictionary = new Dictionary<string, string>();
+            var dependenceDictionary = new Dictionary<string, string>();
+
+            if (factoryMethod == null) { sourceDictionary.Add("666", "no factoryMethod"); goto L; }
             // Call the factory method to get an instance of the processor.
             var factoryClass = factoryMethod.ContainingType;
             var assembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(factoryClass).ResolvedUnit.Location);
-            if (assembly == null) { d.Add("666", "no assembly"); return d; }
+            if (assembly == null) { sourceDictionary.Add("666", "no assembly"); goto L; }
             var factoryClass2 = assembly.GetType(TypeHelper.GetTypeName(factoryClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
-            if (factoryClass2 == null) { d.Add("666", "no factoryClass2"); return d; }
+            if (factoryClass2 == null) { sourceDictionary.Add("666", "no factoryClass2"); goto L; }
             var factoryMethod2 = factoryClass2.GetMethod(factoryMethod.Name.Value);
-            if (factoryMethod2 == null) { d.Add("666", "no factoryMethod2" + " (" + factoryMethod.Name.Value + ")"); return d; }
+            if (factoryMethod2 == null) { sourceDictionary.Add("666", "no factoryMethod2" + " (" + factoryMethod.Name.Value + ")"); goto L; }
             var instance = factoryMethod2.Invoke(null, null);
-            if (instance == null) { d.Add("666", "no instance"); return d; }
+            if (instance == null) { sourceDictionary.Add("666", "no instance"); goto L; }
             var producesMethod = factoryMethod2.ReturnType.GetMethod("Produces");
-            if (producesMethod == null) { d.Add("666", "no producesMethod"); return d; }
+            if (producesMethod == null) { sourceDictionary.Add("666", "no producesMethod"); goto L; }
             // Schema Produces(string[] columns, string[] args, Schema input)
             try
             {
@@ -1119,19 +1129,34 @@ namespace ScopeProgramAnalysis
                 var inputSchemaAsString = String.Join(",", inputSchema.Columns.Select(e => e.Name + ": " + e.Type));
                 var inputSchema2 = new ScopeRuntime.Schema(inputSchemaAsString);
                 var specifiedOutputSchema = producesMethod.Invoke(instance, new object[] { arg1, arg2, inputSchema2, });
-                if (specifiedOutputSchema == null) { d.Add("666", "no specifiedOutputSchema"); return d; }
+                if (specifiedOutputSchema == null) { sourceDictionary.Add("666", "no specifiedOutputSchema"); goto L; }
                 foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
                 {
                     if (column.Source != null)
-                        d.Add(column.Name, column.Source.Name);
+                        sourceDictionary.Add(column.Name, column.Source.Name);
+                }
+                var allowColumnPruningMethod = factoryMethod2.ReturnType.GetMethod("get_AllowColumnPruning");
+                if (allowColumnPruningMethod != null)
+                {
+                    var columnPruningAllowed = (bool)allowColumnPruningMethod.Invoke(instance, null);
+                    if (columnPruningAllowed)
+                    {
+                        foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
+                        {
+                            if (column.Dependency != null)
+                            {
+                                dependenceDictionary.Add(column.Name, String.Join("+", column.Dependency.Keys.Select(e => e.Name)));
+                            }
+                        }
+                    }
                 }
             }
             catch
             {
-                d.Add("666", "exception during Produces");
+                sourceDictionary.Add("666", "exception during Produces");
             }
-
-            return d;
+            L:
+            return Tuple.Create(sourceDictionary, dependenceDictionary);
         }
 
         /// <summary>
