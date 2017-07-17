@@ -417,7 +417,8 @@ namespace Backend.Analyses
                 return this.schemaTableMap.ContainsKey(arg);
             }
             internal void UpdateColumnLiteralMap(MethodCallInstruction methodCallStmt, Column columnLiteral) {
-                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.Name;
+                //columnVariable2Literal[methodCallStmt.Result] = columnLiteral.Name;
+                columnVariable2Literal[methodCallStmt.Result] = columnLiteral.ToString();
             }
 
             internal void PropagateLoad(LoadInstruction loadStmt, InstanceFieldAccess fieldAccess, DependencyPTGDomain dependencies)

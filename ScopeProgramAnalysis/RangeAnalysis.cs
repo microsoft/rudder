@@ -110,7 +110,8 @@ namespace ScopeProgramAnalysis
         public override string ToString()
         {
             if (IsTop) return "_TOP_";
-            if(IsBottom) return "_BOTTOM_";
+            if(IsBottom)
+                return "_BOTTOM_";
             var result = String.Format(CultureInfo.InvariantCulture, "[{0}..{1}]", LowerBound, UpperBound);
             if (LowerBound == UpperBound) result = LowerBound.ToString();
             return result;
@@ -205,6 +206,9 @@ namespace ScopeProgramAnalysis
 
     public class RangeAnalysis: ForwardDataFlowAnalysis<VariableRangeDomain> 
     {
+
+        private object originalValue = null;
+
         public DataFlowAnalysisResult<VariableRangeDomain>[] Result { get; private set; }
 
         public RangeAnalysis(ControlFlowGraph cfg): base(cfg)
