@@ -676,7 +676,8 @@ namespace ScopeProgramAnalysis
             }
             catch (Exception e)
             {
-                var r = CreateRun(inputPath, "Internal Exception", String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()), new List<Result>());
+                var id = String.Format("[{0}] {1}", TypeHelper.GetDefiningUnit(processorClass).Name.Value, processorClass.FullName());
+                var r = CreateRun(inputPath, id, String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()), new List<Result>());
                 runResult = r;
                 return true;
 
