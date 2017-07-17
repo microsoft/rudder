@@ -38,7 +38,7 @@ namespace ScopeAnalysisBulkScripts
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
-            var outputFolder = @"C:\Temp\Scope\out";
+            var outputFolder = @"C:\Temp\Scope\out2";
             //outputFolder = @"C:\Temp\Mike100";
             //outputFolder = @"C:\temp\ZvoList";
 

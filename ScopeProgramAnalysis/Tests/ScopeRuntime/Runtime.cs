@@ -155,4 +155,9 @@ namespace ScopeRuntime
 
 
     }
+
+    public class M
+    {
+        public static void Main() { }
+    }
 }

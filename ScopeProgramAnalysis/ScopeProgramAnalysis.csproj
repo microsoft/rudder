@@ -83,6 +83,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ProducesMethodAnalyzer.cs" />
     <Compile Include="Utilities.cs" />
     <None Include="AlternativeDepenencyAnalysis.cs" />
     <Compile Include="AnalysisStats.cs" />

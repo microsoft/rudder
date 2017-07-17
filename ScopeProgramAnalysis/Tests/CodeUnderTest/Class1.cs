@@ -443,5 +443,32 @@ namespace CodeUnderTest
         }
 
     }
+
+    [Reads("A"), Writes("A")]
+    public class PassColumnValuesToMethodReducer : Reducer
+    {
+        public class SillyClass
+        {
+            public string AValue { get; set; }
+        }
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            var aValues = new List<SillyClass>();
+            foreach (Row current in input.Rows)
+            {
+                var aValue = current["A"].String;
+                aValues.Add(new SillyClass() { AValue = aValue, });
+                output["A"].Set(aValue);
+                yield return output;
+            }
+            yield break;
+        }
+
+    }
 }
 

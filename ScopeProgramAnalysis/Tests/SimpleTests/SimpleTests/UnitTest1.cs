@@ -225,6 +225,16 @@ namespace SimpleTests
             Assert.IsNotNull(run);
             Assert.IsTrue(run.BothAnalysesAgree());
         }
+        [TestMethod]
+        public void CallPassColumnValuesToMethodReducer()
+        {
+            var t = typeof(PassColumnValuesToMethodReducer);
+            var run = AnalyzeProcessor(t, "A: string", "A: string");
+
+            var s = SarifRunToString(run);
+            Assert.IsNotNull(run);
+            Assert.IsTrue(run.BothAnalysesAgree());
+        }
 
     }
 }
