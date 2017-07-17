@@ -1122,7 +1122,15 @@ namespace ScopeProgramAnalysis
             if (factoryClass2 == null) { sourceDictionary.Add("666", "no factoryClass2"); goto L; }
             var factoryMethod2 = factoryClass2.GetMethod(factoryMethod.Name.Value);
             if (factoryMethod2 == null) { sourceDictionary.Add("666", "no factoryMethod2" + " (" + factoryMethod.Name.Value + ")"); goto L; }
-            var instance = factoryMethod2.Invoke(null, null);
+            object instance = null;
+            try
+            {
+                instance = factoryMethod2.Invoke(null, null);
+            }
+            catch (System.Reflection.TargetInvocationException e)
+            {
+                sourceDictionary.Add("666", "At least one missing assembly: " + e.Message); goto L;
+            }
             if (instance == null) { sourceDictionary.Add("666", "no instance"); goto L; }
             var producesMethod = factoryMethod2.ReturnType.GetMethod("Produces");
             if (producesMethod == null) { sourceDictionary.Add("666", "no producesMethod"); goto L; }
