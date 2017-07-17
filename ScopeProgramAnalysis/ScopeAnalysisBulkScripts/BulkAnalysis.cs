@@ -22,9 +22,9 @@ namespace ScopeAnalysisBulkScripts
             var doOnlyPassthrough = false;
             var doAnalysis = !doOnlyPassthrough;
 
-            var analysisClient = @"C:\Users\Diego\Source\Repos\rudder\AnalysisClient\bin\Debug\AnalysisClient.exe";
-            var outputAnalyzer = @"C:\Users\Diego\Source\Repos\rudder\CompareAnalysisOutput\Compare\bin\Debug\Compare.exe";
-
+            var rudderPath = @"C:\Users\diegog\Source\Repos\rudder\";
+            var analysisClient = Path.Combine(rudderPath, @"AnalysisClient\bin\Debug\AnalysisClient.exe");
+            var outputAnalyzer = Path.Combine(rudderPath, @"CompareAnalysisOutput\Compare\bin\Debug\Compare.exe");
 
             var inputFolder = @"C:\Temp\Scope\First100JobsFromMadan";
                 // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
