@@ -667,7 +667,7 @@ namespace ScopeProgramAnalysis
                     previousResults.Add(moveNextMethod, Tuple.Create(depAnalysisResult, depAnalysisTime, inputColumns, outputColumns, bagOColumnsUsedColumns, bagOColumnsTime));
                 }
                 var producesAnalyzer = new ProducesMethodAnalyzer(loader, processorClass);
-                var overApproximatedPassthrough = producesAnalyzer.InferAnnotations(inputSchema);
+                // var overApproximatedPassthrough = producesAnalyzer.InferAnnotations(inputSchema);
 
                 var r = CreateResultsAndThenRun(inputPath, processorClass, entryMethodDef, moveNextMethod, factoryMethod, depAnalysisResult, depAnalysisTime, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns, bagOColumnsTime);
                 runResult = r;

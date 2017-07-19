@@ -129,6 +129,7 @@ namespace ScopeProgramAnalysis
             var protectedNodes = ptgOfEntry.Nodes.OfType<ParameterNode>()
                                  .Where(n => IsScopeType(n.Type)).Select(n => new ProtectedRowNode(n, ProtectedRowNode.GetKind(n.Type)));
 
+            // Create tables representing the input and output tables
             this.inputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Input));
             this.outputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Output));
 
@@ -239,8 +240,6 @@ namespace ScopeProgramAnalysis
                 if (currentTraceables.Any(t => t.TableKind == ProtectedRowKind.Input))
                 {
                     var inputSchema = ScopeProgramAnalysis.InputSchema;
-                    var inputTable  = this.inputTable;
-                    var outputTable = this.outputTable;
 
                     dependencyAnalysis.CopyRow(result,thisVariable, inputSchema, inputTable, outputTable);
                 }
