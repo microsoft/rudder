@@ -459,7 +459,7 @@ namespace Backend.Analyses
                 {
                     this.columnVariable2Literal[loadStmt.Result] = this.columnVariable2Literal[v];
                 }
-            }
+            }           
         }
 
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
@@ -1526,30 +1526,10 @@ namespace Backend.Analyses
                     var outputTable = TryToGetTable(arg1);
 
                     //if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
-                    if(inputTable!=null && inputTable.TableKind==ProtectedRowKind.Input 
-                        && outputTable!=null && outputTable.TableKind==ProtectedRowKind.Output)
+                    if (inputTable != null && inputTable.TableKind == ProtectedRowKind.Input
+                                           && outputTable != null && outputTable.TableKind == ProtectedRowKind.Output)
                     {
-
-                        //var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
-                        //var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Output);
-
-                        foreach (var column in inputSchema.Columns)
-                        {
-                            var traceableInputColumn = new TraceableColumn(inputTable, column);
-                            var traceableOutputColumn = new TraceableColumn(outputTable, column);
-
-                            var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = Types.Instance.PlatformType.SystemVoid };
-                            this.State.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
-
-                            this.State.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
-
-                            var traceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                            this.State.AddOutputControlTraceables(outputColumnVar, traceables);
-
-                            this.iteratorDependencyAnalysis.InputColumns.Add(traceableInputColumn);
-                            this.iteratorDependencyAnalysis.OutputColumns.Add(traceableOutputColumn);
-
-                        }
+                        this.iteratorDependencyAnalysis.CopyRow(this.State, arg1, inputSchema, inputTable, outputTable);
                     }
                     else
                     {
@@ -1560,6 +1540,7 @@ namespace Backend.Analyses
                         this.State.SetTOP();
                         AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
                     }
+
                 }
                 else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value=="Get") 
                     && methodInvoked.ContainingType.IsColumnDataType())
@@ -1623,7 +1604,7 @@ namespace Backend.Analyses
             /// Obtain the column referred by a variable
             /// </summary>
             /// <param name="col"></param>
-                /// <returns></returns>
+            /// <returns></returns>
             private Column ObtainColumn(IVariable col, Schema schema)
             {
                 Column result = result = Column.TOP; 
@@ -2205,6 +2186,31 @@ namespace Backend.Analyses
             visitor.Visit(node);
 
             return visitor.State;
+        }
+        public void CopyRow(DependencyPTGDomain state, IVariable arg1,
+                                Schema inputSchema, TraceableTable inputTable, TraceableTable outputTable)
+        {
+
+            //var inputTable = this.State.GetTraceables(arg0).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Input);
+            //var outputTable = this.State.GetTraceables(arg1).OfType<TraceableTable>().First(t => t.TableKind == ProtectedRowKind.Output);
+
+            foreach (var column in inputSchema.Columns)
+            {
+                var traceableInputColumn = new TraceableColumn(inputTable, column);
+                var traceableOutputColumn = new TraceableColumn(outputTable, column);
+
+                var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = Types.Instance.PlatformType.SystemVoid };
+                state.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
+
+                state.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
+
+                var traceables = state.Dependencies.ControlVariables.SelectMany(controlVar => state.GetTraceables(controlVar));
+                state.AddOutputControlTraceables(outputColumnVar, traceables);
+
+                this.InputColumns.Add(traceableInputColumn);
+                this.OutputColumns.Add(traceableOutputColumn);
+
+            }
         }
     }
 

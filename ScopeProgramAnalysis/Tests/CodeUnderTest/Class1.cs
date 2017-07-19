@@ -470,5 +470,21 @@ namespace CodeUnderTest
         }
 
     }
+    public class ReturnRowReducer : Reducer
+    {
+        public override Schema Produces(string[] columns, string[] args, Schema input)
+        {
+            var output_schema = input.CloneWithSource();
+            return output_schema;
+        }
+        public override IEnumerable<Row> Reduce(RowSet input, Row output, string[] args)
+        {
+            foreach (Row current in input.Rows)
+            {
+                 yield return current;
+            }
+            yield break;
+        }
+    }
 }
 

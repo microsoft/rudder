@@ -32,6 +32,20 @@ namespace SimpleTests
             Assert.IsTrue(run.Outputs("JobGUID", "JobName"));
         }
         [TestMethod]
+        public void ReturnRow()
+        {
+            var t = typeof(ReturnRowReducer);
+            var run = AnalyzeProcessor(t, "JobGUID: string, JobName: string", "JobGUID: string, JobName: string");
+
+            Assert.IsNotNull(run);
+            // Assert.IsTrue(run.BothAnalysesAgree());
+            //Assert.IsTrue(run.BagOColumnsIsTop());
+            Assert.IsTrue(run.ColumnDependsOn("JobGUID", "JobGUID"));
+            Assert.IsTrue(run.ColumnDependsOn("JobName", "JobName"));
+            Assert.IsTrue(run.Inputs("JobGUID", "JobName"));
+            Assert.IsTrue(run.Outputs("JobGUID", "JobName"));
+        }
+        [TestMethod]
         public void AddOneColumnProcessor()
         {
             var t = typeof(AddOneColumnProcessor);

@@ -86,6 +86,8 @@ namespace ScopeProgramAnalysis
         private InterproceduralManager interprocManager;
         private ISourceLocationProvider sourceLocationProvider;
         private MyLoader loader;
+        private TraceableTable inputTable;
+        private TraceableTable outputTable;
 
         public ISet<TraceableColumn> InputColumns { get; private set; }
         public ISet<TraceableColumn> OutputColumns { get; private set; }
@@ -127,6 +129,9 @@ namespace ScopeProgramAnalysis
             var protectedNodes = ptgOfEntry.Nodes.OfType<ParameterNode>()
                                  .Where(n => IsScopeType(n.Type)).Select(n => new ProtectedRowNode(n, ProtectedRowNode.GetKind(n.Type)));
 
+            this.inputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Input));
+            this.outputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Output));
+
             // I no longer need this. 
             //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
             //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
@@ -134,7 +139,7 @@ namespace ScopeProgramAnalysis
 
 
             // 3) I bing the current PTG with the parameters of MoveNext method on the clousure
-            
+
             // Well... Inlining is broken we we added the Exceptional control graph. Let's avoid it
             //var cfg = this.moveNextMethod.DoAnalysisPhases(host, this.GetMethodsToInline());
 
@@ -158,6 +163,23 @@ namespace ScopeProgramAnalysis
             //return Tuple.Create(result, sw.Elapsed - AnalysisStats.extraAnalysisOverHead.Elapsed);
             return Tuple.Create(result, sw.Elapsed);
         }
+
+        private IFieldReference GetCurrentFieldFromClausure()
+        {
+            IFieldReference currentField = null;
+            var clousureClass = this.moveNextMethod.ContainingTypeDefinition;
+            currentField = clousureClass.Fields.Where(f => f.Name.Value == @"<>2__current").SingleOrDefault();
+            return currentField;
+        }
+
+        public IEnumerable<TraceableTable> GetTraceablesFromYieldReturn(DependencyPTGDomain state)
+        {
+            var thisVariable = state.PTG.Roots.Where(v => v.Name == "this").Single();
+            var currentField = GetCurrentFieldFromClausure();
+            var traceables = state.GetHeapTraceables(thisVariable, currentField).OfType<TraceableTable>();
+            return traceables;
+        }
+
 
         private IEnumerable<IMethodReference> GetMethodsToInline()
         {
@@ -208,8 +230,27 @@ namespace ScopeProgramAnalysis
             this.InputColumns = dependencyAnalysis.InputColumns;
             this.OutputColumns = dependencyAnalysis.OutputColumns;
 
-            return resultDepAnalysis[node.Id].Output;
+            var result = resultDepAnalysis[node.Id].Output;
+
+            if (!this.OutputColumns.Any())
+            {
+                var thisVariable = result.PTG.Roots.Where(v => v.Name == "this").Single();
+                var currentTraceables = this.GetTraceablesFromYieldReturn(result).OfType<TraceableTable>();
+                if (currentTraceables.Any(t => t.TableKind == ProtectedRowKind.Input))
+                {
+                    var inputSchema = ScopeProgramAnalysis.InputSchema;
+                    var inputTable  = this.inputTable;
+                    var outputTable = this.outputTable;
+
+                    dependencyAnalysis.CopyRow(result,thisVariable, inputSchema, inputTable, outputTable);
+                }
+            }
+
+
+            return result;
         }
+
+
         public static bool IsScopeType(ITypeReference type)
         {
             string[] scopeTypes = new[] { "RowList", "RowSet", "Row", "IEnumerable<Row>", "IEnumerator<Row>" };
