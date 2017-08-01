@@ -60,7 +60,7 @@ namespace ScopeProgramAnalysis.Framework
                 PlatformTypes = host.PlatformType;
 
             this.failedAssemblies = new HashSet<IAssemblyReference>();
-            LoadCoreAssembly();
+            //LoadCoreAssembly();
 
             LoadRuntimeTypes(directory);
         }

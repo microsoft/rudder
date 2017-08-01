@@ -909,7 +909,7 @@ namespace ScopeProgramAnalysis
             {
                 try
                 {
-                    var resultOfProducesMethod = ExecuteProducesMethod(factoryMethod, inputSchema);
+                    var resultOfProducesMethod = ExecuteProducesMethod(processorClass, factoryMethod, inputSchema);
                     var declaredPassThroughDictionary = resultOfProducesMethod.Item1;
                     declaredPassthroughString = String.Join("|", declaredPassThroughDictionary.Select(e => e.Key + " <: " + e.Value));
                     var dependenceDictionary = resultOfProducesMethod.Item2;
@@ -1108,10 +1108,18 @@ namespace ScopeProgramAnalysis
             return r;
         }
 
-        private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(IMethodDefinition factoryMethod, Schema inputSchema)
+        private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(ITypeDefinition processorClass, IMethodDefinition factoryMethod, Schema inputSchema)
         {
             var sourceDictionary = new Dictionary<string, string>();
             var dependenceDictionary = new Dictionary<string, string>();
+
+            var processorAssembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(processorClass).ResolvedUnit.Location);
+            if (processorAssembly == null) { sourceDictionary.Add("666", "no processorAssembly"); goto L; }
+            var processorClass2 = processorAssembly.GetType(TypeHelper.GetTypeName(processorClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
+            if (processorClass2 == null) { sourceDictionary.Add("666", "no processorClass2"); goto L; }
+            var finalizeMethod = processorClass2.GetMethod("Finalize", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (finalizeMethod != null) { sourceDictionary.Add("666", "Finalize() method found for processor: " + TypeHelper.GetTypeName(processorClass)); goto L; }
+
 
             if (factoryMethod == null) { sourceDictionary.Add("666", "no factoryMethod"); goto L; }
             // Call the factory method to get an instance of the processor.

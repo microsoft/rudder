@@ -35,11 +35,9 @@ namespace RuntimeLoader
         /// Inspired in Zvonimir code
         /// </summary>
         /// <param name="host"></param>
-        public static void InitializeScopeTypes(IMetadataHost host)
+        public static void InitializeScopeTypes(IMetadataHost host, IAssembly scopeRuntime)
         {
-            var scopeAssembly = host.LoadedUnits.OfType<IModule>()
-                .Single(module => module.ContainingAssembly.NamespaceRoot.Members.Any(m => m.Name.Value == "ScopeRuntime"));
-            foreach (var type in scopeAssembly.GetAllTypes())
+            foreach (var type in scopeRuntime.GetAllTypes())
             {
                 if (type.FullName() == "ScopeRuntime.Reducer") Reducer = type;
                 else if (type.FullName() == "ScopeRuntime.Processor") Processor = type;
@@ -113,7 +111,7 @@ namespace RuntimeLoader
                 var t = LoadAssembly(path2);
                 var scopeRuntime = t;
 
-                ScopeTypes.InitializeScopeTypes(host);
+                ScopeTypes.InitializeScopeTypes(host, scopeRuntime);
                 cachedScopeRuntime = scopeRuntime;
             }
 
@@ -121,10 +119,10 @@ namespace RuntimeLoader
         }
         public IAssembly LoadAssembly(string fileName)
         {
-            var unit = host.LoadedUnits.SingleOrDefault(u => u.Location == fileName);
+            var unit = host.LoadedUnits.SingleOrDefault(u => Path.GetFileName(u.Location) == fileName);
             if (unit != null)
             {
-                return unit as IAssembly;
+                return (IAssembly) unit;
             }
 
             var module = host.LoadUnitFrom(fileName) as IModule;
