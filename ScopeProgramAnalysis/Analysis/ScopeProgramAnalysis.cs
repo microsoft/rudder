@@ -273,7 +273,7 @@ namespace ScopeProgramAnalysis
             catch (Exception e)
             {
                 var id = String.Format("[{0}] {1}", TypeHelper.GetDefiningUnit(processorClass).Name.Value, processorClass.FullName());
-                var r = CreateRun(inputPath, id, String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()), new List<Result>());
+                var r = SarifLogger.CreateRun(inputPath, id, String.Format(CultureInfo.InvariantCulture, "Thrown exception {0}\n{1}", e.Message, e.StackTrace.ToString()), new List<Result>());
                 runResult = r;
                 return true;
 
@@ -693,7 +693,7 @@ namespace ScopeProgramAnalysis
             if (processorClass != actualProcessorClass)
                 actualClassContainingIterator = "Analyzed processsor: " + actualProcessorClass.FullName();
 
-            var r = CreateRun(inputPath, id, actualClassContainingIterator, results);
+            var r = SarifLogger.CreateRun(inputPath, id, actualClassContainingIterator, results);
             return r;
         }
 
@@ -948,13 +948,13 @@ namespace ScopeProgramAnalysis
         //}
         public static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
-            var log = CreateSarifOutput();
+            var log = SarifLogger.CreateSarifOutput();
             log.SchemaUri = new Uri("http://step0");
 
             if (!File.Exists(inputPath))
             {
                 var fileName = Path.GetFileName(inputPath);
-                var r = CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + fileName, new List<Result>());
+                var r = SarifLogger.CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + fileName, new List<Result>());
                 log.Runs.Add(r);
                 return log;
             }
@@ -1015,14 +1015,14 @@ namespace ScopeProgramAnalysis
             if (!scopeMethodTuples.Any() && errorMessages.Count == 0)
             {
                 //Console.WriteLine("No processors found in {0}", inputPath);
-                var r = CreateRun(inputPath, "No results", "No processors found", new List<Result>());
+                var r = SarifLogger.CreateRun(inputPath, "No results", "No processors found", new List<Result>());
                 log.Runs.Add(r);
                 return log;
             }
 
             foreach (var errorMessage in errorMessages)
             {
-                var r = CreateRun(inputPath, errorMessage.Item1 == null ? "No results" : errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
+                var r = SarifLogger.CreateRun(inputPath, errorMessage.Item1 == null ? "No results" : errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
                 log.Runs.Add(r);
             }
 
@@ -1159,79 +1159,89 @@ namespace ScopeProgramAnalysis
             return d;
         }
 
-        private static SarifLog CreateSarifOutput()
+
+        public class SarifLogger
         {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
+            SarifLog log;
+            public SarifLogger(SarifLog log)
             {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            SarifLog log = new SarifLog()
-            {
-                Runs = new List<Run>()
-            };
-            return log;
-        }
-
-        private static Run CreateRun(string inputPath, string id, string notification, IList<Result> results)
-        {
-            var run = new Run();
-            // run.StableId = method.ContainingType.FullPathName();
-            //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
-            run.Id = id;
-            run.Tool = Tool.CreateFromAssemblyData();
-            run.Tool.Name = "ScopeProgramAnalysis";
-            run.Files = new Dictionary<string, FileData>();
-            var fileDataKey = UriHelper.MakeValidUri(inputPath);
-            var fileData = FileData.Create(new Uri(fileDataKey, UriKind.RelativeOrAbsolute), false);
-            run.Files.Add(fileDataKey, fileData);
-            run.ToolNotifications = new List<Notification>();
-            if (!String.IsNullOrWhiteSpace(notification))
-                run.ToolNotifications.Add(new Notification { Message = notification, });
-
-            run.Results = results;
-
-            return run;
-        }
-        public static void WriteSarifOutput(SarifLog log, string outputFilePath)
-        {
-            string sarifText = SarifLogToString(log);
-            try
-            {
-                //if (!File.Exists(outputFilePath))
-                //{
-                //    File.CreateText(outputFilePath);
-                //}
-                File.WriteAllText(outputFilePath, sarifText);
+                this.log = log;
             }
-            catch (Exception e)
+
+            public static SarifLog CreateSarifOutput()
             {
-                System.Console.Out.Write("Could not write the file: {0}:{1}", outputFilePath, e.Message);
+                JsonSerializerSettings settings = new JsonSerializerSettings()
+                {
+                    ContractResolver = SarifContractResolver.Instance,
+                    Formatting = Formatting.Indented
+                };
+
+                SarifLog log = new SarifLog()
+                {
+                    Runs = new List<Run>()
+                };
+                return log;
             }
-        }
 
-        public static string SarifLogToString(SarifLog log)
-        {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
+            public static Run CreateRun(string inputPath, string id, string notification, IList<Result> results)
             {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
+                var run = new Run();
+                // run.StableId = method.ContainingType.FullPathName();
+                //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
+                run.Id = id;
+                run.Tool = Tool.CreateFromAssemblyData();
+                run.Tool.Name = "ScopeProgramAnalysis";
+                run.Files = new Dictionary<string, FileData>();
+                var fileDataKey = UriHelper.MakeValidUri(inputPath);
+                var fileData = FileData.Create(new Uri(fileDataKey, UriKind.RelativeOrAbsolute), false);
+                run.Files.Add(fileDataKey, fileData);
+                run.ToolNotifications = new List<Notification>();
+                if (!String.IsNullOrWhiteSpace(notification))
+                    run.ToolNotifications.Add(new Notification { Message = notification, });
 
-            var sarifText = JsonConvert.SerializeObject(log, settings);
-            return sarifText;
-        }
-        public static string SarifRunToString(Run run)
-        {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
+                run.Results = results;
+
+                return run;
+            }
+            public static void WriteSarifOutput(SarifLog log, string outputFilePath)
             {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
+                string sarifText = SarifLogToString(log);
+                try
+                {
+                    //if (!File.Exists(outputFilePath))
+                    //{
+                    //    File.CreateText(outputFilePath);
+                    //}
+                    File.WriteAllText(outputFilePath, sarifText);
+                }
+                catch (Exception e)
+                {
+                    System.Console.Out.Write("Could not write the file: {0}:{1}", outputFilePath, e.Message);
+                }
+            }
 
-            var sarifText = JsonConvert.SerializeObject(run, settings);
-            return sarifText;
+            public static string SarifLogToString(SarifLog log)
+            {
+                JsonSerializerSettings settings = new JsonSerializerSettings()
+                {
+                    ContractResolver = SarifContractResolver.Instance,
+                    Formatting = Formatting.Indented
+                };
+
+                var sarifText = JsonConvert.SerializeObject(log, settings);
+                return sarifText;
+            }
+            public static string SarifRunToString(Run run)
+            {
+                JsonSerializerSettings settings = new JsonSerializerSettings()
+                {
+                    ContractResolver = SarifContractResolver.Instance,
+                    Formatting = Formatting.Indented
+                };
+
+                var sarifText = JsonConvert.SerializeObject(run, settings);
+                return sarifText;
+            }
         }
     }
 

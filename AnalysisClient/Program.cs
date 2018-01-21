@@ -128,7 +128,7 @@ namespace AnalysisClient
                 }
                 else
                 {
-                    ScopeProgramAnalysis.ScopeProgramAnalysis.WriteSarifOutput(sarifLog, outputPath);
+                    ScopeProgramAnalysis.ScopeProgramAnalysis.SarifLogger.WriteSarifOutput(sarifLog, outputPath);
                     var depStream = ScopeProgramAnalysis.ScopeProgramAnalysis.ExtractDependencyStats(sarifLog);
              
                     

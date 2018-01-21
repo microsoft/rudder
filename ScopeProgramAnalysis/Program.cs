@@ -154,7 +154,7 @@ namespace ScopeProgramAnalysis
             var outputStream = File.CreateText(logPath);
 
             var log = AnalyzeDll(input, scopeKind, useScopeFactory, false);
-            WriteSarifOutput(log, outputPath);
+            SarifLogger.WriteSarifOutput(log, outputPath);
 
 
             AnalysisStats.PrintStats(outputStream);
@@ -217,8 +217,8 @@ namespace ScopeProgramAnalysis
                 return task.Result;
             else
             {
-                var log = CreateSarifOutput();
-                var r = CreateRun(inputPath, "No results", "Timeout", new List<Result>());
+                var log = SarifLogger.CreateSarifOutput();
+                var r = SarifLogger.CreateRun(inputPath, "No results", "Timeout", new List<Result>());
                 log.Runs.Add(r);
                 return log;
             }
@@ -249,12 +249,12 @@ namespace ScopeProgramAnalysis
                 .SingleOrDefault();
             if (processorClass == null)
             {
-                return CreateRun(inputPath, processorName, "Processor class not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "Processor class not found", new List<Result>());
             }
             var entryMethod = FindEntryMethod(loader.RuntimeTypes.concurrentProcessor, processorClass);
             if (entryMethod == null)
             {
-                return CreateRun(inputPath, processorName, "Entry method not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "Entry method not found", new List<Result>());
             }
 
             var closureName = "<" + entryMethod.Name + ">";
@@ -267,19 +267,19 @@ namespace ScopeProgramAnalysis
 
             if (containingType == null)
             {
-                return CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
             }
             var closureClass = containingType.Members.OfType<ITypeDefinition>().Where(c => c.GetName().StartsWith(closureName)).SingleOrDefault();
             if (closureClass == null)
             {
-                return CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
             }
 
             var moveNextMethod = closureClass.Methods.Where(m => m.Name.Value == "MoveNext").SingleOrDefault();
             if (moveNextMethod == null) return null;
             if (moveNextMethod == null)
             {
-                return CreateRun(inputPath, processorName, "MoveNext method not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "MoveNext method not found", new List<Result>());
             }
 
             var getEnumMethod = closureClass
@@ -289,7 +289,7 @@ namespace ScopeProgramAnalysis
             if (getEnumMethod == null) return null;
             if (getEnumMethod == null)
             {
-                return CreateRun(inputPath, processorName, "GetEnumerator method not found", new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, "GetEnumerator method not found", new List<Result>());
             }
 
             var inputColumns = ParseColumns(inputSchema);
@@ -304,7 +304,7 @@ namespace ScopeProgramAnalysis
             }
             else
             {
-                return CreateRun(inputPath, processorName, errorReason.Reason, new List<Result>());
+                return SarifLogger.CreateRun(inputPath, processorName, errorReason.Reason, new List<Result>());
             }
         }
 
@@ -421,374 +421,7 @@ namespace ScopeProgramAnalysis
                     bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             var log = AnalyzeDll(inputPath, ScopeMethodKind.All, useScopeFactory, interProc, outputStream);
-            WriteSarifOutput(log, outputPath);
-        }
-
-        public class DependencyStats
-        {
-            public int SchemaInputColumnsCount;
-            public int SchemaOutputColumnsCount;
-
-            // Diego's analysis
-            public long DependencyTime; // in milliseconds
-            public List<Tuple<string, string>> PassThroughColumns = new List<Tuple<string, string>>();
-            public List<string> UnreadInputs = new List<string>();
-            public bool TopHappened;
-            public bool OutputHasTop;
-            public bool InputHasTop;
-            public int ComputedInputColumnsCount;
-            public int ComputedOutputColumnsCount;
-            public bool Error;
-            public string ErrorReason;
-            public string DeclaredPassthroughColumns;
-            public string DeclaredDependencies;
-
-            // Zvonimir's analysis
-            public long UsedColumnTime; // in milliseconds
-            public bool UsedColumnTop;
-            public string UsedColumnColumns;
-
-            public int NumberUsedColumns { get; internal set; }
-            public List<string> UnWrittenOutputs = new List<string>();
-            public ISet<string> UnionColumns = new HashSet<string>();
-            public bool ZvoTop;
-        }
-
-        public static IEnumerable<Tuple<string, DependencyStats>> ExtractDependencyStats(SarifLog log)
-        {
-            var dependencyStats = new List<Tuple<string, DependencyStats>>();
-            foreach (var run in log.Runs)
-            {
-                var tool = run.Tool.Name;
-                if (tool != "ScopeProgramAnalysis") continue;
-                var splitId = run.Id.Split('|');
-
-                var processNumber = "0";
-                var processorName = "";
-                if (splitId.Length == 2)
-                {
-                    processorName = splitId[0];
-                    processNumber = splitId[1];
-                }
-                else
-                {
-                    processorName = run.Id;
-                }
-
-
-                if (processorName == "No results")
-                {
-                    var ret2 = new DependencyStats();
-                    ret2.Error = true;
-                    ret2.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
-                    dependencyStats.Add(Tuple.Create(processorName, ret2));
-                    continue;
-                }
-
-                var ret = new DependencyStats();
-
-                var visitedColumns = new HashSet<string>();
-                var inputColumnsRead = new HashSet<string>();
-                if (run.Results.Any())
-                {
-                    foreach (var result in run.Results)
-                    {
-                        if (result.Id == "SingleColumn")
-                        {
-                            var columnProperty = result.GetProperty("column");
-                            if (!columnProperty.StartsWith("Col(")) continue;
-                            var columnName = columnProperty.Contains(",") ? columnProperty.Split(',')[1].Trim('"', ')') : columnProperty;
-                            if (columnName == "_All_")
-                            {
-                                // ignore this for now because it is more complicated
-                                continue;
-                            }
-                            if (columnName == "_TOP_")
-                            {
-                                ret.TopHappened = true;
-                            }
-                            if (visitedColumns.Contains(columnName))
-                                continue;
-
-                            visitedColumns.Add(columnName);
-
-                            var dataDependencies = result.GetProperty<List<string>>("data depends");
-                            if (dataDependencies.Count == 1)
-                            {
-                                var inputColumn = dataDependencies[0];
-                                if (!inputColumn.StartsWith("Col(Input"))
-                                {
-                                    // then it is dependent on only one thing, but that thing is not a column.
-                                    continue;
-                                }
-                                if (inputColumn.Contains("TOP"))
-                                {
-                                    // a pass through column cannot depend on TOP
-                                    continue;
-                                }
-                                // then it is a pass-through column
-                                var inputColumnName = inputColumn.Contains(",") ? inputColumn.Split(',')[1].Trim('"', ')') : inputColumn;
-                                ret.PassThroughColumns.Add(Tuple.Create(columnName, inputColumnName));
-                            }
-                        }
-                        else if (result.Id == "Summary")
-                        {
-                            // Do nothing
-                            var columnProperty = result.GetProperty<List<string>>("Inputs");
-                            var totalInputColumns = columnProperty.Count;
-                            ret.InputHasTop = columnProperty.Contains("Col(Input,_TOP_)") || columnProperty.Contains("_TOP_");
-                            var inputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
-                            ret.ComputedInputColumnsCount = inputColumns.Count();
-
-
-                            columnProperty = result.GetProperty<List<string>>("Outputs");
-                            var totalOutputColumns = columnProperty.Count;
-                            var outputColumns = columnProperty.Select(x => x.Contains(",") ? x.Split(',')[1].Trim('"', ')') : x);
-
-                            ret.OutputHasTop = columnProperty.Contains("Col(Output,_TOP_)") || columnProperty.Contains("_TOP_");
-                            ret.ComputedOutputColumnsCount = totalOutputColumns;
-
-                            columnProperty = result.GetProperty<List<string>>("SchemaInputs");
-                            ret.SchemaInputColumnsCount = columnProperty.Count;
-                            if (!ret.InputHasTop)
-                            {
-                                ret.UnreadInputs = columnProperty.Where(schemaInput => !inputColumns.Contains(schemaInput)).ToList();
-                            }
-
-
-                            columnProperty = result.GetProperty<List<string>>("SchemaOutputs");
-                            ret.SchemaOutputColumnsCount = columnProperty.Count;
-                            if (!ret.InputHasTop)
-                            {
-                                ret.UnWrittenOutputs = columnProperty.Where(schemaOuput => !outputColumns.Contains(schemaOuput)).ToList();
-                            }
-
-
-                            ret.UnionColumns = new HashSet<string>();
-                            var schemaOutputs = result.GetProperty<List<string>>("SchemaOutputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
-                            var schemaInputs = result.GetProperty<List<string>>("SchemaInputs").Select(c => c.Contains("[") ? c.Substring(0, c.IndexOf('[')) : c);
-                            ret.UnionColumns.AddRange(schemaInputs);
-                            ret.UnionColumns.UnionWith(schemaOutputs);
-
-
-                            ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
-                            ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
-                            ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
-                            ret.DeclaredDependencies = result.GetProperty("DeclaredDependency");
-
-                            ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
-
-                            ret.UsedColumnColumns = result.GetProperty("BagOColumns");
-                            int nuo = 0;
-                            if (!result.TryGetProperty<int>("BagNOColumns", out nuo))
-                            {
-                                ret.NumberUsedColumns = ret.UnionColumns.Count;
-                                ret.ZvoTop = true;
-                            }
-                            else
-                            {
-                                ret.ZvoTop = ret.UsedColumnColumns == "All columns used.";
-                                ret.NumberUsedColumns = ret.ZvoTop ? ret.UnionColumns.Count : nuo;
-
-                            }
-                            ret.UsedColumnTime = result.GetProperty<long>("BagOColumnsTime");
-                        }
-                    }
-                }
-                else
-                {
-                    if (run.ToolNotifications.Any())
-                    {
-                        ret.Error = true;
-                        ret.ErrorReason = String.Join(",", run.ToolNotifications.Select(e => e.Message));
-                    }
-                }
-                dependencyStats.Add(Tuple.Create(processorName, ret));
-            }
-            return dependencyStats;
-        }
-
-        private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(ITypeDefinition processorClass, IMethodDefinition factoryMethod, Schema inputSchema)
-        {
-            var sourceDictionary = new Dictionary<string, string>();
-            var dependenceDictionary = new Dictionary<string, string>();
-
-            var processorAssembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(processorClass).ResolvedUnit.Location);
-            if (processorAssembly == null) { sourceDictionary.Add("666", "no processorAssembly"); goto L; }
-            var processorClass2 = processorAssembly.GetType(TypeHelper.GetTypeName(processorClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
-            if (processorClass2 == null) { sourceDictionary.Add("666", "no processorClass2"); goto L; }
-            var finalizeMethod = processorClass2.GetMethod("Finalize", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-            if (finalizeMethod != null) { sourceDictionary.Add("666", "Finalize() method found for processor: " + TypeHelper.GetTypeName(processorClass)); goto L; }
-
-
-            if (factoryMethod == null) { sourceDictionary.Add("666", "no factoryMethod"); goto L; }
-            // Call the factory method to get an instance of the processor.
-            var factoryClass = factoryMethod.ContainingType;
-            var assembly = System.Reflection.Assembly.LoadFrom(TypeHelper.GetDefiningUnitReference(factoryClass).ResolvedUnit.Location);
-            if (assembly == null) { sourceDictionary.Add("666", "no assembly"); goto L; }
-            var factoryClass2 = assembly.GetType(TypeHelper.GetTypeName(factoryClass, NameFormattingOptions.UseReflectionStyleForNestedTypeNames));
-            if (factoryClass2 == null) { sourceDictionary.Add("666", "no factoryClass2"); goto L; }
-            var factoryMethod2 = factoryClass2.GetMethod(factoryMethod.Name.Value);
-            if (factoryMethod2 == null) { sourceDictionary.Add("666", "no factoryMethod2" + " (" + factoryMethod.Name.Value + ")"); goto L; }
-            object instance = null;
-            try
-            {
-                instance = factoryMethod2.Invoke(null, null);
-            }
-            catch (System.Reflection.TargetInvocationException e)
-            {
-                sourceDictionary.Add("666", "At least one missing assembly: " + e.Message); goto L;
-            }
-            if (instance == null) { sourceDictionary.Add("666", "no instance"); goto L; }
-            var producesMethod = factoryMethod2.ReturnType.GetMethod("Produces");
-            if (producesMethod == null) { sourceDictionary.Add("666", "no producesMethod"); goto L; }
-            // Schema Produces(string[] columns, string[] args, Schema input)
-            try
-            {
-                string[] arg1 = null;
-                string[] arg2 = null;
-                var inputSchemaAsString = String.Join(",", inputSchema.Columns.Select(e => e.Name + ": " + e.Type));
-                var inputSchema2 = new ScopeRuntime.Schema(inputSchemaAsString);
-                var specifiedOutputSchema = producesMethod.Invoke(instance, new object[] { arg1, arg2, inputSchema2, });
-                if (specifiedOutputSchema == null) { sourceDictionary.Add("666", "no specifiedOutputSchema"); goto L; }
-                foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
-                {
-                    if (column.Source != null)
-                        sourceDictionary.Add(column.Name, column.Source.Name);
-                }
-                var allowColumnPruningMethod = factoryMethod2.ReturnType.GetMethod("get_AllowColumnPruning");
-                if (allowColumnPruningMethod != null)
-                {
-                    var columnPruningAllowed = (bool)allowColumnPruningMethod.Invoke(instance, null);
-                    if (columnPruningAllowed)
-                    {
-                        foreach (var column in ((ScopeRuntime.Schema)specifiedOutputSchema).Columns)
-                        {
-                            if (column.Dependency != null)
-                            {
-                                dependenceDictionary.Add(column.Name, String.Join("+", column.Dependency.Keys.Select(e => e.Name)));
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                sourceDictionary.Add("666", "exception during Produces");
-            }
-            L:
-            return Tuple.Create(sourceDictionary, dependenceDictionary);
-        }
-
-        /// <summary>
-        /// Analyze the ScopeFactory class to get all the Processor/Reducer classes to analyze
-        /// For each one obtain:
-        /// 1) The class that the factory creates an instance of.
-        /// 2) entry point method that creates the class with the iterator clousure and populated with some data)
-        /// 3) the GetEnumerator method that creates and enumerator and polulated with data
-        /// 4) the MoveNextMethod that contains the actual reducer/producer code
-        /// </summary>
-        /// <returns></returns>
-        
-        private void ComputeMethodsToAnalyzeForReducerClass(HashSet<Tuple<IMethodDefinition, IMethodDefinition, IMethodDefinition>> scopeMethodPairsToAnalyze,
-            IMethodDefinition factoryMethdod, INamedTypeReference reducerClass)
-        {
-        }
-
-        //private INamedTypeDefinition ResolveClass(INamedTypeReference classToResolve)
-        //{
-        //    var resolvedClass = host.ResolveReference(classToResolve) as INamedTypeDefinition;
-        //    if(resolvedClass == null)
-        //    {
-        //        try
-        //        {
-        //            AnalysisStats.TotalDllsFound++;
-        //            loader.TryToLoadReferencedAssembly(classToResolve.ContainingAssembly);
-        //            resolvedClass = host.ResolveReference(classToResolve) as INamedTypeDefinition;
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            AnalysisStats.DllThatFailedToLoad.Add(classToResolve.ContainingAssembly.Name);
-        //            AnalysisStats.TotalDllsFailedToLoad++;
-        //        }
-
-        //    }
-        //    return resolvedClass;
-        //}
-
-        private static SarifLog CreateSarifOutput()
-        {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
-            {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            SarifLog log = new SarifLog()
-            {
-                Runs = new List<Run>()
-            };
-            return log;
-        }
-
-        private static Run CreateRun(string inputPath, string id, string notification, IList<Result> results)
-        {
-            var run = new Run();
-            // run.StableId = method.ContainingType.FullPathName();
-            //run.Id = String.Format("[{0}] {1}", method.ContainingType.FullPathName(), method.ToSignatureString());
-            run.Id = id;
-            run.Tool = Tool.CreateFromAssemblyData();
-            run.Tool.Name = "ScopeProgramAnalysis";
-            run.Files = new Dictionary<string, FileData>();
-            var fileDataKey = UriHelper.MakeValidUri(inputPath);
-            var fileData = FileData.Create(new Uri(fileDataKey, UriKind.RelativeOrAbsolute), false);
-            run.Files.Add(fileDataKey, fileData);
-            run.ToolNotifications = new List<Notification>();
-            if (!String.IsNullOrWhiteSpace(notification))
-                run.ToolNotifications.Add(new Notification { Message = notification, });
-
-            run.Results = results;
-
-            return run;
-        }
-        public static void WriteSarifOutput(SarifLog log, string outputFilePath)
-        {
-            string sarifText = SarifLogToString(log);
-            try
-            {
-                //if (!File.Exists(outputFilePath))
-                //{
-                //    File.CreateText(outputFilePath);
-                //}
-                File.WriteAllText(outputFilePath, sarifText);
-            }
-            catch (Exception e)
-            {
-                System.Console.Out.Write("Could not write the file: {0}:{1}", outputFilePath, e.Message);
-            }
-        }
-
-        public static string SarifLogToString(SarifLog log)
-        {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
-            {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            var sarifText = JsonConvert.SerializeObject(log, settings);
-            return sarifText;
-        }
-        public static string SarifRunToString(Run run)
-        {
-            JsonSerializerSettings settings = new JsonSerializerSettings()
-            {
-                ContractResolver = SarifContractResolver.Instance,
-                Formatting = Formatting.Indented
-            };
-
-            var sarifText = JsonConvert.SerializeObject(run, settings);
-            return sarifText;
+            SarifLogger.WriteSarifOutput(log, outputPath);
         }
     }
 
