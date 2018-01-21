@@ -26,11 +26,12 @@ namespace ScopeAnalysisBulkScripts
             var analysisClient = Path.Combine(rudderPath, @"AnalysisClient\bin\Debug\AnalysisClient.exe");
             var outputAnalyzer = Path.Combine(rudderPath, @"CompareAnalysisOutput\Compare\bin\Debug\Compare.exe");
 
-            var inputFolder = @"C:\Temp\Scope\First100JobsFromMadan";
+            var inputFolder = @"C:\Temp\Scope\ScopeJobs-2017-07-07-Cosmos11";
+                // @"C:\Temp\Scope\First100JobsFromMadan";
                 // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             if (doOnlyPassthrough)
             {
-                inputFolder = @"C:\temp\Scope\out";
+                inputFolder = @"C:\Temp\Scope\out-cosmos11";
             }
             //inputFolder = @"\\research\root\public\mbarnett\Parasail\First100JobsFromMadan";
             //var inputFolder = @"D:\Madam3";
@@ -38,7 +39,7 @@ namespace ScopeAnalysisBulkScripts
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
-            var outputFolder = @"C:\Temp\Scope\out2";
+            var outputFolder = @"C:\Temp\Scope\out";
             //outputFolder = @"C:\Temp\Mike100";
             //outputFolder = @"C:\temp\ZvoList";
 
@@ -234,7 +235,7 @@ namespace ScopeAnalysisBulkScripts
 
                 //var outputPath = Path.Combine(outputFolder, Path.ChangeExtension(Path.GetFileName(dllToAnalyze),".sarif"));
 
-                ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
+                ScopeProgramAnalysis.Program.AnalyzeDllAndWriteLog(dllToAnalyze, outputPath, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, 
                                                                     true, interProc , outputStream);
 
                 if (AnalysisStats.AnalysisReasons.Any())

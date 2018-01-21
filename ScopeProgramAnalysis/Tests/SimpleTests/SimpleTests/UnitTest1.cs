@@ -3,6 +3,8 @@ using static ScopeProgramAnalysis.ScopeProgramAnalysis;
 using CodeUnderTest;
 using System.Collections.Generic;
 using System.Linq;
+using System;
+using Microsoft.CodeAnalysis.Sarif;
 
 namespace SimpleTests
 {
@@ -13,7 +15,7 @@ namespace SimpleTests
         public void AnalyzeEntireCodeUnderTestDll()
         {
             var t = typeof(CopyProcessor);
-            var log = AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, false, false, null);
+            var log = ScopeProgramAnalysis.Program.AnalyzeDll(t.Assembly.Location, ScopeMethodKind.All, false, false, null);
 
             Assert.IsNotNull(log);
         }
@@ -31,6 +33,13 @@ namespace SimpleTests
             Assert.IsTrue(run.Inputs("JobGUID", "JobName"));
             Assert.IsTrue(run.Outputs("JobGUID", "JobName"));
         }
+
+        private Run AnalyzeProcessor(Type t, string v1, string v2)
+        {
+            return ScopeProgramAnalysis.Program.AnalyzeProcessor(t, v1, v2);
+
+        }
+
         [TestMethod]
         public void ReturnRow()
         {

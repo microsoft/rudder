@@ -116,7 +116,7 @@ namespace AnalysisClient
             }
             try
             {
-                var sarifLog = ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
+                var sarifLog = ScopeProgramAnalysis.Program.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
 
 
                 if (sarifLog == null)

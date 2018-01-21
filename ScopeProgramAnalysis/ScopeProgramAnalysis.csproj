@@ -83,23 +83,24 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Analysis\ScopeProgramAnalysis.cs" />
     <Compile Include="ProducesMethodAnalyzer.cs" />
     <Compile Include="Utilities.cs" />
     <None Include="AlternativeDepenencyAnalysis.cs" />
     <Compile Include="AnalysisStats.cs" />
-    <Compile Include="Domains.cs" />
+    <Compile Include="Analysis\Domains.cs" />
     <Compile Include="Framework\AnalysisNetException.cs" />
     <Compile Include="Framework\DGMLSerializer.cs" />
     <Compile Include="Framework\Extensions.cs" />
     <Compile Include="Framework\HostAndLoader.cs" />
     <Compile Include="Framework\MyTypesHelper.cs" />
     <Compile Include="Framework\SimplePointsToGraph.cs" />
-    <Compile Include="InterproceduralManager.cs" />
-    <Compile Include="IteratorAnalysis.cs" />
-    <Compile Include="DependencyAnalysis.cs" />
-    <Compile Include="IteratorStateAnalysis.cs" />
+    <Compile Include="Analysis\InterproceduralManager.cs" />
+    <Compile Include="Analysis\IteratorAnalysis.cs" />
+    <Compile Include="Analysis\DependencyAnalysis.cs" />
+    <Compile Include="Analysis\IteratorStateAnalysis.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="RangeAnalysis.cs" />
+    <Compile Include="Analysis\RangeAnalysis.cs" />
     <Compile Include="Framework\SimplerPointsToAnalysis.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
