@@ -1518,7 +1518,7 @@ namespace Backend.Analyses
                     var arg0 = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
 
-                    var inputSchema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var inputSchema =  this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
 
                     //var inputTable = scopeData.GetTableFromSchemaMap(arg0).First(t => t.TableKind == ProtectedRowKind.Input); 
                     //var outputTable = scopeData.GetTableFromSchemaMap(arg1).First(t => t.TableKind == ProtectedRowKind.Output);
@@ -1697,13 +1697,13 @@ namespace Backend.Analyses
                 if (scopeData.HasTableForSchemaVar(arg))
                 {
                     var tables = scopeData.GetTableFromSchemaMap(arg);
-                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var schema = this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
                     var table = tables.OfType<TraceableTable>().FirstOrDefault();
                     if (table != null)
                     {
                         if (table.TableKind == ProtectedRowKind.Output)
                         {
-                            schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                            schema = this.iteratorDependencyAnalysis.processToAnalyze.OutputSchema;
                         }
                         result = schema;
                     }
@@ -1723,9 +1723,9 @@ namespace Backend.Analyses
                             var tableType = table.TableKind;
                             Schema s;
                             if (tableType == ProtectedRowKind.Input)
-                                s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                                s = this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
                             else
-                                s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+                                s = this.iteratorDependencyAnalysis.processToAnalyze.OutputSchema;
                             return s;
                         }
                         else
@@ -1748,7 +1748,7 @@ namespace Backend.Analyses
                 if (scopeData.HasTableForSchemaVar(arg))
                 {
                     var tables = scopeData.GetTableFromSchemaMap(arg);
-                    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
+                    var schema = this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
                     var table = tables.OfType<TraceableTable>().FirstOrDefault();
                     return table;
                 }
@@ -2028,6 +2028,9 @@ namespace Backend.Analyses
         DataFlowAnalysisResult<SimplePointsToGraph>[] ptgs;
         private ScopeInfo scopeData;
         // private IDictionary<string, IVariable> specialFields;
+
+        private ScopeProcessorInfo processToAnalyze; 
+
         private INamedTypeDefinition iteratorClass;
         private IMethodDefinition method;
 
@@ -2047,11 +2050,12 @@ namespace Backend.Analyses
         public ISet<TraceableColumn> OutputColumns { get; private set; }
 
 
-        public IteratorDependencyAnalysis(IMethodDefinition method , ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
         {
+            this.processToAnalyze = processToAnalyze;
             this.method = method;
             this.iteratorClass = method.ContainingType as INamedTypeDefinition;
             // this.specialFields = specialFields;
@@ -2069,13 +2073,13 @@ namespace Backend.Analyses
             this.InputColumns = new HashSet<TraceableColumn>();
             this.OutputColumns = new HashSet<TraceableColumn>();
         }
-        public IteratorDependencyAnalysis(IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
                                     RangeAnalysis rangeAnalysis,
                                     DependencyPTGDomain initValue,
-                                    ScopeInfo scopeData) : this(method, cfg, pta, protectedNodes, equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
+                                    ScopeInfo scopeData) : this(processToAnalyze, method, cfg, pta, protectedNodes, equalitiesMap, interprocManager, rangeAnalysis) //base(cfg)
         {            
             this.initValue = initValue;
             InitVariablesWithTaint(this.initValue);

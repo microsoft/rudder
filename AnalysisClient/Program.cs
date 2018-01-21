@@ -135,7 +135,7 @@ namespace AnalysisClient
                     foreach (var x in depStream)
                     {
                         var processorName = x.Item1;
-                        ScopeProgramAnalysis.ScopeProgramAnalysis.DependencyStats stats = x.Item2;
+                        ScopeProgramAnalysis.DependencyStats stats = x.Item2;
 
                         ret.Add(String.Join("\t", new string[] {
                         inputDll,

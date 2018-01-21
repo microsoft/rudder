@@ -75,6 +75,7 @@ namespace ScopeProgramAnalysis
     {
         private int stackDepth;
         private IMetadataHost host;
+        private ScopeProcessorInfo processToAnalyze;
         private const int MaxStackDepth = 100;
         private Stack<IMethodDefinition> callStack;
 
@@ -95,7 +96,10 @@ namespace ScopeProgramAnalysis
             this.previousResult = new Dictionary<Instruction, DependencyPTGDomain>();
         }
     
-
+        public void SetProcessToAnalyze(ScopeProcessorInfo processToAnalyze)
+        {
+            this.processToAnalyze = processToAnalyze;
+        }
     public ControlFlowGraph GetCFG(IMethodDefinition method)
         {
             return CFGCache.GetCFG(method);
@@ -172,7 +176,7 @@ namespace ScopeProgramAnalysis
             // 2) Bind Parameters of the dependency analysis and run
             var calleeDomain = BindCallerCallee(callInfo);
             calleeDomain.PTG = calleePTG;
-            var dependencyAnalysis = new IteratorDependencyAnalysis(callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(processToAnalyze, callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
 
             // If we already did the dataflow analysis for this method we recover the dataflow state
             // This should be adapted (or removed) if we want the analysis to be context sensitive

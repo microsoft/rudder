@@ -79,6 +79,7 @@ namespace ScopeProgramAnalysis
         private IMetadataHost host;
         private IteratorPointsToAnalysis pointsToAnalyzer;
         private IMethodDefinition moveNextMethod;
+        private ScopeProcessorInfo processToAnalyze;
         private IDictionary<IVariable, IExpression> equalities;
         private IMethodDefinition entryMethod;
         // private IDictionary<string,IVariable> specialFields;
@@ -95,16 +96,14 @@ namespace ScopeProgramAnalysis
 
         public SongTaoDependencyAnalysis(MyLoader loader,
                                         InterproceduralManager interprocManager,
-                                        IMethodDefinition method,
-                                        IMethodDefinition entryMethod,
-                                        IMethodDefinition getEnumMethod)
-        {
+                                        ScopeProcessorInfo processToAnalyze)        {
             this.interprocManager = interprocManager;
             this.host = loader.Host;
             this.loader = loader;
-            this.moveNextMethod = method;
-            this.entryMethod = entryMethod;
-            this.getEnumMethod = getEnumMethod;
+            this.processToAnalyze = processToAnalyze;
+            this.moveNextMethod = processToAnalyze.MoveNextMethod;
+            this.entryMethod = processToAnalyze.EntryMethod;
+            this.getEnumMethod = processToAnalyze.GetIteratorMethod;
             this.equalities = new Dictionary<IVariable, IExpression>();
         }
 
@@ -218,7 +217,8 @@ namespace ScopeProgramAnalysis
             var rangeAnalysis = new RangeAnalysis(cfg);
             var ranges = rangeAnalysis.Analyze();
             var exitRange = ranges[cfg.Exit.Id];
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
+            
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.processToAnalyze,moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             //dependencyAnalysis.SetPreviousResult(resultDepAnalysis);
@@ -239,7 +239,7 @@ namespace ScopeProgramAnalysis
                 var currentTraceables = this.GetTraceablesFromYieldReturn(result).OfType<TraceableTable>();
                 if (currentTraceables.Any(t => t.TableKind == ProtectedRowKind.Input))
                 {
-                    var inputSchema = ScopeProgramAnalysis.InputSchema;
+                    var inputSchema = processToAnalyze.InputSchema;
 
                     dependencyAnalysis.CopyRow(result,thisVariable, inputSchema, inputTable, outputTable);
                 }

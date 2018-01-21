@@ -297,7 +297,9 @@ namespace ScopeProgramAnalysis
             var i = new Schema(inputColumns);
             var o = new Schema(outputColumns);
 
-            var ok = scopeProgramAnalyzer.AnalyzeProcessor(inputPath, loader, processorClass, entryMethod, moveNextMethod, getEnumMethod, null, i, o, out run, out errorReason);
+            var processToAnalyze = new ScopeProcessorInfo(processorClass, entryMethod, getEnumMethod, moveNextMethod, null);
+
+            var ok = scopeProgramAnalyzer.AnalyzeProcessor(inputPath, loader, processToAnalyze, i, o, out run, out errorReason);
             if (ok)
             {
                 return run;
