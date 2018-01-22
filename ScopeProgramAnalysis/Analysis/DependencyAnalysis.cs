@@ -98,6 +98,7 @@ namespace ScopeProgramAnalysis
             this.host = loader.Host;
             this.loader = loader;
             this.equalities = new Dictionary<IVariable, IExpression>();
+            this.processToAnalyze = processToAnalyze;
         }
 
         public Tuple<DependencyPTGDomain, TimeSpan> AnalyzeMoveNextMethod()

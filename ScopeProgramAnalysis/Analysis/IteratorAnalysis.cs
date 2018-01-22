@@ -475,15 +475,18 @@ namespace Backend.Analyses
             private PTAVisitor visitorPTA;
             private VariableRangeDomain variableRanges;
 
-            public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis, PTAVisitor visitorPTA,
-                                   CFGNode cfgNode,  IDictionary<IVariable, IExpression> equalities, 
-                                   ScopeInfo scopeData, SimplePointsToGraph ptg, DependencyPTGDomain oldInput)
+            public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis,
+                                   CFGNode cfgNode,  DependencyPTGDomain oldInput)
             {
+
+                // A visitor for the points-to graph
+                var visitorPTA = new PTAVisitor(oldInput.PTG, iteratorDependencyAnalysis.pta);
+
                 this.iteratorDependencyAnalysis = iteratorDependencyAnalysis;
-                this.equalities = equalities;
-                this.scopeData = scopeData;
+                this.equalities =  iteratorDependencyAnalysis.equalities;
+                this.scopeData = iteratorDependencyAnalysis.scopeData;
                 this.State = oldInput;
-                this.currentPTG = ptg;
+                this.currentPTG = oldInput.PTG;
                 this.cfgNode = cfgNode;
                 this.method = iteratorDependencyAnalysis.method;
                 this.visitorPTA = visitorPTA;
@@ -1221,7 +1224,6 @@ namespace Backend.Analyses
 
                 }
                 // For GetEnum we need to create an object iterator that points-to the colecction
-                // BUGBUG: Should this be "else if" and not "if"????
                 else if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
                 {
@@ -2181,12 +2183,8 @@ namespace Backend.Analyses
             var oldInput = input.Clone();
             // var currentPTG = pta.Result[node.Id].Output;
 
-            // A visitor for the points-to graph
-            var visitorPTA = new PTAVisitor(oldInput.PTG, this.pta);
-
             // A visitor for the dependency analysis
-            // TODO: Since PTG is now part of the state I no longer need to send it as parameters
-            var visitor = new MoveNextVisitorForDependencyAnalysis(this, visitorPTA, node, this.equalities, this.scopeData, oldInput.PTG, oldInput);
+            var visitor = new MoveNextVisitorForDependencyAnalysis(this, node, oldInput);
             visitor.Visit(node);
 
             return visitor.State;
