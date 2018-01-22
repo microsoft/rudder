@@ -78,12 +78,9 @@ namespace ScopeProgramAnalysis
     {
         private IMetadataHost host;
         private IteratorPointsToAnalysis pointsToAnalyzer;
-        private IMethodDefinition moveNextMethod;
         private ScopeProcessorInfo processToAnalyze;
         private IDictionary<IVariable, IExpression> equalities;
-        private IMethodDefinition entryMethod;
         // private IDictionary<string,IVariable> specialFields;
-        private IMethodDefinition getEnumMethod;
         private InterproceduralManager interprocManager;
         private ISourceLocationProvider sourceLocationProvider;
         private MyLoader loader;
@@ -100,10 +97,6 @@ namespace ScopeProgramAnalysis
             this.interprocManager = interprocManager;
             this.host = loader.Host;
             this.loader = loader;
-            this.processToAnalyze = processToAnalyze;
-            this.moveNextMethod = processToAnalyze.MoveNextMethod;
-            this.entryMethod = processToAnalyze.EntryMethod;
-            this.getEnumMethod = processToAnalyze.GetIteratorMethod;
             this.equalities = new Dictionary<IVariable, IExpression>();
         }
 
@@ -114,15 +107,15 @@ namespace ScopeProgramAnalysis
             sw.Start();
 
             // 1) Analyze the entry method that creates, populates  and return the clousure 
-            var cfgEntry = entryMethod.DoAnalysisPhases(host, sourceLocationProvider);
-            var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, this.entryMethod); // , this.specialFields);
+            var cfgEntry = processToAnalyze.EntryMethod.DoAnalysisPhases(host, sourceLocationProvider);
+            var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); // , this.specialFields);
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
             // 2) Call the GetEnumerator that may create a new clousure and polulate it
-            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = getEnumMethod.Type };
+            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = processToAnalyze.GetIteratorMethod.Type };
             ptgOfEntry.Add(myGetEnumResult);
-            var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, this.getEnumMethod);
+            var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, processToAnalyze.GetIteratorMethod);
 
             // These are the nodes that we want to protect/analyze
             var protectedNodes = ptgOfEntry.Nodes.OfType<ParameterNode>()
@@ -143,11 +136,11 @@ namespace ScopeProgramAnalysis
             // Well... Inlining is broken we we added the Exceptional control graph. Let's avoid it
             //var cfg = this.moveNextMethod.DoAnalysisPhases(host, this.GetMethodsToInline());
 
-            var cfg = this.interprocManager.GetCFG(this.moveNextMethod);
+            var cfg = this.interprocManager.GetCFG(processToAnalyze.MoveNextMethod);
             PropagateExpressions(cfg, this.equalities);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
-            SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod);
-            this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, calleePTG);
+            SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, processToAnalyze.MoveNextMethod);
+            this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, processToAnalyze.MoveNextMethod, calleePTG);
                         
             //this.pta= this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg);
 
@@ -167,7 +160,7 @@ namespace ScopeProgramAnalysis
         private IFieldReference GetCurrentFieldFromClausure()
         {
             IFieldReference currentField = null;
-            var clousureClass = this.moveNextMethod.ContainingTypeDefinition;
+            var clousureClass = processToAnalyze.MoveNextMethod.ContainingTypeDefinition;
             currentField = clousureClass.Fields.Where(f => f.Name.Value == @"<>2__current").SingleOrDefault();
             return currentField;
         }
@@ -184,7 +177,7 @@ namespace ScopeProgramAnalysis
         private IEnumerable<IMethodReference> GetMethodsToInline()
         {
             var pattern = "<>m__Finally";
-            var methodRefs = this.moveNextMethod.GetMethodsInvoked();
+            var methodRefs = this.processToAnalyze.MoveNextMethod.GetMethodsInvoked();
             return methodRefs.Where(m => m.Name.Value.StartsWith(pattern));
         }
         /// <summary>
@@ -218,7 +211,7 @@ namespace ScopeProgramAnalysis
             var ranges = rangeAnalysis.Analyze();
             var exitRange = ranges[cfg.Exit.Id];
             
-            var dependencyAnalysis = new IteratorDependencyAnalysis(this.processToAnalyze,moveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
+            var dependencyAnalysis = new IteratorDependencyAnalysis(this.processToAnalyze, this.processToAnalyze.MoveNextMethod, cfg, pointsToAnalyzer, protectedNodes ,this.equalities, this.interprocManager, rangeAnalysis);
             var resultDepAnalysis = dependencyAnalysis.Analyze();
 
             //dependencyAnalysis.SetPreviousResult(resultDepAnalysis);
