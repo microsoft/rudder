@@ -109,7 +109,7 @@ namespace ScopeProgramAnalysis
             this.FactoryReducerMap = new Dictionary<string, ITypeDefinition>();
             this.InterprocAnalysisManager = new InterproceduralManager(loader);
         }
-        public enum ScopeMethodKind { Producer, Reducer, All };
+        public enum ScopeMethodKind { Processor, Reducer, All };
 
         private void ComputeColumns(string xmlFile, string processNumber)
         {
@@ -227,12 +227,8 @@ namespace ScopeProgramAnalysis
             return null;
         }
 
-        private static void CreateHostAndProgram(string inputPath, bool interProc, out MyLoader loader, out ScopeProgramAnalysis program, 
-                                                out IAssembly loadedAssembly)
+        private static MyLoader CreateHost(string inputPath, out IAssembly loadedAssembly)
         {
-            // Determine whether to use Interproc analysis
-            AnalysisOptions.DoInterProcAnalysis = interProc;
-
             var host = new PeReader.DefaultHost();
 
             if (inputPath.StartsWith("file:")) // Is there a better way to tell that it is a Uri?
@@ -243,13 +239,12 @@ namespace ScopeProgramAnalysis
             if (!Directory.Exists(d))
                 throw new InvalidOperationException("Can't find directory from path: " + inputPath);
 
-            loader = new MyLoader(host, d);
+            var loader = new MyLoader(host, d);
 
             Types.Initialize(host);
 
             loadedAssembly = loader.LoadMainAssembly(inputPath);
-
-            program = new ScopeProgramAnalysis(loader);
+			return loader;
         }
 
         private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>>();
@@ -970,172 +965,192 @@ namespace ScopeProgramAnalysis
         //    }
         //    return resolvedClass;
         //}
-        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
-        {
-            var log = SarifLogger.CreateSarifOutput();
-            log.SchemaUri = new Uri("http://step0");
 
-            if (!File.Exists(inputPath))
-            {
-                var fileName = Path.GetFileName(inputPath);
-                var r = SarifLogger.CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + fileName, new List<Result>());
-                log.Runs.Add(r);
-                return log;
-            }
 
-            MyLoader loader;
-            ScopeProgramAnalysis scopeProgramAnalysis;
-            IAssembly assembly;
-            CreateHostAndProgram(inputPath, interProc, out loader, out scopeProgramAnalysis, out assembly);
-            var host = loader.Host;
+		/// <summary>
+		/// This methods take a DLL file and generate columns dependencies for every Processor class it found.
+		/// </summary>
+		/// <param name="inputPath"></param>
+		/// <param name="kind"></param>
+		/// <param name="useScopeFactory"></param>
+		/// <param name="interProc"></param>
+		/// <param name="outputStream"></param>
+		/// <returns></returns>
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, 
+										  bool interProc = false, StreamWriter outputStream = null)
+		{
+			// Determine whether to use Interproc analysis
+			AnalysisOptions.DoInterProcAnalysis = interProc;
 
-            AnalysisStats.TotalNumberFolders++;
-            AnalysisStats.TotalDllsFound++;
+			var log = SarifLogger.CreateSarifOutput();
+			log.SchemaUri = new Uri("http://step0");
 
-            scopeProgramAnalysis.ClassFilters = new HashSet<string>();
-            scopeProgramAnalysis.ClousureFilters = new HashSet<string>();
+			if (!File.Exists(inputPath))
+			{
+				var fileName = Path.GetFileName(inputPath);
+				var r = SarifLogger.CreateRun(inputPath, "No results", "(AnalyzeDLL) File not found: " + fileName, new List<Result>());
+				log.Runs.Add(r);
+				return log;
+			}
 
-            var entryMethods = new HashSet<string>();
+			IAssembly assembly;
+			var loader = CreateHost(inputPath, out assembly);
 
-            if (kind == ScopeMethodKind.Reducer || kind == ScopeMethodKind.All)
-            {
-                scopeProgramAnalysis.ClassFilters.Add("Reducer");
-                scopeProgramAnalysis.ClousureFilters.Add("<Reduce>d__");
-                entryMethods.Add("Reduce");
-            }
-            if (kind == ScopeMethodKind.Producer || kind == ScopeMethodKind.All)
-            {
-                scopeProgramAnalysis.ClassFilters.Add("Processor");
-                scopeProgramAnalysis.ClousureFilters.Add("<Process>d__");
-                entryMethods.Add("Process");
-                //program.ClassFilter = "Producer";
-                //program.ClousureFilter = "<Produce>d__";
-                //program.EntryMethod = "Produce";
-            }
+			var scopeProgramAnalysis = new ScopeProgramAnalysis(loader);
+			var host = loader.Host;
 
-            var methodUnderAnalysisName = "MoveNext";
+			AnalysisStats.TotalNumberFolders++;
+			AnalysisStats.TotalDllsFound++;
 
-            IEnumerable<ScopeProcessorInfo> scopeProcessorsToAnalyze;
-            List<Tuple<ITypeDefinition, string>> errorMessages;
-            if (useScopeFactory)
-            {
-                scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyze(assembly, out errorMessages);
-                if (!scopeProcessorsToAnalyze.Any())
-                {
-                    if (outputStream != null)
-                        outputStream.WriteLine("Failed to obtain methods from the ScopeFactory. ");
-                    //Console.WriteLine("Failed to obtain methods from the ScopeFactory.");
+			scopeProgramAnalysis.ComputeProcessorFilters(kind);
 
-                    //Console.WriteLine("Now trying to find methods in the the assembly");
-                    //scopeMethodPairs = program.ObtainScopeMethodsToAnalyzeFromAssemblies();
-                }
-            }
-            else
-            {
-                scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyzeFromAssemblies();
-                errorMessages = new List<Tuple<ITypeDefinition, string>>();
-            }
+			IEnumerable<ScopeProcessorInfo> scopeProcessorsToAnalyze;
+			List<Tuple<ITypeDefinition, string>> errorMessages;
+			if (useScopeFactory)
+			{
+				scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyze(assembly, out errorMessages);
+				if (!scopeProcessorsToAnalyze.Any())
+				{
+					if (outputStream != null)
+						outputStream.WriteLine("Failed to obtain methods from the ScopeFactory. ");
+				}
+			}
+			else
+			{
+				scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyzeFromAssemblies();
+				errorMessages = new List<Tuple<ITypeDefinition, string>>();
+			}
 
-            if (!scopeProcessorsToAnalyze.Any() && errorMessages.Count == 0)
-            {
-                //Console.WriteLine("No processors found in {0}", inputPath);
-                var r = SarifLogger.CreateRun(inputPath, "No results", "No processors found", new List<Result>());
-                log.Runs.Add(r);
-                return log;
-            }
+			if (!scopeProcessorsToAnalyze.Any() && errorMessages.Count == 0)
+			{
+				var r = SarifLogger.CreateRun(inputPath, "No results", "No processors found", new List<Result>());
+				log.Runs.Add(r);
+				return log;
+			}
 
-            foreach (var errorMessage in errorMessages)
-            {
-                var r = SarifLogger.CreateRun(inputPath, errorMessage.Item1 == null ? "No results" : errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
-                log.Runs.Add(r);
-            }
+			foreach (var errorMessage in errorMessages)
+			{
+				var r = SarifLogger.CreateRun(inputPath, errorMessage.Item1 == null ? "No results" : errorMessage.Item1.FullName(), errorMessage.Item2, new List<Result>());
+				log.Runs.Add(r);
+			}
 
-            IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
-            if (useScopeFactory)
-            {
-                allSchemas = scopeProgramAnalysis.ReadSchemasFromXML(inputPath);
-            }
-            else
-            {
-                allSchemas = scopeProgramAnalysis.ReadSchemasFromXML2(inputPath);
-            }
+			IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
+			if (useScopeFactory)
+			{
+				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML(inputPath);
+			}
+			else
+			{
+				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML2(inputPath);
+			}
 
-            var processorNumber = 0;
+			var processorNumber = 0;
 
-            foreach (var methodTuple in scopeProcessorsToAnalyze)
-            {
-                processorNumber++;
-                AnalysisStats.TotalMethods++;
+			foreach (var methodTuple in scopeProcessorsToAnalyze)
+			{
+				processorNumber++;
+				AnalysisStats.TotalMethods++;
 
-                log.SchemaUri = new Uri(log.SchemaUri.ToString() + String.Format("/processor{0}", processorNumber));
+				log.SchemaUri = new Uri(log.SchemaUri.ToString() + String.Format("/processor{0}", processorNumber));
 
-                var processorClass = methodTuple.ProcessorClass;
-                var entryMethodDef = methodTuple.EntryMethod;
-                var moveNextMethod = methodTuple.MoveNextMethod;
-                var getEnumMethod = methodTuple.GetIteratorMethod;
-                var factoryMethod = methodTuple.FactoryMethod;
-                Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
+				var processorClass = methodTuple.ProcessorClass;
+				var entryMethodDef = methodTuple.EntryMethod;
+				var moveNextMethod = methodTuple.MoveNextMethod;
+				var getEnumMethod = methodTuple.GetIteratorMethod;
+				var factoryMethod = methodTuple.FactoryMethod;
+				Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
 
-                Schema inputSchema = null;
-                Schema outputSchema = null;
-                Tuple<Schema, Schema> schemas;
-                if (allSchemas.TryGetValue((moveNextMethod.ContainingType as INestedTypeReference).ContainingType.FullName(), out schemas))
-                {
-                    inputSchema = schemas.Item1;
-                    outputSchema = schemas.Item2;
-                }
-                else
-                {
-                    continue; // BUG! Silent failure
-                }
+				Schema inputSchema = null;
+				Schema outputSchema = null;
+				Tuple<Schema, Schema> schemas;
+				if (allSchemas.TryGetValue((moveNextMethod.ContainingType as INestedTypeReference).ContainingType.FullName(), out schemas))
+				{
+					inputSchema = schemas.Item1;
+					outputSchema = schemas.Item2;
+				}
+				else
+				{
+					continue; // BUG! Silent failure
+				}
 
-                log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/aboutToAnalyze");
-                Run run;
-                AnalysisReason errorReason;
+				log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/aboutToAnalyze");
+				Run run;
+				AnalysisReason errorReason;
 
-                var ok = scopeProgramAnalysis.AnalyzeProcessor(inputPath, loader, methodTuple, inputSchema, outputSchema, out run, out errorReason);
-                if (ok)
-                {
-                    log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeOK");
+				var ok = scopeProgramAnalysis.AnalyzeProcessor(inputPath, loader, methodTuple, inputSchema, outputSchema, out run, out errorReason);
+				if (ok)
+				{
+					log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeOK");
 
-                    log.Runs.Add(run);
+					log.Runs.Add(run);
 
-                    if (outputStream != null)
-                    {
-                        outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullName(), moveNextMethod.ToString());
+					if (outputStream != null)
+					{
+						outputStream.WriteLine("Class: [{0}] {1}", moveNextMethod.ContainingType.FullName(), moveNextMethod.ToString());
 
-                        var resultSummary = run.Results.Where(r => r.Id == "Summary").FirstOrDefault();
-                        if (resultSummary != null) // BUG? What to do if it is null?
-                        {
-                            outputStream.WriteLine("Inputs: {0}", String.Join(", ", resultSummary.GetProperty("Inputs")));
-                            outputStream.WriteLine("Outputs: {0}", String.Join(", ", resultSummary.GetProperty("Outputs")));
-                        }
-                    }
+						var resultSummary = run.Results.Where(r => r.Id == "Summary").FirstOrDefault();
+						if (resultSummary != null) // BUG? What to do if it is null?
+						{
+							outputStream.WriteLine("Inputs: {0}", String.Join(", ", resultSummary.GetProperty("Inputs")));
+							outputStream.WriteLine("Outputs: {0}", String.Join(", ", resultSummary.GetProperty("Outputs")));
+						}
+					}
 
-                }
-                else
-                {
-                    log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeNotOK/" + errorReason.Reason);
+				}
+				else
+				{
+					log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeNotOK/" + errorReason.Reason);
 
-                    Console.WriteLine("Could not analyze {0}", inputPath);
-                    Console.WriteLine("Reason: {0}\n", errorReason.Reason);
+					Console.WriteLine("Could not analyze {0}", inputPath);
+					Console.WriteLine("Reason: {0}\n", errorReason.Reason);
 
-                    AnalysisStats.TotalofDepAnalysisErrors++;
-                    AnalysisStats.AddAnalysisReason(errorReason);
-                }
+					AnalysisStats.TotalofDepAnalysisErrors++;
+					AnalysisStats.AddAnalysisReason(errorReason);
+				}
 
-            }
-            var foo = ExtractDependencyStats(log);
-            return log;
-        }
+			}
+			var foo = ExtractDependencyStats(log);
+			return log;
+		}
+
+		private void ComputeProcessorFilters(ScopeMethodKind kind)
+		{
+			ClassFilters = new HashSet<string>();
+			ClousureFilters = new HashSet<string>();
+
+			var entryMethods = new HashSet<string>();
+
+			if (kind == ScopeMethodKind.Reducer || kind == ScopeMethodKind.All)
+			{
+				ClassFilters.Add("Reducer");
+				ClousureFilters.Add("<Reduce>d__");
+				entryMethods.Add("Reduce");
+			}
+			if (kind == ScopeMethodKind.Processor || kind == ScopeMethodKind.All)
+			{
+				ClassFilters.Add("Processor");
+				ClousureFilters.Add("<Process>d__");
+				entryMethods.Add("Process");
+			}
+		}
+
+		/// <summary>
+		/// This method analyze the Producer associated with the type passed as parameter
+		/// </summary>
+		/// <param name="processorType"></param>
+		/// <param name="inputSchema"></param>
+		/// <param name="outputSchema"></param>
+		/// <returns></returns>
 		public static Run AnalyzeProcessor(Type processorType, string inputSchema, string outputSchema)
 		{
+			// Determine whether to use Interproc analysis
+			AnalysisOptions.DoInterProcAnalysis = false;
+
 			var inputPath = processorType.Assembly.Location;
 
-			MyLoader loader;
-			ScopeProgramAnalysis scopeProgramAnalyzer;
 			IAssembly assembly;
-			CreateHostAndProgram(inputPath, false, out loader, out scopeProgramAnalyzer, out assembly);
+			var loader = CreateHost(inputPath, out assembly);
+			var scopeProgramAnalyzer = new ScopeProgramAnalysis(loader);
 
 			var host = loader.Host;
 
