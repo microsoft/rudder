@@ -970,7 +970,7 @@ namespace ScopeProgramAnalysis
         //    }
         //    return resolvedClass;
         //}
-        public static SarifLog AnalyzeDll2(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
+        public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null)
         {
             var log = SarifLogger.CreateSarifOutput();
             log.SchemaUri = new Uri("http://step0");
@@ -1128,8 +1128,94 @@ namespace ScopeProgramAnalysis
             var foo = ExtractDependencyStats(log);
             return log;
         }
+		public static Run AnalyzeProcessor(Type processorType, string inputSchema, string outputSchema)
+		{
+			var inputPath = processorType.Assembly.Location;
 
-        private IReadOnlyDictionary<string, Tuple<Schema, Schema>>
+			MyLoader loader;
+			ScopeProgramAnalysis scopeProgramAnalyzer;
+			IAssembly assembly;
+			CreateHostAndProgram(inputPath, false, out loader, out scopeProgramAnalyzer, out assembly);
+
+			var host = loader.Host;
+
+			Run run;
+			AnalysisReason errorReason;
+
+			var processorName = processorType.Name;
+
+			var processorClass = assembly
+				//.RootNamespace
+				.GetAllTypes()
+				.OfType<ITypeDefinition>()
+				.Where(c => c.GetNameThatMatchesReflectionName() == processorName)
+				.SingleOrDefault();
+			if (processorClass == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "Processor class not found", new List<Result>());
+			}
+			var entryMethod = FindEntryMethod(loader.RuntimeTypes.concurrentProcessor, processorClass);
+			if (entryMethod == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "Entry method not found", new List<Result>());
+			}
+
+			var closureName = "<" + entryMethod.Name + ">";
+			var containingType = entryMethod.ContainingType.ResolvedType as ITypeDefinition;
+
+			//if(containingType is IGenericTypeInstance)
+			//{
+			//    containingType = (containingType as IGenericTypeInstance).GenericType.ResolvedType;
+			//}
+
+			if (containingType == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "Containing type of closure type not found", new List<Result>());
+			}
+			var closureClass = containingType.Members.OfType<ITypeDefinition>().Where(c => c.GetName().StartsWith(closureName)).SingleOrDefault();
+			if (closureClass == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "Closure class not found", new List<Result>());
+			}
+
+			var moveNextMethod = closureClass.Methods.Where(m => m.Name.Value == "MoveNext").SingleOrDefault();
+			if (moveNextMethod == null) return null;
+			if (moveNextMethod == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "MoveNext method not found", new List<Result>());
+			}
+
+			var getEnumMethod = closureClass
+				.Methods
+				.Where(m => m.Name.Value.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.Value.EndsWith(">.GetEnumerator"))
+				.SingleOrDefault();
+			if (getEnumMethod == null) return null;
+			if (getEnumMethod == null)
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, "GetEnumerator method not found", new List<Result>());
+			}
+
+			var inputColumns = ParseColumns(inputSchema);
+			var outputColumns = ParseColumns(outputSchema);
+			var i = new Schema(inputColumns);
+			var o = new Schema(outputColumns);
+
+			var processToAnalyze = new ScopeProcessorInfo(processorClass, entryMethod, getEnumMethod, moveNextMethod, null);
+
+			var ok = scopeProgramAnalyzer.AnalyzeProcessor(inputPath, loader, processToAnalyze, i, o, out run, out errorReason);
+			if (ok)
+			{
+				return run;
+			}
+			else
+			{
+				return SarifLogger.CreateRun(inputPath, processorName, errorReason.Reason, new List<Result>());
+			}
+		}
+
+
+
+		private IReadOnlyDictionary<string, Tuple<Schema, Schema>>
             ReadSchemasFromXML(string inputPath)
         {
             var d = new Dictionary<string, Tuple<Schema, Schema>>();
