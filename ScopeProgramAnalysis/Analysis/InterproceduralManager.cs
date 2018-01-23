@@ -169,7 +169,7 @@ namespace ScopeProgramAnalysis
             IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
-            SongTaoDependencyAnalysis.PropagateExpressions(calleeCFG, equalities);
+			calleeCFG.PropagateExpressions(equalities);
 
             var rangesAnalysis = new RangeAnalysis(calleeCFG);
             rangesAnalysis.Analyze();

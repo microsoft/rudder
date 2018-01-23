@@ -138,7 +138,7 @@ namespace ScopeProgramAnalysis
             //var cfg = this.moveNextMethod.DoAnalysisPhases(host, this.GetMethodsToInline());
 
             var cfg = this.interprocManager.GetCFG(processToAnalyze.MoveNextMethod);
-            PropagateExpressions(cfg, this.equalities);
+            cfg.PropagateExpressions(this.equalities);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
             SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, processToAnalyze.MoveNextMethod);
             this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, processToAnalyze.MoveNextMethod, calleePTG);
@@ -264,38 +264,6 @@ namespace ScopeProgramAnalysis
 
             return false;
         }
-
-
-
-
-        #region Methods to Compute a sort of propagation of Equalities (should be moved to extensions or utils)
-        public static void PropagateExpressions(ControlFlowGraph cfg, IDictionary<IVariable, IExpression> equalities)
-        {
-            foreach (var node in cfg.ForwardOrder)
-            {
-                PropagateExpressions(node, equalities);
-            }
-        }
-
-        private static void PropagateExpressions(CFGNode node, IDictionary<IVariable, IExpression> equalities)
-        {
-            foreach (var instruction in node.Instructions)
-            {
-                PropagateExpressions(instruction, equalities);
-            }
-        }
-
-        private static void PropagateExpressions(Instruction instruction, IDictionary<IVariable, IExpression> equalities)
-        {
-            var definition = instruction as DefinitionInstruction;
-
-            if (definition != null && definition.HasResult)
-            {
-                var expr = definition.ToExpression().ReplaceVariables(equalities);
-                equalities.Add(definition.Result, expr);
-            }
-        }
-
-        #endregion
+				    
     }
 }
