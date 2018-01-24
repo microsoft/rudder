@@ -36,7 +36,7 @@ namespace SimpleTests
 
         private Run AnalyzeProcessor(Type t, string v1, string v2)
         {
-            return  ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeProcessor(t, v1, v2);
+            return  ScopeProgramAnalysis.ScopeProgramAnalysis.AnalyzeProcessorFromType(t, v1, v2);
         }
 
         [TestMethod]

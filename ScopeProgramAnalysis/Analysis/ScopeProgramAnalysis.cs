@@ -72,17 +72,30 @@ namespace ScopeProgramAnalysis
     }
 
 
-    public class ScopeProgramAnalysis
-    {
+
+	public class ScopeProgramAnalysis
+	{
+		struct BothAnalysisResults {
+			public DependencyPTGDomain DepAnalysisResult { get;  set; }
+			public TimeSpan Time { get; set; }
+			public ISet<TraceableColumn> InputsColumns { get; set; }
+			public ISet<TraceableColumn> OutputColumns { get; set; }
+			public ScopeAnalyzer.Analyses.ColumnsDomain BagOfColumnsUsedColumns { get; set; }
+			public TimeSpan BagOfColumnsTime { get; set; }
+		};
+
         private IMetadataHost host;
         public IDictionary<string, ITypeDefinition> FactoryReducerMap { get; private set; }
         private MyLoader loader;
         public InterproceduralManager InterprocAnalysisManager { get; private set; }
-   
-        //public static Schema InputSchema;
-        //public static Schema OutputSchema;
 
-        public IEnumerable<string> ReferenceFiles { get; private set; }
+		private Dictionary<IMethodDefinition, BothAnalysisResults> previousResults = new Dictionary<IMethodDefinition, BothAnalysisResults> ();
+
+
+		//public static Schema InputSchema;
+		//public static Schema OutputSchema;
+
+		public IEnumerable<string> ReferenceFiles { get; private set; }
         public HashSet<string> ClassFilters { get; private set; }
         public HashSet<string> EntryMethods { get; private set; }
         public HashSet<string> ClousureFilters { get; private set; }
@@ -247,34 +260,30 @@ namespace ScopeProgramAnalysis
 			return loader;
         }
 
-        private static Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>> previousResults = new Dictionary<IMethodDefinition, Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan>>();
 
+		/// <summary>
+		/// This method analyzes 1 processor, computes de dependencies and convert it to a Sarif output
+		/// </summary>
+		/// <param name="inputPath"></param>
+		/// <param name="processToAnalyze"></param>
+		/// <param name="inputSchema"></param>
+		/// <param name="outputSchema"></param>
+		/// <param name="runResult"></param>
+		/// <param name="errorReason"></param>
+		/// <returns></returns>
         public bool AnalyzeProcessor(
             string inputPath,
-            MyLoader loader,
             ScopeProcessorInfo processToAnalyze,
-            Schema inputSchema,
-            Schema outputSchema,
             out Run runResult,
             out AnalysisReason errorReason)
         {
-
             runResult = null;
             errorReason = default(AnalysisReason);
 
             this.InterprocAnalysisManager.SetProcessToAnalyze(processToAnalyze);
-            InterproceduralManager interprocAnalysisManager = this.InterprocAnalysisManager;
-
-            IDictionary<string, ITypeDefinition> factoryReducerMap = this.FactoryReducerMap;
 
             try
             {
-
-                // BUG: Get rid of these static fields
-                // Partially solved with the new struct ScopeProcessInfo (still using a public setter...)
-                processToAnalyze.InputSchema = inputSchema;
-                processToAnalyze.OutputSchema = outputSchema;
-
                 DependencyPTGDomain depAnalysisResult;
                 ISet<TraceableColumn> inputColumns;
                 ISet<TraceableColumn> outputColumns;
@@ -282,36 +291,38 @@ namespace ScopeProgramAnalysis
                 TimeSpan depAnalysisTime;
                 TimeSpan bagOColumnsTime;
 
-                Tuple<DependencyPTGDomain, TimeSpan, ISet<TraceableColumn>, ISet<TraceableColumn>, ScopeAnalyzer.Analyses.ColumnsDomain, TimeSpan> previousResult;
-                if (previousResults.TryGetValue(processToAnalyze.MoveNextMethod, out previousResult))
-                {
-                    depAnalysisResult = previousResult.Item1;
-                    depAnalysisTime = previousResult.Item2;
-                    inputColumns = previousResult.Item3;
-                    outputColumns = previousResult.Item4;
-                    bagOColumnsUsedColumns = previousResult.Item5;
-                    bagOColumnsTime = previousResult.Item6;
+				// If the processor 
+				BothAnalysisResults bothAnalysesResult;
+				if (!previousResults.TryGetValue(processToAnalyze.MoveNextMethod, out bothAnalysesResult))
+				{
+					var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, this.InterprocAnalysisManager, processToAnalyze);
+					var depAnalysisResultandTime = dependencyAnalysis.AnalyzeMoveNextMethod();
+					depAnalysisResult = depAnalysisResultandTime.Item1;
+					depAnalysisTime = depAnalysisResultandTime.Item2;
 
-                } else {
+					inputColumns = dependencyAnalysis.InputColumns;
+					outputColumns = dependencyAnalysis.OutputColumns;
 
-                    var dependencyAnalysis = new SongTaoDependencyAnalysis(loader, interprocAnalysisManager, processToAnalyze);
-                    var tup = dependencyAnalysis.AnalyzeMoveNextMethod();
-                    depAnalysisResult = tup.Item1;
-                    depAnalysisTime = tup.Item2;
-                    inputColumns = dependencyAnalysis.InputColumns;
-                    outputColumns = dependencyAnalysis.OutputColumns;
+					var a = TypeHelper.GetDefiningUnit(processToAnalyze.ProcessorClass) as IAssembly;
+					var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, processToAnalyze.MoveNextMethod);
+					bagOColumnsUsedColumns = z.UsedColumnsSummary ?? ScopeAnalyzer.Analyses.ColumnsDomain.Top;
+					bagOColumnsTime = z.ElapsedTime;
 
-                    var a = TypeHelper.GetDefiningUnit(processToAnalyze.ProcessorClass) as IAssembly;
-                    var z = ScopeAnalyzer.ScopeAnalysis.AnalyzeMethodWithBagOColumnsAnalysis(loader.Host, a, Enumerable<IAssembly>.Empty, processToAnalyze.MoveNextMethod);
-                    bagOColumnsUsedColumns = z.UsedColumnsSummary ?? ScopeAnalyzer.Analyses.ColumnsDomain.Top;
-                    bagOColumnsTime = z.ElapsedTime;
-
-                    previousResults.Add(processToAnalyze.MoveNextMethod, Tuple.Create(depAnalysisResult, depAnalysisTime, inputColumns, outputColumns, bagOColumnsUsedColumns, bagOColumnsTime));
+					bothAnalysesResult = new BothAnalysisResults()
+					{
+						DepAnalysisResult = depAnalysisResult,
+						Time = depAnalysisTime,
+						BagOfColumnsUsedColumns = bagOColumnsUsedColumns,
+						BagOfColumnsTime = bagOColumnsTime,
+						InputsColumns = inputColumns,
+						OutputColumns = outputColumns
+					};
+                    previousResults.Add(processToAnalyze.MoveNextMethod, bothAnalysesResult);
                 }
                 var producesAnalyzer = new ProducesMethodAnalyzer(loader, processToAnalyze.ProcessorClass);
                 // var overApproximatedPassthrough = producesAnalyzer.InferAnnotations(inputSchema);
 
-                var r = CreateResultsAndThenRun(inputPath, processToAnalyze, depAnalysisResult, depAnalysisTime, inputSchema, inputColumns, outputColumns, factoryReducerMap, bagOColumnsUsedColumns, bagOColumnsTime);
+                var r = CreateResultsAndThenRun(inputPath, processToAnalyze, bothAnalysesResult, this.FactoryReducerMap);
                 runResult = r;
 
                 return true;
@@ -492,22 +503,23 @@ namespace ScopeProgramAnalysis
 
         private static Run CreateResultsAndThenRun(string inputPath,
             ScopeProcessorInfo processToAnalyze,
-            DependencyPTGDomain depAnalysisResult,
-            TimeSpan depAnalysiTime,
-            Schema inputSchema,
-            ISet<TraceableColumn> inputColumns, ISet<TraceableColumn> outputColumns, IDictionary<string, ITypeDefinition> processorMap,
-            ScopeAnalyzer.Analyses.ColumnsDomain bagOColumnsUsedColumns,
-            TimeSpan bagOColumnsTime
-            )
+			BothAnalysisResults analysisResult,
+			IDictionary<string, ITypeDefinition> processorMap)
         {
-            var results = new List<Result>();
+			Schema inputSchema = processToAnalyze.InputSchema;
 
-            var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+			var results = new List<Result>();
+
+			DependencyPTGDomain depAnalysisResult = analysisResult.DepAnalysisResult;
+			var depAnalysisTime = analysisResult.Time;
+			var inputColumns = analysisResult.InputsColumns;
+			var outputColumns = analysisResult.OutputColumns;
+			var bagOColumnsUsedColumns = analysisResult.BagOfColumnsUsedColumns;
+			var bagOColumnsTime = analysisResult.BagOfColumnsTime;
+
 
             var inputUses = new HashSet<Traceable>();
             var outputModifies = new HashSet<Traceable>();
-
-                
 
             string declaredPassthroughString = "";
             string declaredDependencyString = "";
@@ -534,72 +546,25 @@ namespace ScopeProgramAnalysis
 
             if (!depAnalysisResult.IsTop)
             {
-                if (depAnalysisResult.Dependencies.A4_Ouput.Any())
+				#region Compute Sarif Results for the Dependency Analysis
+				// Compute dependencies for each output column
+				if (depAnalysisResult.Dependencies.A4_Ouput.Any())
+				{
+					ObtainOutputDependenciesInSarifFormat(results, depAnalysisResult, inputUses, outputModifies);
+				}
+				else
                 {
-                    var outColumnMap = new MapSet<TraceableColumn, Traceable>();
-                    var outColumnControlMap = new MapSet<TraceableColumn, Traceable>();
-                    foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
-                    {
-                        var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
-                                                                 .Where(t => t.TableKind == ProtectedRowKind.Output);
-                        foreach (var column in outColumns)
-                        {
-                            if (!outColumnMap.ContainsKey(column))
-                            {
-                                outColumnMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput[outColum]);
-                            }
-                            else
-                            {
-                                outColumnMap.AddRange(column, outColumnMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput[outColum]));
-                            }
-                            if (!outColumnControlMap.ContainsKey(column))
-                            {
-                                outColumnControlMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]);
-                            }
-                            else
-                            {
-                                outColumnControlMap.AddRange(column, outColumnControlMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]));
-                            }
-                        }
-                    }
-
-                    foreach (var entryOutput in outColumnMap)
-                    {
-                        var result = new Result();
-                        result.Id = "SingleColumn";
-                        var column = entryOutput.Key;
-                        var columnString = column.ToString();
-                        var dependsOn = entryOutput.Value;
-                        var controlDepends = new HashSet<Traceable>();
-
-                        result.SetProperty("column", columnString);
-                        result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
-
-                        if (outColumnControlMap.ContainsKey(column))
-                        {
-                            var controlDependsOn = outColumnControlMap[column];
-                            result.SetProperty("control depends", controlDependsOn.Select(traceable => traceable.ToString()));
-                        }
-                        else
-                        {
-                            result.SetProperty("control depends", new string[] { });
-                        }
-                        result.SetProperty("escapes", escapes);
-                        results.Add(result);
-
-                        inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
-                        outputModifies.Add(column);
-                    }
-                }
-                else
-                {
-                    var result = new Result();
+					var result = new Result();
                     result.Id = "SingleColumn";
                     result.SetProperty("column", "_EMPTY_");
-                    result.SetProperty("escapes", escapes);
-                    results.Add(result);
+					// TODO: Check: before escape info was added for every column
+					//var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+					//result.SetProperty("escapes", escapes);
+					results.Add(result);
 
                 }
+
+				// Add computed inputs, outputs and schemas
                 var resultSummary = new Result();
                 resultSummary.Id = "Summary";
 
@@ -611,13 +576,22 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("SchemaInputs", inputSchemaString);
                 resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
-                // Cannot compare the dependency analysis and the used-column analysis.
-                // It can be that D <= UC or that UC <= D. (Where <= means the partial order where
-                // any result is less-than-or-equal to "top".)
-                // So just set a property for each as to whether they returned "top".
-                resultSummary.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
-                resultSummary.SetProperty("DependencyAnalysisTop", depAnalysisResult.IsTop);
+				var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
+				// TODO: Check: before escape info was added for every column
+				resultSummary.SetProperty("escapes", escapes);
+				resultSummary.SetProperty("DependencyAnalysisTop", depAnalysisResult.IsTop);
 
+				resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+				resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
+				resultSummary.SetProperty("DependencyAnalysisTime", (int)depAnalysisTime.TotalMilliseconds);
+				#endregion
+
+				#region Results for Svonimir analysis
+				// Cannot compare the dependency analysis and the used-column analysis.
+				// It can be that D <= UC or that UC <= D. (Where <= means the partial order where
+				// any result is less-than-or-equal to "top".)
+				// So just set a property for each as to whether they returned "top".
+				resultSummary.SetProperty("UsedColumnTop", bagOColumnsUsedColumns.IsTop);
                 //// Comparison means that the results are consistent, *not* that they are equal.
                 //// In particular, the dependency analysis may be able to return a (non-top) result
                 //// when the used-column analysis cannot.
@@ -641,13 +615,10 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 resultSummary.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
 
-                resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
-                resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
-
                 resultSummary.SetProperty("BagOColumnsTime", (int) bagOColumnsTime.TotalMilliseconds);
-                resultSummary.SetProperty("DependencyAnalysisTime", (int) depAnalysiTime.TotalMilliseconds);
+				#endregion
 
-                results.Add(resultSummary);
+				results.Add(resultSummary);
             }
             else
             {
@@ -669,7 +640,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
                 resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
                 resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
-                resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysiTime.TotalMilliseconds);
+                resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysisTime.TotalMilliseconds);
                 results.Add(resultEmpty);
             }
 
@@ -714,7 +685,43 @@ namespace ScopeProgramAnalysis
             return r;
         }
 
-        private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(ITypeDefinition processorClass, IMethodDefinition factoryMethod, Schema inputSchema)
+		private static void ObtainOutputDependenciesInSarifFormat(List<Result> results, DependencyPTGDomain depAnalysisResult, 
+																  HashSet<Traceable> inputUses, HashSet<Traceable> outputModifies)
+		{
+			MapSet<TraceableColumn, Traceable> outColumnMap, outColumnControlMap;
+			outColumnMap = depAnalysisResult.ComputeOutputDependencies(out outColumnControlMap);
+
+			// Use the output/input depencency map to produce the SarifOutput
+			foreach (var entryOutput in outColumnMap)
+			{
+				var result = new Result();
+				result.Id = "SingleColumn";
+				var column = entryOutput.Key;
+				var columnString = column.ToString();
+				var dependsOn = entryOutput.Value;
+				var controlDepends = new HashSet<Traceable>();
+
+				result.SetProperty("column", columnString);
+				result.SetProperty("data depends", dependsOn.Select(traceable => traceable.ToString()));
+
+				if (outColumnControlMap.ContainsKey(column))
+				{
+					var controlDependsOn = outColumnControlMap[column];
+					result.SetProperty("control depends", controlDependsOn.Select(traceable => traceable.ToString()));
+				}
+				else
+				{
+					result.SetProperty("control depends", new string[] { });
+				}
+				results.Add(result);
+
+				inputUses.AddRange(dependsOn.Where(t => t.TableKind == ProtectedRowKind.Input));
+				outputModifies.Add(column);
+			}
+		}
+
+
+		private static Tuple<Dictionary<string, string>, Dictionary<string, string>> ExecuteProducesMethod(ITypeDefinition processorClass, IMethodDefinition factoryMethod, Schema inputSchema)
         {
             var sourceDictionary = new Dictionary<string, string>();
             var dependenceDictionary = new Dictionary<string, string>();
@@ -1034,50 +1041,43 @@ namespace ScopeProgramAnalysis
 				log.Runs.Add(r);
 			}
 
-			IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
-			if (useScopeFactory)
-			{
-				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML(inputPath);
-			}
-			else
-			{
-				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML2(inputPath);
-			}
+			var allSchemas = ExtractSchemasFromXML(inputPath, useScopeFactory, scopeProgramAnalysis);
 
 			var processorNumber = 0;
 
-			foreach (var methodTuple in scopeProcessorsToAnalyze)
+			foreach (var scopeProcessorInfo in scopeProcessorsToAnalyze)
 			{
 				processorNumber++;
 				AnalysisStats.TotalMethods++;
 
 				log.SchemaUri = new Uri(log.SchemaUri.ToString() + String.Format("/processor{0}", processorNumber));
 
-				var processorClass = methodTuple.ProcessorClass;
-				var entryMethodDef = methodTuple.EntryMethod;
-				var moveNextMethod = methodTuple.MoveNextMethod;
-				var getEnumMethod = methodTuple.GetIteratorMethod;
-				var factoryMethod = methodTuple.FactoryMethod;
+				var processorClass = scopeProcessorInfo.ProcessorClass;
+				var entryMethodDef = scopeProcessorInfo.EntryMethod;
+				var moveNextMethod = scopeProcessorInfo.MoveNextMethod;
+				var getEnumMethod = scopeProcessorInfo.GetIteratorMethod;
+				var factoryMethod = scopeProcessorInfo.FactoryMethod;
 				Console.WriteLine("Method {0} on class {1}", moveNextMethod.Name, moveNextMethod.ContainingType.FullName());
 
 				Schema inputSchema = null;
 				Schema outputSchema = null;
 				Tuple<Schema, Schema> schemas;
-				if (allSchemas.TryGetValue((moveNextMethod.ContainingType as INestedTypeReference).ContainingType.FullName(), out schemas))
-				{
-					inputSchema = schemas.Item1;
-					outputSchema = schemas.Item2;
-				}
-				else
+				if (!TryToGetSchema(allSchemas, moveNextMethod, out schemas))
 				{
 					continue; // BUG! Silent failure
 				}
+
+
+				var updatedProcessorInfo = scopeProcessorInfo;
+
+				updatedProcessorInfo.InputSchema = schemas.Item1;
+				updatedProcessorInfo.OutputSchema = schemas.Item2;
 
 				log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/aboutToAnalyze");
 				Run run;
 				AnalysisReason errorReason;
 
-				var ok = scopeProgramAnalysis.AnalyzeProcessor(inputPath, loader, methodTuple, inputSchema, outputSchema, out run, out errorReason);
+				var ok = scopeProgramAnalysis.AnalyzeProcessor(inputPath, updatedProcessorInfo, out run, out errorReason);
 				if (ok)
 				{
 					log.SchemaUri = new Uri(log.SchemaUri.ToString() + "/analyzeOK");
@@ -1113,6 +1113,26 @@ namespace ScopeProgramAnalysis
 			return log;
 		}
 
+		private static bool TryToGetSchema(IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas, IMethodDefinition moveNextMethod, out Tuple<Schema, Schema> schemas)
+		{
+			return allSchemas.TryGetValue((moveNextMethod.ContainingType as INestedTypeReference).ContainingType.FullName(), out schemas);
+		}
+
+		private static IReadOnlyDictionary<string, Tuple<Schema, Schema>> ExtractSchemasFromXML(string inputPath, bool useScopeFactory, ScopeProgramAnalysis scopeProgramAnalysis)
+		{
+			IReadOnlyDictionary<string, Tuple<Schema, Schema>> allSchemas;
+			if (useScopeFactory)
+			{
+				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML(inputPath);
+			}
+			else
+			{
+				allSchemas = scopeProgramAnalysis.ReadSchemasFromXML2(inputPath);
+			}
+
+			return allSchemas;
+		}
+
 		private void ComputeProcessorFilters(ScopeMethodKind kind)
 		{
 			ClassFilters = new HashSet<string>();
@@ -1141,7 +1161,7 @@ namespace ScopeProgramAnalysis
 		/// <param name="inputSchema"></param>
 		/// <param name="outputSchema"></param>
 		/// <returns></returns>
-		public static Run AnalyzeProcessor(Type processorType, string inputSchema, string outputSchema)
+		public static Run AnalyzeProcessorFromType(Type processorType, string inputSchema, string outputSchema)
 		{
 			// Determine whether to use Interproc analysis
 			AnalysisOptions.DoInterProcAnalysis = false;
@@ -1212,12 +1232,12 @@ namespace ScopeProgramAnalysis
 
 			var inputColumns = ParseColumns(inputSchema);
 			var outputColumns = ParseColumns(outputSchema);
-			var i = new Schema(inputColumns);
-			var o = new Schema(outputColumns);
 
 			var processToAnalyze = new ScopeProcessorInfo(processorClass, entryMethod, getEnumMethod, moveNextMethod, null);
+			processToAnalyze.InputSchema = new Schema(inputColumns);
+			processToAnalyze.OutputSchema = new Schema(outputColumns);
 
-			var ok = scopeProgramAnalyzer.AnalyzeProcessor(inputPath, loader, processToAnalyze, i, o, out run, out errorReason);
+			var ok = scopeProgramAnalyzer.AnalyzeProcessor(inputPath, processToAnalyze, out run, out errorReason);
 			if (ok)
 			{
 				return run;

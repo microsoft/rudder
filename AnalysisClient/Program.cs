@@ -56,6 +56,10 @@ namespace AnalysisClient
                 );
         }
 
+		/// <summary>
+		/// This method takes a dll, run the Svonimir analysis and dependency analysis and produces a file with the analyses output and stats
+		/// </summary>
+		/// <param name="args"></param>
         public static void AnalyzeScopeScript(string[] args)
         {
             Console.Error.WriteLine("Analyzing {0}", args[0]);

@@ -107,9 +107,12 @@ namespace ScopeProgramAnalysis
             var sw = new Stopwatch();
             sw.Start();
 
+			// The following steps generates a PTG for the MoveNext method that takes into account the context of invocation
+			// This is the Producer entry method and the call to GetEnumerator which then is used in the Movenext method
+
             // 1) Analyze the entry method that creates, populates  and return the clousure 
             var cfgEntry = processToAnalyze.EntryMethod.DoAnalysisPhases(host, sourceLocationProvider);
-            var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); // , this.specialFields);
+            var pointsToEntry = new IteratorPointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); 
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
@@ -126,12 +129,6 @@ namespace ScopeProgramAnalysis
             this.inputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Input));
             this.outputTable = new TraceableTable(protectedNodes.Single(pn => pn.RowKind == ProtectedRowKind.Output));
 
-            // I no longer need this. 
-            //var specialFields = cfgEntry.ForwardOrder[1].Instructions.OfType<StoreInstruction>()
-            //    .Where(st => st.Result is InstanceFieldAccess).Select(st => new KeyValuePair<string,IVariable>((st.Result as InstanceFieldAccess).FieldName,st.Operand) );
-            //this.specialFields = specialFields.ToDictionary(item => item.Key, item => item.Value);
-
-
             // 3) I bing the current PTG with the parameters of MoveNext method on the clousure
 
             // Well... Inlining is broken we we added the Exceptional control graph. Let's avoid it
@@ -143,13 +140,7 @@ namespace ScopeProgramAnalysis
             SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, processToAnalyze.MoveNextMethod);
             this.pointsToAnalyzer = new IteratorPointsToAnalysis(cfg, processToAnalyze.MoveNextMethod, calleePTG);
                         
-            //this.pta= this.interprocManager.PTABindAndRunInterProcAnalysis(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, this.moveNextMethod, cfg);
-
-            //var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields);
-            //this.ptAnalysisResult = pointsTo.Analyze();
-
-            // var pointsTo = new IteratorPointsToAnalysis(cfg, this.moveNextMethod, this.specialFields, ptgOfEntry);
-
+           
             // Now I analyze the Movenext method with the proper initialization 
             var result = this.AnalyzeScopeMethod(cfg, pointsToAnalyzer, protectedNodes);
 

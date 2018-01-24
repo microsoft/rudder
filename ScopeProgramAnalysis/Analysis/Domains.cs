@@ -422,7 +422,45 @@ namespace ScopeProgramAnalysis
             this.Dependencies.A4_Ouput_Control.AddRange(destination, traceables);
         }
 
-        public void SetTOP()
+		/// <summary>
+		/// Obtain a map from output columns to their input dependencies 
+		/// </summary>
+		/// <param name="outColumnControlMap"></param>
+		/// <returns></returns>
+		public MapSet<TraceableColumn, Traceable> ComputeOutputDependencies(out MapSet<TraceableColumn, Traceable> outColumnControlMap)
+		{
+			DependencyPTGDomain depAnalysisResult = this;
+			MapSet<TraceableColumn, Traceable> outColumnMap = new MapSet<TraceableColumn, Traceable>();
+			outColumnControlMap = new MapSet<TraceableColumn, Traceable>();
+			foreach (var outColum in depAnalysisResult.Dependencies.A4_Ouput.Keys)
+			{
+				var outColumns = depAnalysisResult.GetTraceables(outColum).OfType<TraceableColumn>()
+														 .Where(t => t.TableKind == ProtectedRowKind.Output);
+				foreach (var column in outColumns)
+				{
+					if (!outColumnMap.ContainsKey(column))
+					{
+						outColumnMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput[outColum]);
+					}
+					else
+					{
+						outColumnMap.AddRange(column, outColumnMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput[outColum]));
+					}
+					if (!outColumnControlMap.ContainsKey(column))
+					{
+						outColumnControlMap.AddRange(column, depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]);
+					}
+					else
+					{
+						outColumnControlMap.AddRange(column, outColumnControlMap[column].Union(depAnalysisResult.Dependencies.A4_Ouput_Control[outColum]));
+					}
+				}
+			}
+			return outColumnMap;
+		}
+
+
+		public void SetTOP()
         {
             this.Dependencies.IsTop = true;
         }
