@@ -99,7 +99,8 @@ namespace ScopeProgramAnalysis
         public HashSet<string> ClassFilters { get; private set; }
         public HashSet<string> EntryMethods { get; private set; }
         public HashSet<string> ClousureFilters { get; private set; }
-        public string MethodUnderAnalysisName { get; private set; }
+
+        public readonly string MethodUnderAnalysisName = "MoveNext";
 
         private Regex[] compilerGeneretedMethodMatchers = new Regex[]
             {
