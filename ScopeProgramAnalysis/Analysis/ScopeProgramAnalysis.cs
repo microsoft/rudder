@@ -873,7 +873,7 @@ namespace ScopeProgramAnalysis
                                                     .Where(md => md.Body != null && md.Name.Value.Equals(this.MethodUnderAnalysisName));
                         foreach (var moveNextMethod in moveNextMethods)
                         {
-                            var processorToAnalyze = new ScopeProcessorInfo(reducerClassDefinition, entryMethod, moveNextMethod, getEnumeratorMethod, factoryMethod);
+                            var processorToAnalyze = new ScopeProcessorInfo(reducerClassDefinition, entryMethod, getEnumeratorMethod, moveNextMethod, factoryMethod);
                             scopeMethodTuplesToAnalyze.Add(processorToAnalyze);
 
                             // TODO: Hack for reuse. Needs refactor
@@ -938,7 +938,7 @@ namespace ScopeProgramAnalysis
                                                         .Where(m => m.Name.Value.StartsWith("System.Collections.Generic.IEnumerable<") && m.Name.Value.EndsWith(">.GetEnumerator"));
                             var getEnumeratorMethod = getEnumMethods.First();
 
-                            var processorToAnalyze = new ScopeProcessorInfo(candidateClass, entryMethod, moveNextMethod, getEnumeratorMethod, null);
+                            var processorToAnalyze = new ScopeProcessorInfo(candidateClass, entryMethod, getEnumeratorMethod, moveNextMethod, null);
                             scopeMethodTuplesToAnalyze.Add(processorToAnalyze);
 
                         }
