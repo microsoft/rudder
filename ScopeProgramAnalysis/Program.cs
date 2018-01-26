@@ -147,7 +147,9 @@ namespace ScopeProgramAnalysis
             //input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\17764c26-9312-4d0a-9ac1-9ae08e0303ee\__ScopeCodeGen__.dll";
             input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\75f9adff-7f3e-47f5-b282-99518ee7f8b3\__ScopeCodeGen__.dll";
 
-            string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
+			input = @"C:\Temp\Scope\InterestingScopeProjects\0ce5ea59-dec8-4f6f-be08-0e0746e12515\__ScopeCodeGen__.dll";
+			input = @"C:\Temp\Scope\NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
+			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");

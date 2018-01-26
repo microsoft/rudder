@@ -63,12 +63,16 @@ namespace ScopeProgramAnalysis
         public InterProceduralReturnInfo(DependencyPTGDomain state)
         {
             this.State = state;
-            // this.PTG = ptg;
-        }
-        public DependencyPTGDomain State { get; set; }
-        // public PointsToGraph PTG { get; set; }
+			this.InputColumns = new HashSet<TraceableColumn>();
+			this.OutputColumns = new HashSet<TraceableColumn>();
+			// this.PTG = ptg;
+		}
+		public DependencyPTGDomain State { get; set; }
+		public ISet<TraceableColumn> InputColumns { get; set; }
+		public ISet<TraceableColumn> OutputColumns { get;  set; }
+		// public PointsToGraph PTG { get; set; }
 
-    }
+	}
 
 
     public class InterproceduralManager
@@ -82,7 +86,7 @@ namespace ScopeProgramAnalysis
         public MethodCFGCache CFGCache { get; set; }
 
         private IDictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]> dataflowCache;
-        private IDictionary<Instruction, DependencyPTGDomain> previousResult;
+		private IDictionary<InterProceduralCallInfo, DependencyPTGDomain> previousResult;
         private MyLoader loader;
 
         public InterproceduralManager(MyLoader loader)
@@ -93,7 +97,7 @@ namespace ScopeProgramAnalysis
             this.stackDepth = 0;
             this.callStack = new Stack<IMethodDefinition>();
             this.dataflowCache = new Dictionary<IMethodDefinition, DataFlowAnalysisResult<DependencyPTGDomain>[]>();
-            this.previousResult = new Dictionary<Instruction, DependencyPTGDomain>();
+			this.previousResult = new Dictionary<InterProceduralCallInfo, DependencyPTGDomain>();
         }
     
         public void SetProcessToAnalyze(ScopeProcessorInfo processToAnalyze)
@@ -115,16 +119,16 @@ namespace ScopeProgramAnalysis
 
             if (callInfo.Callee.Body.Operations.Any())
             {
-                if (previousResult.ContainsKey(callInfo.Instruction))
+                if (previousResult.ContainsKey(callInfo))
                 {
-                    var previousState = previousResult[callInfo.Instruction];
+					var previousState = previousResult[callInfo];
                     if (callInfo.CallerState.LessEqual(previousState))
                     {
                         return new InterProceduralReturnInfo(callInfo.CallerState);
                     }
                 }
 
-                this.previousResult[callInfo.Instruction] = callInfo.CallerState;
+				this.previousResult[callInfo] = callInfo.CallerState;
                 ControlFlowGraph calleeCFG = this.GetCFG(callInfo.Callee);
 
 
@@ -166,7 +170,7 @@ namespace ScopeProgramAnalysis
             //Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToString(), stackDepth);
             // 1) Bind PTG and create a Poinst-to Analysis for the  callee. In pta.Result[node.Exit] is the PTG at exit of the callee
             var calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
-            IteratorPointsToAnalysis calleePTA = new IteratorPointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
+            PointsToAnalysis calleePTA = new PointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
 			calleeCFG.PropagateExpressions(equalities);
@@ -215,7 +219,11 @@ namespace ScopeProgramAnalysis
             var bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, exitCalleePTG, calleePTA.ReturnVariable);
             exitResult.PTG = bindPtg;
 
-            return new InterProceduralReturnInfo(exitResult);
+			return new InterProceduralReturnInfo(exitResult)
+			{
+				InputColumns = dependencyAnalysis.InputColumns,
+				OutputColumns = dependencyAnalysis.OutputColumns
+			};
             //return new InterProceduralReturnInfo(exitResult, bindPtg);
         }
 
@@ -362,7 +370,7 @@ namespace ScopeProgramAnalysis
                 ControlFlowGraph calleeCFG = this.GetCFG(resolvedCallee);
                 //DGMLSerializer.Serialize(calleeCFG);
                 stackDepth++;
-                IteratorPointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
+                PointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
                 stackDepth--;
 
                 return PTABindCaleeCalleer(result, calleeCFG, pta);
@@ -370,7 +378,7 @@ namespace ScopeProgramAnalysis
             return ptg;
         }
 
-        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, IteratorPointsToAnalysis pta)
+        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, PointsToAnalysis pta)
         {
             var exitPTG = pta.Result[calleeCFG.Exit.Id].Output;
             if (result != null)
@@ -399,12 +407,12 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public IteratorPointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
+        public PointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
         {
             var bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
 
             // Compute PT analysis for callee
-            var pta = new IteratorPointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
+            var pta = new PointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
             pta.Analyze();
             return pta;
         }
@@ -421,7 +429,7 @@ namespace ScopeProgramAnalysis
                 argParamMap[arguments[i]] = body.Parameters[i];
             }
             bindPtg.NewFrame(argParamMap);
-            bindPtg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
+            bindPtg.PointsTo(PointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
             return bindPtg;
         }
         #endregion

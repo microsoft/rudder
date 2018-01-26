@@ -7,7 +7,7 @@ using Backend.ThreeAddressCode;
 using Backend.Utils;
 using System.Globalization;
 using ScopeProgramAnalysis;
-using static Backend.Analyses.IteratorPointsToAnalysis;
+using static Backend.Analyses.PointsToAnalysis;
 using ScopeProgramAnalysis.Framework;
 using Backend.Analyses;
 using Backend.ThreeAddressCode.Values;
@@ -761,7 +761,7 @@ namespace Backend.Analyses
                 var isReducerField = iteratorClass!=null 
                                         && iteratorClass.ContainingType.TypeEquals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
-                if (ISClousureField(IteratorPointsToAnalysis.GlobalVariable, fieldAccess.Field))
+                if (ISClousureField(PointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
                 {
                     var traceables = new HashSet<Traceable>();
@@ -1099,7 +1099,10 @@ namespace Backend.Analyses
                             var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
                             callStates.Add(interProcResult.State);
 
-                            this.State = interProcResult.State;
+							this.iteratorDependencyAnalysis.InputColumns.AddRange(interProcResult.InputColumns);
+							this.iteratorDependencyAnalysis.OutputColumns.AddRange(interProcResult.OutputColumns);
+
+							this.State = interProcResult.State;
                             currentPTG = interProcResult.State.PTG;
 
                         }
@@ -1235,8 +1238,11 @@ namespace Backend.Analyses
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
                 // For Current we need to obtain one item from the collection
-                else if (methodInvoked.Name.Value == "get_Current"  
-                    && (methodInvoked.ContainingType.IsIEnumerator() || methodInvoked.ContainingType.IsEnumerator()))
+                else if ( methodInvoked.Name.Value == "get_Current"  
+					&& (methodInvoked.ContainingType.IsIEnumerator() || methodInvoked.ContainingType.IsEnumerator())
+					// DIEGODIEGO: Add this if you want to handle First (or other operations as get an element from enumeration)
+					//|| (methodInvoked.Name.Value == "First" && methodInvoked.ContainingType.IsEnumerable())
+					)
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
@@ -1401,8 +1407,11 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
 
                     var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForPure(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					// DIEGODIEGO: We this I handle the RowList as an Enumerator
+					// DIEGODIEGO: this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
+					// DIEGODIEGO: remove this line if handle as enumerator 
+					UpdatePTAForPure(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     // TODO: I don't know I need this
                     scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
@@ -2005,7 +2014,9 @@ namespace Backend.Analyses
                         var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
 
                         this.State = interProcResult.State;
-                        currentPTG = interProcResult.State.PTG;
+						this.iteratorDependencyAnalysis.InputColumns.AddRange(interProcResult.InputColumns);
+						this.iteratorDependencyAnalysis.OutputColumns.AddRange(interProcResult.OutputColumns);
+						currentPTG = interProcResult.State.PTG;
                         if(methodCall.HasResult)
                             traceablesFromDelegate.AddRange(this.State.GetTraceables(methodCall.Result));
                     }
@@ -2045,14 +2056,15 @@ namespace Backend.Analyses
 
         private IEnumerable<ProtectedRowNode> protectedNodes;
 
-        private IteratorPointsToAnalysis pta;
+        private PointsToAnalysis pta;
         private RangeAnalysis rangeAnalysis;
 
         public ISet<TraceableColumn> InputColumns { get; private set; }
         public ISet<TraceableColumn> OutputColumns { get; private set; }
 
 
-        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg,
+											PointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
@@ -2075,7 +2087,7 @@ namespace Backend.Analyses
             this.InputColumns = new HashSet<TraceableColumn>();
             this.OutputColumns = new HashSet<TraceableColumn>();
         }
-        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, IteratorPointsToAnalysis pta,
+        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, PointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,

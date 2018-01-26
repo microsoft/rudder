@@ -22,12 +22,13 @@ namespace ScopeAnalysisBulkScripts
             var doOnlyPassthrough = false;
             var doAnalysis = !doOnlyPassthrough;
 
-            var rudderPath = @"C:\Users\diegog\Source\Repos\rudder\";
+            var rudderPath = @"C:\Users\Diego\Source\Repos\rudder\";
             var analysisClient = Path.Combine(rudderPath, @"AnalysisClient\bin\Debug\AnalysisClient.exe");
             var outputAnalyzer = Path.Combine(rudderPath, @"CompareAnalysisOutput\Compare\bin\Debug\Compare.exe");
 
-            var inputFolder = @"C:\Temp\Scope\ScopeJobs-2017-07-07-Cosmos11";
-                // @"C:\Temp\Scope\First100JobsFromMadan";
+            var inputFolder =// @"C:\Temp\Scope\ScopeJobs-2017-07-07-Cosmos11";
+                //@"C:\Temp\Scope\First100JobsFromMadan";
+				@"C:\Temp\Scope\InterestingScopeProjects";
                 // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
             if (doOnlyPassthrough)
             {

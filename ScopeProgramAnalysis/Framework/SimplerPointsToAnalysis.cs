@@ -15,12 +15,12 @@ using ScopeProgramAnalysis.Framework;
 namespace Backend.Analyses
 {
     // May Points-To Analysis
-    public class IteratorPointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
+    public class PointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
     {
         public class PTAVisitor : InstructionVisitor
         {
             public  SimplePointsToGraph State { get; set;  }
-            private IteratorPointsToAnalysis ptAnalysis;
+            private PointsToAnalysis ptAnalysis;
             private bool analyzeNextDelegateCtor;
 
             /// <summary>
@@ -28,7 +28,7 @@ namespace Backend.Analyses
             /// </summary>
             private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
 
-            internal PTAVisitor(SimplePointsToGraph ptg, IteratorPointsToAnalysis ptAnalysis)
+            internal PTAVisitor(SimplePointsToGraph ptg, PointsToAnalysis ptAnalysis)
             {
                 this.State = ptg;
                 this.ptAnalysis = ptAnalysis;
@@ -82,7 +82,7 @@ namespace Backend.Analyses
                 else if(operand is StaticFieldAccess)
                 {
                     var access = operand as StaticFieldAccess;
-                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result,  IteratorPointsToAnalysis.GlobalVariable, access.Field);
+                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result,  PointsToAnalysis.GlobalVariable, access.Field);
 
                 }
                 else if(operand is ArrayElementAccess)
@@ -124,7 +124,7 @@ namespace Backend.Analyses
                 else if(lhs is StaticFieldAccess)
                 {
                     var access = lhs as StaticFieldAccess;
-                    ptAnalysis.ProcessStore(State, instruction.Offset, IteratorPointsToAnalysis.GlobalVariable, access.Field, store.Operand);
+                    ptAnalysis.ProcessStore(State, instruction.Offset, PointsToAnalysis.GlobalVariable, access.Field, store.Operand);
                 }
                 else if (lhs is ArrayElementAccess)
                 {
@@ -245,7 +245,7 @@ namespace Backend.Analyses
         // private IDictionary<string, IVariable> specialFields;
         protected SimplePointsToGraph initPTG;
 
-        public IteratorPointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method) //  IDictionary<string, IVariable> specialFields)
+        public PointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method) //  IDictionary<string, IVariable> specialFields)
 			: base(cfg)
 		{
             this.method = method;
@@ -258,7 +258,7 @@ namespace Backend.Analyses
             
 		}
 
-        public IteratorPointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
+        public PointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
         {
             this.method = method;
             this.CreateInitialGraph(false, initPTG);
@@ -396,8 +396,8 @@ namespace Backend.Analyses
             //    ptg.PointsTo(thisNode, new FieldReference(fieldName, variable.Type, method.ContainingType), node);
             //}
             ptg.Add(this.ReturnVariable);
-            ptg.Add(IteratorPointsToAnalysis.GlobalVariable);
-            ptg.PointsTo(IteratorPointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
+            ptg.Add(PointsToAnalysis.GlobalVariable);
+            ptg.PointsTo(PointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
 			this.initialGraph = ptg;
 		}
 
@@ -563,17 +563,19 @@ namespace Backend.Analyses
             {
                 var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
                 targets.AddRange(collectionNodes.SelectMany(n => ptg.GetTargets(n, itemsField)));
-                if(!targets.Any())
-                {
-                    foreach (var collectionNode in collectionNodes)
-                    {
-                        var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
-                        var itemNode = this.NewNode(ptg, ptgId, collectionNode.Type);
-                        ptg.PointsTo(collectionNode, itemsField, itemNode);
-                        targets.Add(itemNode);
-                        createdNodes = true;
-                    }
-                }
+				if (!targets.Any())
+				{
+					foreach (var collectionNode in collectionNodes)
+					{
+						var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
+						// DIEGODIEGO: I now prefer to use the result type
+						// var itemNode = this.NewNode(ptg, ptgId, collectionNode.Type);
+						var itemNode = this.NewNode(ptg, ptgId, result.Type);
+						ptg.PointsTo(collectionNode, itemsField, itemNode);
+						targets.Add(itemNode);
+						createdNodes = true;
+					}
+				}
             }
             ptg.RemoveRootEdges(result);
             ptg.PointsTo(result, targets);
