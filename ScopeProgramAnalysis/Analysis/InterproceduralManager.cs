@@ -329,7 +329,7 @@ namespace ScopeProgramAnalysis
             callInfo.CallerState.Dependencies.A3_Fields.UnionWith(exitResult.Dependencies.A3_Fields);
 
             
-            callInfo.CallerState.Dependencies.IsTop = exitResult.Dependencies.IsTop;
+            callInfo.CallerState.Dependencies.IsTop |= exitResult.Dependencies.IsTop;
 
             if (callInfo.CallLHS != null)
             {

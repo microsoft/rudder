@@ -19,7 +19,7 @@ namespace ScopeProgramAnalysis
     {
         public const string SCOPE_ROW_ENUMERATOR_METHOD = "System.Collections.Generic.IEnumerable<ScopeRuntime.Row>.GetEnumerator";
     }
-    public enum ProtectedRowKind { Unknown, Input, Output };
+    public enum ProtectedRowKind { Unknown, Input, Output, Json };
     public class ProtectedRowNode : ParameterNode
     {
         public ProtectedRowKind RowKind { get; private set; }

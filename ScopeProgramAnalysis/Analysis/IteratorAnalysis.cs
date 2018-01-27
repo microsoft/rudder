@@ -73,22 +73,22 @@ namespace Backend.Analyses
         }
 
     }
-
-    /// <summary>
-    /// Representation of a column in a SCOPE table.
-    /// 
-    /// If the actual column is known, then this contains its name, position, and type.
-    /// There might also be partial information, e.g., the name might be known, but not
-    /// the position or type.
-    /// 
-    /// There is a special instance that represents *all* columns (e.g., if the schema
-    /// is unknown and there is a call to Row.CopyTo) and a special instance that represents
-    /// an unknown column (i.e., TOP).
-    /// Every instance is exactly one of TOP, ALL, or known.
-    /// 
-    /// TODO: Should instances be immutable? 
-    /// </summary>
-    public class Column
+		
+	/// <summary>
+	/// Representation of a column in a SCOPE table.
+	/// 
+	/// If the actual column is known, then this contains its name, position, and type.
+	/// There might also be partial information, e.g., the name might be known, but not
+	/// the position or type.
+	/// 
+	/// There is a special instance that represents *all* columns (e.g., if the schema
+	/// is unknown and there is a call to Row.CopyTo) and a special instance that represents
+	/// an unknown column (i.e., TOP).
+	/// Every instance is exactly one of TOP, ALL, or known.
+	/// 
+	/// TODO: Should instances be immutable? 
+	/// </summary>
+	public class Column
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes")]
         public static readonly Column TOP = new Column() { IsTOP = true };
@@ -268,8 +268,31 @@ namespace Backend.Analyses
         }
     }
 
+	public class TraceableJsonField : TraceableColumn
+	{
+		public string Key { get; private set; }
+		public TraceableJsonField(TraceableTable table, Column column, String key) : base(table, column)
+		{
+			this.Key = key;
+		}
+		public override string ToString()
+		{
+			return String.Format(CultureInfo.InvariantCulture, "Col({0},Json.{1}.{2})", TableName, Column, Key);
+		}
+		public override bool Equals(object obj)
+		{
+			var oth = obj as TraceableJsonField;
+			return oth != null && oth.Key.Equals(this.Key)
+							   && base.Equals(oth);
+		}
+		public override int GetHashCode()
+		{
+			return base.GetHashCode() + Key.GetHashCode() + 1;
+		}
+	}
 
-    public class TraceableCounter : Traceable
+
+	public class TraceableCounter : Traceable
     {
         public TraceableTable Table { get; private set; }
         public TraceableCounter(TraceableTable table) : base(table)
@@ -723,21 +746,27 @@ namespace Backend.Analyses
                     
                     // this is a[loc(o.f)]
                     var nodes = currentPTG.GetTargets(fieldAccess.Instance);
-                    if (nodes.Any())
-                    {
-                        // TODO: SHould I only consider the clousure fields?
-                        traceables.UnionWith(this.State.GetHeapTraceables(fieldAccess.Instance, fieldAccess.Field));
-                        //if(IsClousureType(fieldAccess.Instance))
-                        {
-                            traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
-                        }
-
-                    }
-                    else
-                    {
-                        this.State.SetTOP();
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to load a field with no objects associated"));
-                    }
+				if (nodes.Any())
+				{
+					// TODO: SHould I only consider the clousure fields?
+					traceables.UnionWith(this.State.GetHeapTraceables(fieldAccess.Instance, fieldAccess.Field));
+					//if(IsClousureType(fieldAccess.Instance))
+					{
+						traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
+					}
+					var jsonNodes = nodes.Where(n => n.Kind == SimplePTGNodeKind.Json);
+					if (jsonNodes.Any())
+					{
+						var jsonTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableJsonField(t.Table, t.Column, fieldAccess.FieldName));
+						this.State.AssignTraceables(loadStmt.Result, jsonTraceables);
+						return;
+					}
+				}
+				else
+				{
+					this.State.SetTOP();
+					AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, loadStmt, "Trying to load a field with no objects associated"));
+				}
                 //}
                 this.State.AssignTraceables(loadStmt.Result, traceables);
             }
@@ -929,7 +958,8 @@ namespace Backend.Analyses
 
                 if (instruction.HasOperand)
                 {
-                    var rv = this.iteratorDependencyAnalysis.ReturnVariable;
+					// var rv = this.iteratorDependencyAnalysis.ReturnVariable;
+					var rv = instruction.Operand;
                     this.State.CopyTraceables(this.iteratorDependencyAnalysis.ReturnVariable, rv);
                 }
             }
@@ -949,9 +979,16 @@ namespace Backend.Analyses
                 var methodInvoked = methodCallStmt.Method;
                 var callResult = methodCallStmt.Result;
 
-                // We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
-                // to maintain a mapping between column numbers and literals 
-                var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
+				if (methodInvoked.Name.Value=="DeserializeObject")
+				{
+					UpdateCall(methodCallStmt, false);
+					return;
+				}
+
+
+				// We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
+				// to maintain a mapping between column numbers and literals 
+				var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
                 if (!isSchemaMethod)
                 {
                     var isScopeRowMethod = HandleScopeRowMethods(methodCallStmt, methodInvoked);
@@ -993,9 +1030,9 @@ namespace Backend.Analyses
                                     {
 
                                         // For the demo I'll skip this methods that do anything important
-                                        if (isMethodToInline && !methodInvoked.IsConstructor())
-                                        { }
-                                        else
+                                        //if (isMethodToInline && !methodInvoked.IsConstructor())
+                                        //{ }
+                                        //else
                                         {
                                             // This updates the Dep Domain and the PTG
                                             var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
@@ -1207,25 +1244,25 @@ namespace Backend.Analyses
                 // base.Default(instruction);
             }
 
-            /// <summary>
-            /// Special treatment for collection methdod: some are pure, other only modify the receiver
-            /// </summary>
-            /// <param name="methodCallStmt"></param>
-            /// <param name="methodInvoked"></param>
-            /// <returns></returns>
-            private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
-            {
-                var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "Count", "get_Count", "First"};
-                var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
-                 
-                var result = true;
+			/// <summary>
+			/// Special treatment for collection methdod: some are pure, other only modify the receiver
+			/// </summary>
+			/// <param name="methodCallStmt"></param>
+			/// <param name="methodInvoked"></param>
+			/// <returns></returns>
+			private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+			{
+				var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "Count", "get_Count", "First"};
+				var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
+
+				var result = true;
                 // For constructors of collections we create an small summary for the PTA
                 if(methodInvoked.IsConstructor() && methodInvoked.ContainingType.IsCollection())
                 {
                     var arg = methodCallStmt.Arguments[0];
                     this.iteratorDependencyAnalysis.pta.CreateSummaryForCollection(this.State.PTG, methodCallStmt.Offset, arg);
 
-                }
+                } 
                 // For GetEnum we need to create an object iterator that points-to the colecction
                 else if (methodInvoked.Name.Value == "GetEnumerator"
                     && (methodInvoked.ContainingType.IsIEnumerable() || methodInvoked.ContainingType.IsEnumerable()))
@@ -1698,6 +1735,15 @@ namespace Backend.Analyses
                     && ( methodInvoked.ContainingType.TypeEquals(clousureType) && patterns.Any(pattern => methodInvoked.Name.Value.StartsWith(pattern))
                          || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetName() 
                          && sm.Item2 == methodInvoked.Name.Value));
+				if (methodInvoked.ResolvedMethod != null && (MemberHelper.IsGetter(methodInvoked.ResolvedMethod) ||
+					MemberHelper.IsSetter(methodInvoked.ResolvedMethod))
+)
+				{
+					return true;
+				}
+
+				if (methodInvoked.Name.Value == "ParseJson")
+					return true;
                return result;
              }
 
@@ -1897,7 +1943,7 @@ namespace Backend.Analyses
                 }
             }
 
-            private void UpdateCall(MethodCallInstruction methodCallStmt)
+            private void UpdateCall(MethodCallInstruction methodCallStmt, bool updatePTG = true)
             {
                 if (methodCallStmt.IsConstructorCall())
                 {
@@ -1923,7 +1969,10 @@ namespace Backend.Analyses
                             }
                         }
                         traceables.AddRange(GetCallTraceables(methodCallStmt));
-                        UpdatePTAForPure(methodCallStmt);
+						if (updatePTG)
+						{
+							UpdatePTAForPure(methodCallStmt);
+						}
                         this.State.AssignTraceables(result, traceables);
                     }
                 }

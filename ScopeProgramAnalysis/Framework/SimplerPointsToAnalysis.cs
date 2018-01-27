@@ -17,181 +17,194 @@ namespace Backend.Analyses
     // May Points-To Analysis
     public class PointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
     {
-        public class PTAVisitor : InstructionVisitor
-        {
-            public  SimplePointsToGraph State { get; set;  }
-            private PointsToAnalysis ptAnalysis;
-            private bool analyzeNextDelegateCtor;
+		public class PTAVisitor : InstructionVisitor
+		{
+			public SimplePointsToGraph State { get; set; }
+			private PointsToAnalysis ptAnalysis;
+			private bool analyzeNextDelegateCtor;
 
-            /// <summary>
-            /// Hack until I add support from addresses
-            /// </summary>
-            private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
+			/// <summary>
+			/// Hack until I add support from addresses
+			/// </summary>
+			private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
 
-            internal PTAVisitor(SimplePointsToGraph ptg, PointsToAnalysis ptAnalysis)
-            {
-                this.State = ptg;
-                this.ptAnalysis = ptAnalysis;
-                this.analyzeNextDelegateCtor = false;
-            }
-            public override void Visit(LoadInstruction instruction)
-            {
-                var load = instruction as LoadInstruction;
-                var operand = load.Operand;
+			internal PTAVisitor(SimplePointsToGraph ptg, PointsToAnalysis ptAnalysis)
+			{
+				this.State = ptg;
+				this.ptAnalysis = ptAnalysis;
+				this.analyzeNextDelegateCtor = false;
+			}
+			public override void Visit(LoadInstruction instruction)
+			{
+				var load = instruction as LoadInstruction;
+				var operand = load.Operand;
 
-                HandleLoadWithOperand(load, operand);
+				HandleLoadWithOperand(load, operand);
 
-                if (operand is Reference)
-                {
-                    var referencedValue = (operand as Reference).Value;
-                    var isHandled = HandleLoadWithOperand(load, referencedValue);
-                    if(!(referencedValue is IVariable))
-                    { }
-                    addressMap[instruction.Result] = referencedValue;
-                }
-                else if (operand is Dereference)
-                {
-                    var reference = (operand as Dereference).Reference;
-                    var isHandled = HandleLoadWithOperand(load, reference);
-                }
+				if (operand is Reference)
+				{
+					var referencedValue = (operand as Reference).Value;
+					var isHandled = HandleLoadWithOperand(load, referencedValue);
+					if (!(referencedValue is IVariable))
+					{ }
+					addressMap[instruction.Result] = referencedValue;
+				}
+				else if (operand is Dereference)
+				{
+					var reference = (operand as Dereference).Reference;
+					var isHandled = HandleLoadWithOperand(load, reference);
+				}
 
-            }
+			}
 
-            private bool HandleLoadWithOperand(LoadInstruction load, IValue operand)
-            {
-                var result = true;
-                if (operand is Constant)
-                {
-                    var constant = operand as Constant;
+			private bool HandleLoadWithOperand(LoadInstruction load, IValue operand)
+			{
+				var result = true;
+				if (operand is Constant)
+				{
+					var constant = operand as Constant;
 
-                    if (constant.Value == null)
-                    {
-                        ptAnalysis.ProcessNull(State, load.Result);
-                    }
-                }
-                if (operand is IVariable)
-                {
-                    var variable = operand as IVariable;
-                    ptAnalysis.ProcessCopy(State, load.Result, variable);
-                }
-                else if (operand is InstanceFieldAccess)
-                {
-                    var access = operand as InstanceFieldAccess;
-                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result, access.Instance, access.Field);
-                }
-                else if(operand is StaticFieldAccess)
-                {
-                    var access = operand as StaticFieldAccess;
-                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result,  PointsToAnalysis.GlobalVariable, access.Field);
+					if (constant.Value == null)
+					{
+						ptAnalysis.ProcessNull(State, load.Result);
+					}
+				}
+				if (operand is IVariable)
+				{
+					var variable = operand as IVariable;
+					ptAnalysis.ProcessCopy(State, load.Result, variable);
+				}
+				else if (operand is InstanceFieldAccess)
+				{
+					var access = operand as InstanceFieldAccess;
+					ptAnalysis.ProcessLoad(State, load.Offset, load.Result, access.Instance, access.Field);
+				}
+				else if (operand is StaticFieldAccess)
+				{
+					var access = operand as StaticFieldAccess;
+					ptAnalysis.ProcessLoad(State, load.Offset, load.Result, PointsToAnalysis.GlobalVariable, access.Field);
 
-                }
-                else if(operand is ArrayElementAccess)
-                {
-                    var arrayAccess = operand as ArrayElementAccess;
-                    var baseArray = arrayAccess.Array;
-                    ptAnalysis.ProcessLoad(State, load.Offset, load.Result, baseArray, new FieldReference("[]", operand.Type, this.ptAnalysis.method.ContainingType));
-                }
-                else if (operand is VirtualMethodReference)
-                {
-                    var loadDelegateStmt = operand as VirtualMethodReference;
-                    var methodRef = loadDelegateStmt.Method;
-                    var instance = loadDelegateStmt.Instance;
-                    ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, instance);
+				}
+				else if (operand is ArrayElementAccess)
+				{
+					var arrayAccess = operand as ArrayElementAccess;
+					var baseArray = arrayAccess.Array;
+					ptAnalysis.ProcessLoad(State, load.Offset, load.Result, baseArray, new FieldReference("[]", operand.Type, this.ptAnalysis.method.ContainingType));
+				}
+				else if (operand is VirtualMethodReference)
+				{
+					var loadDelegateStmt = operand as VirtualMethodReference;
+					var methodRef = loadDelegateStmt.Method;
+					var instance = loadDelegateStmt.Instance;
+					ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, instance);
 
-                }
-                else if (operand is StaticMethodReference)
-                {
-                    var loadDelegateStmt = operand as StaticMethodReference;
-                    var methodRef = loadDelegateStmt.Method;
-                    ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, null);
-                }
-                else
-                {
-                    result = false;
-                }
-                return result;
-            }
+				}
+				else if (operand is StaticMethodReference)
+				{
+					var loadDelegateStmt = operand as StaticMethodReference;
+					var methodRef = loadDelegateStmt.Method;
+					ptAnalysis.ProcessDelegateAddr(State, load.Offset, load.Result, methodRef, null);
+				}
+				else
+				{
+					result = false;
+				}
+				return result;
+			}
 
-            public override void Visit(StoreInstruction instruction)
-            {
-                var store = instruction;
-                var lhs= store.Result;
-                if (lhs is InstanceFieldAccess)
-                {
-                    var access = lhs as InstanceFieldAccess;
-                    ptAnalysis.ProcessStore(State, instruction.Offset, access.Instance, access.Field, store.Operand);
-                }
-                else if(lhs is StaticFieldAccess)
-                {
-                    var access = lhs as StaticFieldAccess;
-                    ptAnalysis.ProcessStore(State, instruction.Offset, PointsToAnalysis.GlobalVariable, access.Field, store.Operand);
-                }
-                else if (lhs is ArrayElementAccess)
-                {
-                    var arrayAccess = lhs as ArrayElementAccess;
-                    var baseArray = arrayAccess.Array;
-                    ptAnalysis.ProcessStore(State, instruction.Offset, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
-                }
+			public override void Visit(StoreInstruction instruction)
+			{
+				var store = instruction;
+				var lhs = store.Result;
+				if (lhs is InstanceFieldAccess)
+				{
+					var access = lhs as InstanceFieldAccess;
+					ptAnalysis.ProcessStore(State, instruction.Offset, access.Instance, access.Field, store.Operand);
+				}
+				else if (lhs is StaticFieldAccess)
+				{
+					var access = lhs as StaticFieldAccess;
+					ptAnalysis.ProcessStore(State, instruction.Offset, PointsToAnalysis.GlobalVariable, access.Field, store.Operand);
+				}
+				else if (lhs is ArrayElementAccess)
+				{
+					var arrayAccess = lhs as ArrayElementAccess;
+					var baseArray = arrayAccess.Array;
+					ptAnalysis.ProcessStore(State, instruction.Offset, baseArray, new FieldReference("[]", lhs.Type, this.ptAnalysis.method.ContainingType), store.Operand);
+				}
 
-            }
-            public override void Visit(CreateObjectInstruction instruction)
-            {
-                if (instruction is CreateObjectInstruction)
-                {
-                    var allocation = instruction as CreateObjectInstruction;
-                    // hack for handling delegates
-                    if (allocation.AllocationType.ResolvedType.IsDelegate)
-                    {
-                        this.analyzeNextDelegateCtor = true;
-                    }
-                    // TODO: Check if we can avoid adding the node in case of delegate (it was already added in load address for method)
-                    ptAnalysis.ProcessObjectAllocation(State, allocation.Offset, allocation.Result);
-                }
-            }
-            public override void Visit(CreateArrayInstruction instruction)
-            {
-                var allocation = instruction;
-                ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
-            }
-            public override void Visit(InitializeMemoryInstruction instruction)
-            {
-                var addr = instruction.TargetAddress;
-                //ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
-            }
-            public override void Visit(InitializeObjectInstruction instruction)
-            {
-                var addr = instruction.TargetAddress;
-                ptAnalysis.ProcessObjectAllocation(State, instruction.Offset, addr);
-                if(addressMap.ContainsKey(addr))
-                {
-                    var value = addressMap[addr];
-                    if (value is IVariable)
-                    {
-                        ptAnalysis.ProcessCopy(State, value as IVariable, addr);
-                    }
-                    if(value is InstanceFieldAccess)
-                    {
-                        var fieldAccess = value as InstanceFieldAccess;
-                        ptAnalysis.ProcessStore(State, instruction.Offset, fieldAccess.Instance, fieldAccess.Field , addr);
-                    }
-                }
-            }
-            public override void Visit(ConvertInstruction instruction)
-            {
-                ptAnalysis.ProcessCopy(State, instruction.Result, instruction.Operand);
-            }
-            public override void Visit(MethodCallInstruction instruction)
-            {
-                var methodCall = instruction as MethodCallInstruction;
-                // Hack for mapping delegates to nodes
-                if (methodCall.Method.Name.Value == ".ctor" && this.analyzeNextDelegateCtor)
-                {
-                    ProcessDelegateCtor(methodCall);
-                    this.analyzeNextDelegateCtor = false;
-                }
-            }
+			}
+			public override void Visit(CreateObjectInstruction instruction)
+			{
+				if (instruction is CreateObjectInstruction)
+				{
+					var allocation = instruction as CreateObjectInstruction;
+					// hack for handling delegates
+					if (allocation.AllocationType.ResolvedType.IsDelegate)
+					{
+						this.analyzeNextDelegateCtor = true;
+					}
+					// TODO: Check if we can avoid adding the node in case of delegate (it was already added in load address for method)
+					ptAnalysis.ProcessObjectAllocation(State, allocation.Offset, allocation.Result);
+				}
+			}
+			public override void Visit(CreateArrayInstruction instruction)
+			{
+				var allocation = instruction;
+				ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
+			}
+			public override void Visit(InitializeMemoryInstruction instruction)
+			{
+				var addr = instruction.TargetAddress;
+				//ptAnalysis.ProcessArrayAllocation(State, allocation.Offset, allocation.Result);
+			}
+			public override void Visit(InitializeObjectInstruction instruction)
+			{
+				var addr = instruction.TargetAddress;
+				ptAnalysis.ProcessObjectAllocation(State, instruction.Offset, addr);
+				if (addressMap.ContainsKey(addr))
+				{
+					var value = addressMap[addr];
+					if (value is IVariable)
+					{
+						ptAnalysis.ProcessCopy(State, value as IVariable, addr);
+					}
+					if (value is InstanceFieldAccess)
+					{
+						var fieldAccess = value as InstanceFieldAccess;
+						ptAnalysis.ProcessStore(State, instruction.Offset, fieldAccess.Instance, fieldAccess.Field, addr);
+					}
+				}
+			}
+			public override void Visit(ConvertInstruction instruction)
+			{
+				ptAnalysis.ProcessCopy(State, instruction.Result, instruction.Operand);
+			}
+			public override void Visit(MethodCallInstruction instruction)
+			{
+				var methodCall = instruction as MethodCallInstruction;
+				// Hack for mapping delegates to nodes
+				if (methodCall.Method.Name.Value == ".ctor" && this.analyzeNextDelegateCtor)
+				{
+					ProcessDelegateCtor(methodCall);
+					this.analyzeNextDelegateCtor = false;
+				}
+				if (methodCall.Method.ContainingType.GetName().Contains("JsonConvert"))
+				{
+					ProcessJsonCall(methodCall);
+				}
+			}
 
-            private void ProcessDelegateCtor(MethodCallInstruction methodCall)
+			private void ProcessJsonCall(MethodCallInstruction methodCall)
+			{
+				if (methodCall.Method.Name.Value == "DeserializeObject")
+				{
+					ptAnalysis.ProcessJSonAlloc(State, methodCall.Offset, methodCall.Result);
+				}
+			}
+
+
+			private void ProcessDelegateCtor(MethodCallInstruction methodCall)
             {
                 if (methodCall.Arguments.Any())
                 {
@@ -432,7 +445,19 @@ namespace Backend.Analyses
             ptg.PointsTo(dst, node);
         }
 
-        internal void ProcessCopy(SimplePointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
+		private void ProcessJSonAlloc(SimplePointsToGraph ptg, uint offset, IVariable dst)
+		{
+			ptg.RemoveRootEdges(dst);
+			if (!dst.Type.IsClassOrStruct()) return;
+			var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
+
+			var node = new JSonNode(ptgId, dst.Type);
+
+			ptg.PointsTo(dst, node);
+		}
+
+
+		internal void ProcessCopy(SimplePointsToGraph ptg, IVariable dst, IEnumerable<IVariable> srcs)
         {
             ptg.RemoveRootEdges(dst);
 
@@ -502,7 +527,8 @@ namespace Backend.Analyses
             }
         }
 
-        public SimplePTGNode CreateSummaryForCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable)
+		#region Methods that provides summaries for handling collections
+		public SimplePTGNode CreateSummaryForCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable)
         {
             var ptgId = new PTGID(new MethodContex(this.method), (int)offset);
             var collectionNode = this.NewNode(ptg, ptgId, collectionVariable.Type);
@@ -581,9 +607,10 @@ namespace Backend.Analyses
             ptg.PointsTo(result, targets);
             return targets;
         }
+		#endregion
 
 
-        private bool MayReacheableFromParameter(SimplePointsToGraph ptg, SimplePTGNode n)
+		private bool MayReacheableFromParameter(SimplePointsToGraph ptg, SimplePTGNode n)
         {
             var body = MethodBodyProvider.Instance.GetBody(method);
             var rootNodes = body.Parameters.SelectMany(p => ptg.GetTargets(p)).Union(new HashSet<SimplePTGNode>() { SimplePointsToGraph.GlobalNode });

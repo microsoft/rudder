@@ -149,6 +149,10 @@ namespace ScopeProgramAnalysis
 
 			input = @"C:\Temp\Scope\InterestingScopeProjects\0ce5ea59-dec8-4f6f-be08-0e0746e12515\__ScopeCodeGen__.dll";
 			input = @"C:\Temp\Scope\NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
+
+			input = @"C:\Temp\Scope\JsonSurvey\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
+			input = @"C:\Temp\Scope\JsonSurvey\SimpleJsonProcessors\bin\Debug\6BEA71AFD72D97FF\UDO1_C79877185261167E\__ScopeCodeGen__.dll";
+
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 

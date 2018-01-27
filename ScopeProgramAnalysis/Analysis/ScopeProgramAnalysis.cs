@@ -300,6 +300,7 @@ namespace ScopeProgramAnalysis
 					var depAnalysisResultandTime = dependencyAnalysis.AnalyzeMoveNextMethod();
 					depAnalysisResult = depAnalysisResultandTime.Item1;
 					depAnalysisTime = depAnalysisResultandTime.Item2;
+					var analysisReasons = AnalysisStats.AnalysisReasons;
 
 					inputColumns = dependencyAnalysis.InputColumns;
 					outputColumns = dependencyAnalysis.OutputColumns;
@@ -846,11 +847,14 @@ namespace ScopeProgramAnalysis
                     var reducerClassDefinition = entryMethod.ContainingTypeDefinition;
 
                     var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClassDefinition.FullName()));
+					if (reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17"))
+					{
+					}
+					else
+						if (isCompilerGenerated)
+					    continue;
 
-                    if (isCompilerGenerated)
-                        continue;
-
-                    if (processorsToAnalyze.Contains(reducerClassDefinition))
+					if (processorsToAnalyze.Contains(reducerClassDefinition))
                         continue;
 
                     processorsToAnalyze.Add(reducerClassDefinition);
