@@ -77,7 +77,7 @@ namespace ScopeProgramAnalysis
     class SongTaoDependencyAnalysis
     {
         private IMetadataHost host;
-        private PointsToAnalysis pointsToAnalyzer;
+        private SimplePointsToAnalysis pointsToAnalyzer;
         private ScopeProcessorInfo processToAnalyze;
         private IDictionary<IVariable, IExpression> equalities;
         // private IDictionary<string,IVariable> specialFields;
@@ -112,7 +112,7 @@ namespace ScopeProgramAnalysis
 
             // 1) Analyze the entry method that creates, populates  and return the clousure 
             var cfgEntry = processToAnalyze.EntryMethod.DoAnalysisPhases(host, sourceLocationProvider);
-            var pointsToEntry = new PointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); 
+            var pointsToEntry = new SimplePointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); 
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
@@ -138,7 +138,7 @@ namespace ScopeProgramAnalysis
             cfg.PropagateExpressions(this.equalities);
             // In general, the variable to bind is going to be pointsToEntry.ReturnVariable which is aliased with "$_temp_it" (myGetEnumResult)
             SimplePointsToGraph calleePTG = InterproceduralManager.PTABindCallerCallee(ptgAfterEnum, new List<IVariable> { myGetEnumResult }, processToAnalyze.MoveNextMethod);
-            this.pointsToAnalyzer = new PointsToAnalysis(cfg, processToAnalyze.MoveNextMethod, calleePTG);
+            this.pointsToAnalyzer = new SimplePointsToAnalysis(cfg, processToAnalyze.MoveNextMethod, calleePTG);
                         
            
             // Now I analyze the Movenext method with the proper initialization 
@@ -179,7 +179,7 @@ namespace ScopeProgramAnalysis
         /// <param name="pointsToAnalyzer"></param>
         /// <param name="protectedNodes"></param>
         /// <returns></returns>
-        DependencyPTGDomain AnalyzeScopeMethod(ControlFlowGraph cfg, PointsToAnalysis pointsToAnalyzer,
+        DependencyPTGDomain AnalyzeScopeMethod(ControlFlowGraph cfg, SimplePointsToAnalysis pointsToAnalyzer,
                                            IEnumerable<ProtectedRowNode> protectedNodes)
         {
             var nodeEntry = cfg.Entry.Successors.First();

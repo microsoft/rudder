@@ -15,12 +15,12 @@ using ScopeProgramAnalysis.Framework;
 namespace Backend.Analyses
 {
     // May Points-To Analysis
-    public class PointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
+    public class SimplePointsToAnalysis : ForwardDataFlowAnalysis<SimplePointsToGraph>
     {
 		public class PTAVisitor : InstructionVisitor
 		{
 			public SimplePointsToGraph State { get; set; }
-			private PointsToAnalysis ptAnalysis;
+			private SimplePointsToAnalysis ptAnalysis;
 			private bool analyzeNextDelegateCtor;
 
 			/// <summary>
@@ -28,7 +28,7 @@ namespace Backend.Analyses
 			/// </summary>
 			private Dictionary<IVariable, IValue> addressMap = new Dictionary<IVariable, IValue>();
 
-			internal PTAVisitor(SimplePointsToGraph ptg, PointsToAnalysis ptAnalysis)
+			internal PTAVisitor(SimplePointsToGraph ptg, SimplePointsToAnalysis ptAnalysis)
 			{
 				this.State = ptg;
 				this.ptAnalysis = ptAnalysis;
@@ -82,7 +82,7 @@ namespace Backend.Analyses
 				else if (operand is StaticFieldAccess)
 				{
 					var access = operand as StaticFieldAccess;
-					ptAnalysis.ProcessLoad(State, load.Offset, load.Result, PointsToAnalysis.GlobalVariable, access.Field);
+					ptAnalysis.ProcessLoad(State, load.Offset, load.Result, SimplePointsToAnalysis.GlobalVariable, access.Field);
 
 				}
 				else if (operand is ArrayElementAccess)
@@ -124,7 +124,7 @@ namespace Backend.Analyses
 				else if (lhs is StaticFieldAccess)
 				{
 					var access = lhs as StaticFieldAccess;
-					ptAnalysis.ProcessStore(State, instruction.Offset, PointsToAnalysis.GlobalVariable, access.Field, store.Operand);
+					ptAnalysis.ProcessStore(State, instruction.Offset, SimplePointsToAnalysis.GlobalVariable, access.Field, store.Operand);
 				}
 				else if (lhs is ArrayElementAccess)
 				{
@@ -258,7 +258,7 @@ namespace Backend.Analyses
         // private IDictionary<string, IVariable> specialFields;
         protected SimplePointsToGraph initPTG;
 
-        public PointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method) //  IDictionary<string, IVariable> specialFields)
+        public SimplePointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method) //  IDictionary<string, IVariable> specialFields)
 			: base(cfg)
 		{
             this.method = method;
@@ -271,7 +271,7 @@ namespace Backend.Analyses
             
 		}
 
-        public PointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
+        public SimplePointsToAnalysis(ControlFlowGraph cfg, IMethodDefinition method, SimplePointsToGraph initPTG) : base(cfg)
         {
             this.method = method;
             this.CreateInitialGraph(false, initPTG);
@@ -409,8 +409,8 @@ namespace Backend.Analyses
             //    ptg.PointsTo(thisNode, new FieldReference(fieldName, variable.Type, method.ContainingType), node);
             //}
             ptg.Add(this.ReturnVariable);
-            ptg.Add(PointsToAnalysis.GlobalVariable);
-            ptg.PointsTo(PointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
+            ptg.Add(SimplePointsToAnalysis.GlobalVariable);
+            ptg.PointsTo(SimplePointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
 			this.initialGraph = ptg;
 		}
 

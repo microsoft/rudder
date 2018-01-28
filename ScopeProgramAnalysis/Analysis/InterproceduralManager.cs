@@ -170,7 +170,7 @@ namespace ScopeProgramAnalysis
             //Console.WriteLine("Analyzing Method {0} Stack: {1}", new string(' ',stackDepth*2) + callInfo.Callee.ToString(), stackDepth);
             // 1) Bind PTG and create a Poinst-to Analysis for the  callee. In pta.Result[node.Exit] is the PTG at exit of the callee
             var calleePTG = PTABindCallerCallee(callInfo.CallerPTG, callInfo.CallArguments, callInfo.Callee);
-            PointsToAnalysis calleePTA = new PointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
+            SimplePointsToAnalysis calleePTA = new SimplePointsToAnalysis(calleeCFG, callInfo.Callee, calleePTG);
 
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
 			calleeCFG.PropagateExpressions(equalities);
@@ -370,7 +370,7 @@ namespace ScopeProgramAnalysis
                 ControlFlowGraph calleeCFG = this.GetCFG(resolvedCallee);
                 //DGMLSerializer.Serialize(calleeCFG);
                 stackDepth++;
-                PointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
+                SimplePointsToAnalysis pta = this.PTABindAndRunInterProcAnalysis(ptg, arguments, resolvedCallee, calleeCFG);
                 stackDepth--;
 
                 return PTABindCaleeCalleer(result, calleeCFG, pta);
@@ -378,7 +378,7 @@ namespace ScopeProgramAnalysis
             return ptg;
         }
 
-        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, PointsToAnalysis pta)
+        private SimplePointsToGraph PTABindCaleeCalleer(IVariable result, ControlFlowGraph calleeCFG, SimplePointsToAnalysis pta)
         {
             var exitPTG = pta.Result[calleeCFG.Exit.Id].Output;
             if (result != null)
@@ -407,12 +407,12 @@ namespace ScopeProgramAnalysis
         }
 
 
-        public PointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
+        public SimplePointsToAnalysis PTABindAndRunInterProcAnalysis(SimplePointsToGraph ptg, IList<IVariable> arguments, IMethodDefinition resolvedCallee, ControlFlowGraph calleeCFG)
         {
             var bindPtg = PTABindCallerCallee(ptg, arguments, resolvedCallee);
 
             // Compute PT analysis for callee
-            var pta = new PointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
+            var pta = new SimplePointsToAnalysis(calleeCFG, resolvedCallee, bindPtg);
             pta.Analyze();
             return pta;
         }
@@ -429,7 +429,7 @@ namespace ScopeProgramAnalysis
                 argParamMap[arguments[i]] = body.Parameters[i];
             }
             bindPtg.NewFrame(argParamMap);
-            bindPtg.PointsTo(PointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
+            bindPtg.PointsTo(SimplePointsToAnalysis.GlobalVariable, SimplePointsToGraph.GlobalNode);
             return bindPtg;
         }
         #endregion

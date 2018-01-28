@@ -7,7 +7,7 @@ using Backend.ThreeAddressCode;
 using Backend.Utils;
 using System.Globalization;
 using ScopeProgramAnalysis;
-using static Backend.Analyses.PointsToAnalysis;
+using static Backend.Analyses.SimplePointsToAnalysis;
 using ScopeProgramAnalysis.Framework;
 using Backend.Analyses;
 using Backend.ThreeAddressCode.Values;
@@ -482,8 +482,15 @@ namespace Backend.Analyses
                 {
                     this.columnVariable2Literal[loadStmt.Result] = this.columnVariable2Literal[v];
                 }
-            }           
-        }
+            }
+			internal void PropagateCopy(IVariable source, IVariable dest)
+			{
+				if (this.columnVariable2Literal.ContainsKey(source))
+				{
+					this.columnVariable2Literal[dest] = this.columnVariable2Literal[source];
+				}
+			}
+		}
 
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
         {
@@ -790,7 +797,7 @@ namespace Backend.Analyses
                 var isReducerField = iteratorClass!=null 
                                         && iteratorClass.ContainingType.TypeEquals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
-                if (ISClousureField(PointsToAnalysis.GlobalVariable, fieldAccess.Field))
+                if (ISClousureField(SimplePointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
                 {
                     var traceables = new HashSet<Traceable>();
@@ -978,8 +985,16 @@ namespace Backend.Analyses
                 var methodCallStmt = instruction;
                 var methodInvoked = methodCallStmt.Method;
                 var callResult = methodCallStmt.Result;
+				var candidateClass = method.ContainingType.ResolvedType;
+				if (candidateClass.FullName().Contains(@"ScopeTransformer_4"))
+				{
+				}
 
-				if (methodInvoked.Name.Value=="DeserializeObject")
+				if (methodInvoked.Name.Value == "Parse")
+				{
+				}
+
+					if (methodInvoked.Name.Value=="DeserializeObject")
 				{
 					UpdateCall(methodCallStmt, false);
 					return;
@@ -2105,7 +2120,7 @@ namespace Backend.Analyses
 
         private IEnumerable<ProtectedRowNode> protectedNodes;
 
-        private PointsToAnalysis pta;
+        private SimplePointsToAnalysis pta;
         private RangeAnalysis rangeAnalysis;
 
         public ISet<TraceableColumn> InputColumns { get; private set; }
@@ -2113,7 +2128,7 @@ namespace Backend.Analyses
 
 
         public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg,
-											PointsToAnalysis pta,
+											SimplePointsToAnalysis pta,
                                             IEnumerable<ProtectedRowNode> protectedNodes, 
                                             IDictionary<IVariable, IExpression> equalitiesMap,
                                             InterproceduralManager interprocManager, RangeAnalysis rangeAnalysis) : base(cfg)
@@ -2136,7 +2151,7 @@ namespace Backend.Analyses
             this.InputColumns = new HashSet<TraceableColumn>();
             this.OutputColumns = new HashSet<TraceableColumn>();
         }
-        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, PointsToAnalysis pta,
+        public IteratorDependencyAnalysis(ScopeProcessorInfo processToAnalyze, IMethodDefinition method, ControlFlowGraph cfg, SimplePointsToAnalysis pta,
                                     IEnumerable<ProtectedRowNode> protectedNodes, 
                                     IDictionary<IVariable, IExpression> equalitiesMap,
                                     InterproceduralManager interprocManager,
