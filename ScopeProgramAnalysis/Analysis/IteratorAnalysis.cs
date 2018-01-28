@@ -1145,7 +1145,9 @@ namespace Backend.Analyses
                                 CallerPTG = currentPTG,
                                 ScopeData = this.scopeData,
                                 Instruction = instruction,
-                                ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+								VariableRanges = variableRanges,
+								ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
+
                             };
 
                             var interProcResult = this.iteratorDependencyAnalysis.interproceduralManager.DoInterProcWithCallee(interProcInfo);
@@ -2072,6 +2074,7 @@ namespace Backend.Analyses
                             CallerPTG = currentPTG,
                             ScopeData = this.scopeData,
                             Instruction = methodCall,
+							VariableRanges = this.variableRanges,
                             ProtectedNodes = this.iteratorDependencyAnalysis.protectedNodes
                         };
 

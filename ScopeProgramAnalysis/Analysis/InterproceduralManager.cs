@@ -57,7 +57,8 @@ namespace ScopeProgramAnalysis
 
         public IEnumerable<ProtectedRowNode> ProtectedNodes { get; set; }
         public Instruction Instruction { get; internal set; }
-    }
+		public VariableRangeDomain VariableRanges { get; internal set; }
+	}
     public struct InterProceduralReturnInfo
     {
         public InterProceduralReturnInfo(DependencyPTGDomain state)
@@ -175,11 +176,15 @@ namespace ScopeProgramAnalysis
             IDictionary<IVariable, IExpression> equalities = new Dictionary<IVariable, IExpression>();
 			calleeCFG.PropagateExpressions(equalities);
 
-            var rangesAnalysis = new RangeAnalysis(calleeCFG);
-            rangesAnalysis.Analyze();
-            // 2) Bind Parameters of the dependency analysis and run
-            var calleeDomain = BindCallerCallee(callInfo);
-            calleeDomain.PTG = calleePTG;
+			// 2) Bind Parameters of the dependency analysis
+			VariableRangeDomain boundVariablesRanges;
+			var calleeDomain = BindCallerCallee(callInfo, out boundVariablesRanges);
+			var rangesAnalysis = new RangeAnalysis(calleeCFG, callInfo.Callee,  boundVariablesRanges);
+
+			// 4) Now we perform the analyses
+			rangesAnalysis.Analyze();
+
+			calleeDomain.PTG = calleePTG;
             var dependencyAnalysis = new IteratorDependencyAnalysis(processToAnalyze, callInfo.Callee, calleeCFG, calleePTA, callInfo.ProtectedNodes, equalities, this, rangesAnalysis, calleeDomain, callInfo.ScopeData);
 
             // If we already did the dataflow analysis for this method we recover the dataflow state
@@ -212,7 +217,9 @@ namespace ScopeProgramAnalysis
             // Should I need the PTG of caller and callee?
             //var exitCalleePTG = calleePTA.Result[calleeCFG.Exit.Id].Output;
             var exitCalleePTG = dependencyAnalysis.Result[calleeCFG.Exit.Id].Output.PTG;
-            var exitResult = BindCalleeCaller(callInfo, calleeCFG, dependencyAnalysis);
+
+
+			var exitResult = BindCalleeCaller(callInfo, calleeCFG, dependencyAnalysis, rangesAnalysis);
 
             // Recover the frame of the original Ptg and bind ptg results
             //PointsToGraph bindPtg = PTABindCaleeCalleer(callInfo.CallLHS, calleeCFG, calleePTA);
@@ -227,33 +234,40 @@ namespace ScopeProgramAnalysis
             //return new InterProceduralReturnInfo(exitResult, bindPtg);
         }
 
-        private DependencyPTGDomain BindCallerCallee(InterProceduralCallInfo callInfo)
+        private DependencyPTGDomain BindCallerCallee(InterProceduralCallInfo callInfo, out VariableRangeDomain initializedRanges)
         {
+			initializedRanges = new VariableRangeDomain();
+
             var calleeDepDomain = new DependencyPTGDomain();
             calleeDepDomain.Dependencies.IsTop = callInfo.CallerState.Dependencies.IsTop;
             // Bind parameters with arguments 
             var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
-            for (int i = 0; i < body.Parameters.Count(); i++)
-            {
-                var arg = callInfo.CallArguments[i];
+			for (int i = 0; i < body.Parameters.Count(); i++)
+			{
+				var arg = callInfo.CallArguments[i];
 
-                var param = body.Parameters[i];
+				var param = body.Parameters[i];
 
-                arg = AdaptIsReference(arg);
-                param = AdaptIsReference(param);
+				arg = AdaptIsReference(arg);
+				param = AdaptIsReference(param);
 
-                if (callInfo.CallerState.HasTraceables(arg))
-                {
-                    calleeDepDomain.AssignTraceables(param, callInfo.CallerState.GetTraceables(arg));
-                }
-                if (callInfo.CallerState.HasOutputTraceables(arg))
-                {
-                    calleeDepDomain.AddOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
-                }
-                if (callInfo.CallerState.HasOutputControlTraceables(arg))
-                {
-                    calleeDepDomain.AddOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
-                }
+				if (callInfo.CallerState.HasTraceables(arg))
+				{
+					calleeDepDomain.AssignTraceables(param, callInfo.CallerState.GetTraceables(arg));
+				}
+				if (callInfo.CallerState.HasOutputTraceables(arg))
+				{
+					calleeDepDomain.AddOutputTraceables(param, callInfo.CallerState.GetOutputTraceables(arg));
+				}
+				if (callInfo.CallerState.HasOutputControlTraceables(arg))
+				{
+					calleeDepDomain.AddOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
+				}
+
+				// DIEGODIEGO: Do I need this?
+				callInfo.ScopeData.PropagateCopy(arg, param);
+				initializedRanges.AssignValue(param, callInfo.VariableRanges.GetValue(param)); 
+				
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
 
@@ -280,10 +294,14 @@ namespace ScopeProgramAnalysis
             return arg;
         }
 
-        private DependencyPTGDomain BindCalleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, IteratorDependencyAnalysis depAnalysis)
+        private DependencyPTGDomain BindCalleeCaller(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG, 
+													IteratorDependencyAnalysis depAnalysis,RangeAnalysis rangeAnalysis)
         {
+
             var exitResult = depAnalysis.Result[calleeCFG.Exit.Id].Output;
-            var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
+			var exitRange = rangeAnalysis.Result[calleeCFG.Exit.Id].Output;
+
+			var body = MethodBodyProvider.Instance.GetBody(callInfo.Callee);
 
             for (int i = 0; i < body.Parameters.Count(); i++)
             {
@@ -349,6 +367,9 @@ namespace ScopeProgramAnalysis
                 {
                     callInfo.CallerState.AddOutputControlTraceables(callInfo.CallLHS, exitResult.GetOutputControlTraceables(depAnalysis.ReturnVariable));
                 }
+
+				// DIEGODIEGO: Need to propagate range of return value
+				callInfo.VariableRanges.AssignValue(callInfo.CallLHS, exitRange.GetValue(rangeAnalysis.ReturnVariable));
             }
 
             return callInfo.CallerState;
