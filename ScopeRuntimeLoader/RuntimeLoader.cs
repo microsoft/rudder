@@ -39,20 +39,20 @@ namespace RuntimeLoader
         {
             foreach (var type in scopeRuntime.GetAllTypes())
             {
-                if (type.FullName() == "ScopeRuntime.Reducer") Reducer = type;
-                else if (type.FullName() == "ScopeRuntime.Processor") Processor = type;
-                else if (type.FullName() == "ScopeRuntime.Producer") Producer = type;
-                else if (type.FullName() == "ScopeRuntime.Row")
+                if (type.GetFullName() == "ScopeRuntime.Reducer") Reducer = type;
+                else if (type.GetFullName() == "ScopeRuntime.Processor") Processor = type;
+                else if (type.GetFullName() == "ScopeRuntime.Producer") Producer = type;
+                else if (type.GetFullName() == "ScopeRuntime.Row")
                 {
                     Row = type;
                 }
-                else if (type.FullName() == "ScopeRuntime.RowSet") RowSet = type;
-                else if (type.FullName() == "ScopeRuntime.RowList") RowList = type;
-                else if (type.FullName() == "ScopeRuntime.ColumnData") ColumnData = type;
-                else if (type.FullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
-                else if (type.FullName() == "ScopeRuntime.Schema") Schema = type;
-                else if (type.FullName() == "ScopeRuntime.Combiner") Combiner = type;
-                else if (type.FullName() == "ScopeRuntime.ScopeMap<K, V>") ScopeMap = type;
+                else if (type.GetFullName() == "ScopeRuntime.RowSet") RowSet = type;
+                else if (type.GetFullName() == "ScopeRuntime.RowList") RowList = type;
+                else if (type.GetFullName() == "ScopeRuntime.ColumnData") ColumnData = type;
+                else if (type.GetFullName() == "ScopeRuntime.ColumnData<T>") ColumnData_Generic = type;
+                else if (type.GetFullName() == "ScopeRuntime.Schema") Schema = type;
+                else if (type.GetFullName() == "ScopeRuntime.Combiner") Combiner = type;
+                else if (type.GetFullName() == "ScopeRuntime.ScopeMap<K, V>") ScopeMap = type;
                 if (type.ContainingNamespace() == "ScopeRuntime")
                     scopeTypes.Add(type);
             }
@@ -64,7 +64,7 @@ namespace RuntimeLoader
             return false;
         }
 
-        public static string FullName(this ITypeReference tref)
+        public static string GetFullName(this ITypeReference tref)
         {
             return TypeHelper.GetTypeName(tref, NameFormattingOptions.Signature | NameFormattingOptions.TypeParameters);
         }
