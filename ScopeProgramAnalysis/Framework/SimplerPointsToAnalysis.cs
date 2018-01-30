@@ -189,10 +189,11 @@ namespace Backend.Analyses
 					ProcessDelegateCtor(methodCall);
 					this.analyzeNextDelegateCtor = false;
 				}
-				if (methodCall.Method.ContainingType.GetName().Contains("JsonConvert"))
-				{
-					ProcessJsonCall(methodCall);
-				}
+				// DIEGODIEGO: Maybe this is no longer necessary
+				//if (methodCall.Method.ContainingType.GetName().Contains("JsonConvert"))
+				//{
+				//	ProcessJsonCall(methodCall);
+				//}
 			}
 
 			private void ProcessJsonCall(MethodCallInstruction methodCall)

@@ -53,6 +53,7 @@ namespace Backend.Analyses
 
     }
 
+
     public class Other : Traceable
     {
         public Other(string name) : base(name, ProtectedRowKind.Unknown)
@@ -73,7 +74,20 @@ namespace Backend.Analyses
         }
 
     }
-		
+
+	public class TraceableJson : Traceable
+	{
+		public TraceableColumn TColumn { get; private set; } 
+		public TraceableJson(TraceableColumn tc) : base("Json", ProtectedRowKind.Json)
+		{
+			this.TColumn = tc;
+		}
+		public override string ToString()
+		{
+			return String.Format(CultureInfo.InvariantCulture, "Json({0})", TColumn);
+		}
+	}
+
 	/// <summary>
 	/// Representation of a column in a SCOPE table.
 	/// 
@@ -271,6 +285,10 @@ namespace Backend.Analyses
 	public class TraceableJsonField : TraceableColumn
 	{
 		public string Key { get; private set; }
+		public TraceableJsonField(TraceableColumn tableColumn, String key) : base(tableColumn.Table, tableColumn.Column)
+		{
+			this.Key = key;
+		}
 		public TraceableJsonField(TraceableTable table, Column column, String key) : base(table, column)
 		{
 			this.Key = key;
@@ -761,10 +779,18 @@ namespace Backend.Analyses
 					{
 						traceables.AddRange(this.State.GetTraceables(fieldAccess.Instance));
 					}
-					var jsonNodes = nodes.Where(n => n.Kind == SimplePTGNodeKind.Json);
-					if (jsonNodes.Any())
+					//var jsonNodes = nodes.Where(n => n.Kind == SimplePTGNodeKind.Json);
+					//if (jsonNodes.Any())
+					//{
+					//	var jsonTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableJsonField(t.Table, t.Column, fieldAccess.FieldName));
+					//	this.State.AssignTraceables(loadStmt.Result, jsonTraceables);
+					//	return;
+					//}
+
+					if (traceables.OfType<TraceableJson>().Any())
 					{
-						var jsonTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableJsonField(t.Table, t.Column, fieldAccess.FieldName));
+						var jsonTraceables = traceables.OfType<TraceableJson>()
+														.Select(jsonTraceable => new TraceableJsonField(jsonTraceable.TColumn, fieldAccess.FieldName));
 						this.State.AssignTraceables(loadStmt.Result, jsonTraceables);
 						return;
 					}
@@ -978,119 +1004,187 @@ namespace Backend.Analyses
                 this.State.AssignTraceables(instruction.Result, traceables);
                 
             }
-            public override void Visit(MethodCallInstruction instruction)
-            {
-                instruction.Accept(visitorPTA);
+			public override void Visit(MethodCallInstruction instruction)
+			{
+				instruction.Accept(visitorPTA);
 
-                var methodCallStmt = instruction;
-                var methodInvoked = methodCallStmt.Method;
-                var callResult = methodCallStmt.Result;
+				var methodCallStmt = instruction;
+				var methodInvoked = methodCallStmt.Method;
+				var callResult = methodCallStmt.Result;
 				var candidateClass = method.ContainingType.ResolvedType;
 				if (candidateClass.FullName().Contains(@"ScopeTransformer_4"))
 				{
 				}
 
-				if (methodInvoked.Name.Value == "Parse")
+				if (methodInvoked.Name.Value == "GetAttributeValue")
 				{
 				}
-
-					if (methodInvoked.Name.Value=="DeserializeObject")
-				{
-					UpdateCall(methodCallStmt, false);
-					return;
-				}
-
 
 				// We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
 				// to maintain a mapping between column numbers and literals 
 				var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
-                if (!isSchemaMethod)
-                {
-                    var isScopeRowMethod = HandleScopeRowMethods(methodCallStmt, methodInvoked);
-                    if (!isScopeRowMethod)
-                    {
-                        var isCollectionMethod = HandleCollectionMethod(methodCallStmt, methodInvoked);
-                        if(!isCollectionMethod)
-                        {
-                            // Pure Methods
-                            if(IsPureMethod(methodCallStmt))
-                            {
-                                UpdateCall(methodCallStmt);
-                            }
-                            else
-                            {
-                                // I first check in the calle may a input/output row
-                                var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
-                                                    .Where(n => n!=SimplePointsToGraph.NullNode);
+				if (!isSchemaMethod)
+				{
+					var isScopeRowMethod = HandleScopeRowMethods(methodCallStmt, methodInvoked);
+					if (!isScopeRowMethod)
+					{
+						var isJsonMethod = AnalyzeJsonMethod(methodCallStmt, methodInvoked);
+						if (!isJsonMethod)
+						{
 
-                                // If it is a method within the same class it will be able to acesss all the fields 
-                                // I also see that compiler generated methods (like lambbas should also access)
-                                var isInternalClassInvocation = TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, this.iteratorDependencyAnalysis.iteratorClass);
-                                var isCompiledGeneratedLambda = this.method.ContainingType.IsCompilerGenerated() 
-                                                                  && (this.method.ContainingType as INestedTypeDefinition).ContainingType!=null &&
-                                                                  TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
+							var isCollectionMethod = HandleCollectionMethod(methodCallStmt, methodInvoked);
+							if (!isCollectionMethod)
+							{
+								// Pure Methods
+								if (IsPureMethod(methodCallStmt))
+								{
+									UpdateCall(methodCallStmt);
+								}
+								else
+								{
+									// I first check in the calle may a input/output row
+									var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
+														.Where(n => n != SimplePointsToGraph.NullNode);
 
-                                Predicate<Tuple<SimplePTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
-                                                    || !TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass));
-                                var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
+									// If it is a method within the same class it will be able to acesss all the fields 
+									// I also see that compiler generated methods (like lambbas should also access)
+									var isInternalClassInvocation = TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, this.iteratorDependencyAnalysis.iteratorClass);
+									var isCompiledGeneratedLambda = this.method.ContainingType.IsCompilerGenerated()
+																	  && (this.method.ContainingType as INestedTypeDefinition).ContainingType != null &&
+																	  TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
 
-                                var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+									Predicate<Tuple<SimplePTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
+														|| !TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass));
+									var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
 
+									var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
 
-                                if (escaping)
-                                {
-                                    var isMethodToInline = IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass);
+									var traceablesThatMaybeUsed = methodCallStmt.Arguments.SelectMany(arg => State.GetTraceables(arg)).Where(t => !(t is Other));
 
-                                    if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled || isMethodToInline )
-                                    {
+									var helperMethodRequiringAnalysis = methodInvoked.Name.Value == "GetAttributeValue" ||  traceablesThatMaybeUsed.Any();
 
-                                        // For the demo I'll skip this methods that do anything important
-                                        //if (isMethodToInline && !methodInvoked.IsConstructor())
-                                        //{ }
-                                        //else
-                                        {
-                                            // This updates the Dep Domain and the PTG
-                                            var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
-                                            AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
+									if (escaping || helperMethodRequiringAnalysis)
+									{
+										var isMethodToInline = helperMethodRequiringAnalysis || IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass);
 
-                                            // If there are unresolved calles
-                                            if (computedCalles.Item2.Any() || !computedCalles.Item1.Any())
-                                            {
-                                                HandleNoAnalyzableMethod(methodCallStmt);
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        HandleNoAnalyzableMethod(methodCallStmt);
-                                    }
-                                }
-                                else
-                                {
+										if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled || isMethodToInline)
+										{
 
-                                    UpdateCall(methodCallStmt);
+											// For the demo I'll skip this methods that do anything important
+											//if (isMethodToInline && !methodInvoked.IsConstructor())
+											//{ }
+											//else
+											{
+												// This updates the Dep Domain and the PTG
+												var computedCalles = this.iteratorDependencyAnalysis.interproceduralManager.ComputePotentialCallees(instruction, currentPTG);
+												AnalyzeResolvedCallees(instruction, methodCallStmt, computedCalles.Item1);
 
-                                    // I should at least update the Poinst-to graph
-                                    // or make the parameters escape
-                                    foreach (var escapingNode in argRootNodes.Where(n => n.Kind!=SimplePTGNodeKind.Null))
-                                    {
-                                        var escapingField = new FieldReference("escape", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
-                                        // TODO: Check if this is always necessary
-                                        currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+												// If there are unresolved calles
+												if (computedCalles.Item2.Any() || !computedCalles.Item1.Any())
+												{
+													HandleNoAnalyzableMethod(methodCallStmt);
+												}
+											}
+										}
+										else
+										{
+											HandleNoAnalyzableMethod(methodCallStmt);
+										}
+									}
+									else
+									{
 
-            /// <summary>
-            /// Updates the points-to graph using only the info from parameter
-            /// TODO: We should actually follow the ideas of our IWACO paper...
-            /// </summary>
-            /// <param name="instruction"></param>
-            private void UpdatePTAForPure(MethodCallInstruction instruction)
+										UpdateCall(methodCallStmt);
+
+										// I should at least update the Poinst-to graph
+										// or make the parameters escape
+										foreach (var escapingNode in argRootNodes.Where(n => n.Kind != SimplePTGNodeKind.Null))
+										{
+											var escapingField = new FieldReference("escape", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
+											// TODO: Check if this is always necessary
+											currentPTG.PointsTo(SimplePointsToGraph.GlobalNode, escapingField, escapingNode);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			private bool AnalyzeJsonMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+			{
+				if (methodInvoked.Name.Value == "DeserializeObject" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg).Where(t => !(t is Other));
+					//var jsonNodes = this.currentPTG.GetTargets(arg);
+					//var traceables = jsonNodes.Select( jn => new TraceableJson(jn));
+					var jsontraceables = traceables.OfType<TraceableColumn>().Select(t => new TraceableJson(t));
+					this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
+
+					UpdatePTAForPure(methodCallStmt);
+
+					return true;
+				}
+				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
+				{
+					if (methodInvoked.Name.Value == "Parse")
+					{
+						if (methodInvoked.Type.GetFullName() == "Newtonsoft.Json.Linq.JObject")
+						{
+							var arg = methodCallStmt.Arguments[0];
+							var traceables = this.State.GetTraceables(arg).Where(t => !(t is Other));
+							var jsontraceables = traceables.OfType<TraceableColumn>().Select(t => new TraceableJson(t));
+							this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
+						}
+						return true;
+					}
+					else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
+					{
+						var arg = methodCallStmt.Arguments[0];
+						var col = methodCallStmt.Arguments[1];
+
+						var columRange = this.variableRanges.GetValue(col);
+						if (!columRange.IsBottom)
+						{
+							var columnLiteral = columRange.Literal;
+
+							var jsonFields = this.State.GetTraceables(arg).OfType<TraceableJson>()
+												.Select(tjs => new TraceableJsonField(tjs.TColumn, columnLiteral));
+
+							UpdatePTAForPure(methodCallStmt);
+							this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
+
+							this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
+							this.iteratorDependencyAnalysis.OutputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Output));
+
+							CheckFailure(methodCallStmt, jsonFields);
+						}
+						else
+						{
+							this.State.SetTOP();
+							AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "We are expecting a string for a columns but get null"));
+						}
+
+						return true; ;
+					}
+				}
+				else if (methodInvoked.Name.Value == @"op_Explicit" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
+				{
+					this.State.CopyTraceables(methodCallStmt.Result, methodCallStmt.Arguments[0]);
+					UpdatePTAForPure(methodCallStmt);
+					return true; ;
+				}
+				return false;
+			}
+
+			/// <summary>
+			/// Updates the points-to graph using only the info from parameter
+			/// TODO: We should actually follow the ideas of our IWACO paper...
+			/// </summary>
+			/// <param name="instruction"></param>
+			private void UpdatePTAForPure(MethodCallInstruction instruction)
             {
                 if (instruction.HasResult && instruction.Result.Type.IsClassOrStruct())
                 {
