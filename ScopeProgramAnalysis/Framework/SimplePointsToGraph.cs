@@ -726,7 +726,7 @@ namespace Backend.Model
                     {
                         if (!visitedNodes.Contains(adjacent))
                         {
-                            workList.Enqueue(adjacent);
+							workList.Enqueue(adjacent);
                         }
                     }
                 }
@@ -759,14 +759,14 @@ namespace Backend.Model
             }
             while (workList.Any())
             {
-                var SimplePTGNode = workList.Dequeue();
-                visitedNodes.Add(SimplePTGNode);
-                if (SimplePTGNode.Equals(SimplePointsToGraph.NullNode))
+                var simplePTGNode = workList.Dequeue();
+                visitedNodes.Add(simplePTGNode);
+                if (simplePTGNode.Equals(SimplePointsToGraph.NullNode))
                 {
                     continue;
                 }
-                if (SimplePTGNode.Equals(n)) return true;
-                foreach (var adjacents in ptg.GetTargets(SimplePTGNode).Values)
+                if (simplePTGNode.Equals(n)) return true;
+                foreach (var adjacents in ptg.GetTargets(simplePTGNode).Values)
                 {
                     foreach (var adjacent in adjacents)
                     {

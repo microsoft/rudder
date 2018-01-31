@@ -1004,8 +1004,14 @@ namespace Backend.Analyses
                 this.State.AssignTraceables(instruction.Result, traceables);
                 
             }
+			/// <summary>
+			/// Processing of a method invocation. Most of Scope operations are calls to the Scope API
+			/// So we need to understand each call to discover use of columns and propagate the dependencies
+			/// </summary>
+			/// <param name="instruction"></param>
 			public override void Visit(MethodCallInstruction instruction)
 			{
+				// Updates the Points-to information with the call 
 				instruction.Accept(visitorPTA);
 
 				var methodCallStmt = instruction;
@@ -1016,56 +1022,71 @@ namespace Backend.Analyses
 				{
 				}
 
-				if (methodInvoked.Name.Value == "GetAttributeValue")
-				{
-				}
-
 				// We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
 				// to maintain a mapping between column numbers and literals 
 				var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
 				if (!isSchemaMethod)
 				{
+					// Analyze Row related methods (get, set, copy, etc)
 					var isScopeRowMethod = HandleScopeRowMethods(methodCallStmt, methodInvoked);
 					if (!isScopeRowMethod)
 					{
+						// Analyze methods that parte JsonObjects (that can be accessed as "fields" in columns)
 						var isJsonMethod = AnalyzeJsonMethod(methodCallStmt, methodInvoked);
 						if (!isJsonMethod)
 						{
-
+							// Analyze collection handling methods (lists, sets, dictionaries)
+							// UDO use to use this kind of method for internal processing of input rows 
 							var isCollectionMethod = HandleCollectionMethod(methodCallStmt, methodInvoked);
 							if (!isCollectionMethod)
 							{
-								// Pure Methods
+								// For a pure a = a0.m(a1,...,an)  we propagate traceables from a0...an to a
+								// and update the points-to graph to conservately make the return_value reach a0...an (since we do not analyze the methdod) 
 								if (IsPureMethod(methodCallStmt))
 								{
 									UpdateCall(methodCallStmt);
 								}
 								else
 								{
-									// I first check in the calle may a input/output row
+									// Now we are analyzing a non-scope related, non-collection, non-pure methods
+									// We need to understand whether we need to analyze this method 
+									// The reason for analyzing the method are:
+									// - one argument is a Row or can reach a row 
+									// - one argument refers to traceable (e.g., a column) and we may generate a new dependency on it 
+									// withing the method (e.g, a helper method, doing some Json stuff)
+
+									// We first check in the calle may a input/output row
 									var argRootNodes = methodCallStmt.Arguments.SelectMany(arg => currentPTG.GetTargets(arg, false))
 														.Where(n => n != SimplePointsToGraph.NullNode);
-
 									// If it is a method within the same class it will be able to acesss all the fields 
-									// I also see that compiler generated methods (like lambbas should also access)
+									// We also see that compiler generated methods (like lambbas should also access)
 									var isInternalClassInvocation = TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, this.iteratorDependencyAnalysis.iteratorClass);
 									var isCompiledGeneratedLambda = this.method.ContainingType.IsCompilerGenerated()
-																	  && (this.method.ContainingType as INestedTypeDefinition).ContainingType != null &&
-																	  TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
-
-									Predicate<Tuple<SimplePTGNode, IFieldReference>> fieldFilter = (nodeField => isInternalClassInvocation || isCompiledGeneratedLambda
-														|| !TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass));
-									var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldFilter);
+																	  && (this.method.ContainingType as INestedTypeDefinition).ContainingType != null 
+																	  && TypeHelper.TypesAreEquivalent(methodInvoked.ContainingType, (this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition).ContainingType);
+									Predicate<Tuple<SimplePTGNode, IFieldReference>> fieldMustbeIgnored = 
+														(nodeField => 
+															// For internal/copmpiler generated methods we allow any field acess
+															!(isInternalClassInvocation || isCompiledGeneratedLambda)
+															// otherwise we skip fields that are not from the iterator class
+															|| (TypeHelper.TypesAreEquivalent(nodeField.Item2.ContainingType, this.iteratorDependencyAnalysis.iteratorClass)
+															// or accessible from this artifitial field (only use to connect columns with rows
+																&&  nodeField.Item2.Name.Value == "$scope$return"));
+									// We check if a row is reacheable using valid fields 
+									// Compiler generated fields are rejected because methods outside the compiler generated class cannot access these fields
+									var reachableNodes = currentPTG.ReachableNodes(argRootNodes, fieldMustbeIgnored);
 
 									var escaping = reachableNodes.Intersect(this.iteratorDependencyAnalysis.protectedNodes).Any();
+									
+									// We need to add this to handled cases like Json object that send traceables as parameters even if they do not 
+									// access the row
+									var traceablesInArguments = methodCallStmt.Arguments.SelectMany(arg => State.GetTraceables(arg)).Where(t => !(t is Other));
 
-									var traceablesThatMaybeUsed = methodCallStmt.Arguments.SelectMany(arg => State.GetTraceables(arg)).Where(t => !(t is Other));
+									var calleeRequiringAnalysis = escaping || traceablesInArguments.Any();
 
-									var helperMethodRequiringAnalysis = methodInvoked.Name.Value == "GetAttributeValue" ||  traceablesThatMaybeUsed.Any();
-
-									if (escaping || helperMethodRequiringAnalysis)
+									if (calleeRequiringAnalysis)
 									{
-										var isMethodToInline = helperMethodRequiringAnalysis || IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass);
+										var isMethodToInline = IsMethodToInline(methodInvoked, this.iteratorDependencyAnalysis.iteratorClass, traceablesInArguments.Any());
 
 										if (this.iteratorDependencyAnalysis.InterProceduralAnalysisEnabled || isMethodToInline)
 										{
@@ -1117,13 +1138,10 @@ namespace Backend.Analyses
 				if (methodInvoked.Name.Value == "DeserializeObject" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
 				{
 					var arg = methodCallStmt.Arguments[0];
-					var traceables = this.State.GetTraceables(arg).Where(t => !(t is Other));
-					//var jsonNodes = this.currentPTG.GetTargets(arg);
-					//var traceables = jsonNodes.Select( jn => new TraceableJson(jn));
-					var jsontraceables = traceables.OfType<TraceableColumn>().Select(t => new TraceableJson(t));
+					var jsontraceables = this.State.GetTraceables(arg).OfType<TraceableColumn>().Select(t => new TraceableJson(t));
 					this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
 
-					UpdatePTAForPure(methodCallStmt);
+					UpdatePTAForScopeMethod(methodCallStmt);
 
 					return true;
 				}
@@ -1153,7 +1171,7 @@ namespace Backend.Analyses
 							var jsonFields = this.State.GetTraceables(arg).OfType<TraceableJson>()
 												.Select(tjs => new TraceableJsonField(tjs.TColumn, columnLiteral));
 
-							UpdatePTAForPure(methodCallStmt);
+							UpdatePTAForScopeMethod(methodCallStmt);
 							this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
 
 							this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
@@ -1173,7 +1191,7 @@ namespace Backend.Analyses
 				else if (methodInvoked.Name.Value == @"op_Explicit" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
 				{
 					this.State.CopyTraceables(methodCallStmt.Result, methodCallStmt.Arguments[0]);
-					UpdatePTAForPure(methodCallStmt);
+					UpdatePTAForScopeMethod(methodCallStmt);
 					return true; ;
 				}
 				return false;
@@ -1184,7 +1202,11 @@ namespace Backend.Analyses
 			/// TODO: We should actually follow the ideas of our IWACO paper...
 			/// </summary>
 			/// <param name="instruction"></param>
-			private void UpdatePTAForPure(MethodCallInstruction instruction)
+			private void UpdatePTAForScopeMethod(MethodCallInstruction instruction)
+			{
+				UpdatePTAForPure(instruction, true);
+			}
+			private void UpdatePTAForPure(MethodCallInstruction instruction, bool useSpecialField = false)
             {
                 if (instruction.HasResult && instruction.Result.Type.IsClassOrStruct())
                 {
@@ -1202,8 +1224,13 @@ namespace Backend.Analyses
 
                         currentPTG.RemoveRootEdges(result);
                         currentPTG.PointsTo(result, returnNode);
-                        var returnField = new FieldReference("$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
-                        foreach (var SimplePTGNode in allNodes)
+						FieldReference returnField = null;
+						if(useSpecialField)
+							returnField = new FieldReference("$scope$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
+						else
+							returnField = new FieldReference("$return", Types.Instance.PlatformType.SystemObject, this.method.ContainingType);
+
+						foreach (var SimplePTGNode in allNodes)
                         {
                             // I remove this filter until I can have a more permissive compatibility analysis for collections and Row methods
                             // e.g., I need RowSet to be compatible with IEnumerable<Row>
@@ -1308,6 +1335,11 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
+
+				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose") };
+				result = specialMethods.Any(sm => sm.Item1 == containingType.GetFullName() 
+												&& sm.Item2 == metodCallStmt.Method.Name.Value);
+
                 return result;
             }
 
@@ -1544,13 +1576,13 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
                     this.scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // This is when you get rows
                 // a2 = a2[v<- a[arg_0]] 
-                if (methodInvoked.Name.Value == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
+                else if (methodInvoked.Name.Value == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
                 {
                     var arg = methodCallStmt.Arguments[0];
 
@@ -1558,7 +1590,7 @@ namespace Backend.Analyses
 					// DIEGODIEGO: We this I handle the RowList as an Enumerator
 					// DIEGODIEGO: this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
 					// DIEGODIEGO: remove this line if handle as enumerator 
-					UpdatePTAForPure(methodCallStmt);
+					UpdatePTAForScopeMethod(methodCallStmt);
 					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     // TODO: I don't know I need this
@@ -1574,7 +1606,7 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     CheckFailure(methodCallStmt, traceables);
@@ -1587,7 +1619,7 @@ namespace Backend.Analyses
                 {
                     var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     CheckFailure(methodCallStmt, traceables);
@@ -1600,7 +1632,7 @@ namespace Backend.Analyses
                     var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableCounter(table_i));
 
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tablesCounters);
 
                 }
@@ -1627,7 +1659,7 @@ namespace Backend.Analyses
                     var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
                                         .Select(table_i => new TraceableColumn(table_i, columnLiteral));
 
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
 
                     this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
@@ -1645,7 +1677,7 @@ namespace Backend.Analyses
                     var arg1 = methodCallStmt.Arguments[1];
 
                     var traceables = this.State.GetTraceables(arg1);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AddOutputTraceables(arg0, traceables);
 
                     var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
@@ -1660,7 +1692,7 @@ namespace Backend.Analyses
                     var arg1 = methodCallStmt.Arguments[1];
 
                     var traceables = this.State.GetTraceables(arg0);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AddOutputTraceables(arg1, traceables);
 
                     var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
@@ -1707,7 +1739,7 @@ namespace Backend.Analyses
                     var arg = methodCallStmt.Arguments[0];
 
                     var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForPure(methodCallStmt);
+                    UpdatePTAForScopeMethod(methodCallStmt);
                     this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
                     CheckFailure(methodCallStmt, traceables);
@@ -1718,6 +1750,7 @@ namespace Backend.Analyses
                     var receiver = methodCallStmt.Arguments[0];
                     var arg1 = methodCallStmt.Arguments[1];
                     this.State.AddTraceables(receiver, arg1);
+					// DIEGODIEGO: Need to add a edge from arg0 to arg1?
 
                     CheckFailure(methodCallStmt, arg1);
 
@@ -1736,7 +1769,7 @@ namespace Backend.Analyses
                         var traceables = this.State.GetTraceables(receiver);
                         var key = (this.equalities.GetValue(arg1) as Constant).Value as string;
                         var scopeMapTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableScopeMap(t.Table, t.Column, key));
-                        UpdatePTAForPure(methodCallStmt);
+                        UpdatePTAForScopeMethod(methodCallStmt);
 
                         this.State.AssignTraceables(methodCallStmt.Result, scopeMapTraceables);
                     }
@@ -1834,25 +1867,24 @@ namespace Backend.Analyses
                 return methodInvoked.Name.Value == "IndexOf" && methodInvoked.ContainingType.TypeEquals(ScopeTypes.Schema);
             }
 
-            private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType)
+            private bool IsMethodToInline(IMethodReference methodInvoked, ITypeReference clousureType, bool hasTraceables)
             {
                 if(methodInvoked.Name.Value==".ctor")
                 {
                     return true;
                 }
                 var patterns = new string[] { "<>m__Finally", "System.IDisposable.Dispose" };
-                var specialMethods = new Tuple<string, string>[] { }; //  { Tuple.Create("IDisposable", "Dispose") };
+				var specialMethods = new Tuple<string, string>[] { }; // { Tuple.Create("System.IDisposable", "Dispose") };
                 var result = methodInvoked.ContainingType != null 
                     && ( methodInvoked.ContainingType.TypeEquals(clousureType) && patterns.Any(pattern => methodInvoked.Name.Value.StartsWith(pattern))
-                         || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetName() 
+                         || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetFullName() 
                          && sm.Item2 == methodInvoked.Name.Value));
+
 				if (methodInvoked.ResolvedMethod != null && (MemberHelper.IsGetter(methodInvoked.ResolvedMethod) ||
-					MemberHelper.IsSetter(methodInvoked.ResolvedMethod))
-)
+					MemberHelper.IsSetter(methodInvoked.ResolvedMethod) && hasTraceables))
 				{
 					return true;
 				}
-
 				if (methodInvoked.Name.Value == "ParseJson")
 					return true;
                return result;
@@ -1955,27 +1987,6 @@ namespace Backend.Analyses
                     var schema = TryToGetSchemaForTable(arg, methodCallStmt);
 
                     Column column = UpdateColumnData(methodCallStmt, schema);
-                    //if (scopeData.HasTableForSchemaVar(arg))
-                    //{
-                    //    var tables = scopeData.GetTableFromSchemaMap(arg);
-                    //    var schema = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    //    var tableKind = tables.OfType<TraceableTable>().FirstOrDefault().TableKind;
-                    //    if (tableKind == ProtectedRowKind.Output)
-                    //    {
-                    //        schema = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
-                    //    }
-
-                    //    Column column = UpdateColumnData(methodCallStmt, schema);
-                    //}
-                    //else
-                    //{
-                    //    this.State.SetTOP();
-                    //    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Schema passed as parameter?"));
-                    //}
-
-                    //var columnn = ObtainColumn(methodCallStmt.Arguments[1], schema);
-                    //scopeData.UpdateColumnLiteralMap(methodCallStmt, columnn);
-                    //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
                 }
                 // callResult = arg.IndexOf(colunm)
                 // we recover the table from arg and associate the column number with the call result
@@ -2082,6 +2093,7 @@ namespace Backend.Analyses
                         traceables.AddRange(GetCallTraceables(methodCallStmt));
 						if (updatePTG)
 						{
+							// This update make sure that return value and arguments get 
 							UpdatePTAForPure(methodCallStmt);
 						}
                         this.State.AssignTraceables(result, traceables);
