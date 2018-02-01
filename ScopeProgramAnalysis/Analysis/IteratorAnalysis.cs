@@ -1040,6 +1040,9 @@ namespace Backend.Analyses
 							var isCollectionMethod = HandleCollectionMethod(methodCallStmt, methodInvoked);
 							if (!isCollectionMethod)
 							{
+								// DIEGODIEGO: I should add a whitelist for method that do not propagate traceables
+								// At least they propagate only the Other traceables for the passthrough analysis
+
 								// For a pure a = a0.m(a1,...,an)  we propagate traceables from a0...an to a
 								// and update the points-to graph to conservately make the return_value reach a0...an (since we do not analyze the methdod) 
 								if (IsPureMethod(methodCallStmt))
@@ -1135,15 +1138,24 @@ namespace Backend.Analyses
 
 			private bool AnalyzeJsonMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
 			{
-				if (methodInvoked.Name.Value == "DeserializeObject" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
+				if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
 				{
-					var arg = methodCallStmt.Arguments[0];
-					var jsontraceables = this.State.GetTraceables(arg).OfType<TraceableColumn>().Select(t => new TraceableJson(t));
-					this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
+					if (methodInvoked.Name.Value == "DeserializeObject")
+					{
+						var arg = methodCallStmt.Arguments[0];
+						var jsontraceables = this.State.GetTraceables(arg).OfType<TraceableColumn>().Select(t => new TraceableJson(t));
+						this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
 
-					UpdatePTAForScopeMethod(methodCallStmt);
+						UpdatePTAForScopeMethod(methodCallStmt);
 
-					return true;
+						return true;
+					}
+					// DIEGODIEGO: Should I handle this as a Pure?
+					else if (methodInvoked.Name.Value == "SerializeObject")
+					{
+						UpdateCall(methodCallStmt);
+						return true;
+					}
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
 				{
@@ -1188,11 +1200,14 @@ namespace Backend.Analyses
 						return true; ;
 					}
 				}
-				else if (methodInvoked.Name.Value == @"op_Explicit" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
+				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
 				{
-					this.State.CopyTraceables(methodCallStmt.Result, methodCallStmt.Arguments[0]);
-					UpdatePTAForScopeMethod(methodCallStmt);
-					return true; ;
+					if (methodInvoked.Name.Value == @"op_Explicit" || methodInvoked.Name.Value == @"op_Implicit")
+					{
+						this.State.CopyTraceables(methodCallStmt.Result, methodCallStmt.Arguments[0]);
+						UpdatePTAForScopeMethod(methodCallStmt);
+						return true; ;
+					}
 				}
 				return false;
 			}
