@@ -585,7 +585,7 @@ namespace ScopeProgramAnalysis
 
 				resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
 				resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
-				resultSummary.SetProperty("DependencyAnalysisTime", (int)depAnalysisTime.TotalMilliseconds);
+				resultSummary.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
 				#endregion
 
 				#region Results for Svonimir analysis
@@ -617,7 +617,7 @@ namespace ScopeProgramAnalysis
                 resultSummary.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
                 resultSummary.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
 
-                resultSummary.SetProperty("BagOColumnsTime", (int) bagOColumnsTime.TotalMilliseconds);
+                resultSummary.SetProperty("BagOColumnsTime", 0); // (int) bagOColumnsTime.TotalMilliseconds);
 				#endregion
 
 				results.Add(resultSummary);
@@ -641,9 +641,9 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
                 resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
                 resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
-                resultEmpty.SetProperty("BagOColumnsTime", (int)bagOColumnsTime.TotalMilliseconds);
-                resultEmpty.SetProperty("DependencyAnalysisTime", (int)depAnalysisTime.TotalMilliseconds);
-                results.Add(resultEmpty);
+                resultEmpty.SetProperty("BagOColumnsTime", 0); //(int)bagOColumnsTime.TotalMilliseconds);
+				resultEmpty.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
+				results.Add(resultEmpty);
             }
 
             var actualProcessorClass = processToAnalyze.EntryMethod.ContainingType;
@@ -847,7 +847,7 @@ namespace ScopeProgramAnalysis
                     var reducerClassDefinition = entryMethod.ContainingTypeDefinition;
 
                     var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClassDefinition.FullName()));
-					if (reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17"))
+					if (reducerClassDefinition.FullName().Contains(@"ScoperTransformer_4") || reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17"))
 					{
 					}
 					else
