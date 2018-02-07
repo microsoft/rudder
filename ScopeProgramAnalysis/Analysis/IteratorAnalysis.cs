@@ -547,7 +547,13 @@ namespace Backend.Analyses
                 return instance.Type.TypeEquals(this.iteratorDependencyAnalysis.iteratorClass);
             }
 
-            private bool ISClousureField(IVariable instance, IFieldReference field)
+			private bool IsClousureInternalField(IVariable instance, IFieldReference field)
+			{
+				return this.iteratorDependencyAnalysis.iteratorClass.Equals(field.ContainingType);
+			}
+					
+
+		private bool ISClousureField(IVariable instance, IFieldReference field)
             {
                 if(SongTaoDependencyAnalysis.IsScopeType(field.Type))
                 {
@@ -780,7 +786,7 @@ namespace Backend.Analyses
 				// TODO: Check this. I think it is too conservative to add a2[o]
 				// this is a2[o]
 
-				if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+				if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || IsClousureInternalField(fieldAccess.Instance, fieldAccess.Field))
 				{
 					var itState = this.State.IteratorState;
 				}
@@ -804,7 +810,7 @@ namespace Backend.Analyses
 					//	return;
 					//}
 
-					if (traceables.OfType<TraceableJson>().Any())
+					if (!IsClousureInternalField(fieldAccess.Instance,fieldAccess.Field) &&  traceables.OfType<TraceableJson>().Any())
 					{
 						var jsonTraceables = traceables.OfType<TraceableJson>()
 														.Select(jsonTraceable => new TraceableJsonField(jsonTraceable.TColumn, fieldAccess.FieldName));
@@ -840,6 +846,7 @@ namespace Backend.Analyses
                 var isReducerField = iteratorClass!=null 
                                         && iteratorClass.ContainingType.TypeEquals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
+				// DIEGODIEGO: I should try to get read of this method
                 if (ISClousureField(SimplePointsToAnalysis.GlobalVariable, fieldAccess.Field))
                 //    if (isClousureField || isReducerField)
                 {
@@ -912,7 +919,7 @@ namespace Backend.Analyses
                     var o = fieldAccess.Instance;
                     var field = fieldAccess.Field;
 
-					if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+					if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || IsClousureInternalField(fieldAccess.Instance, fieldAccess.Field))
 					{
 						var itState = this.State.IteratorState;
 						if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "ResourceDataTagFlattener")
@@ -1188,7 +1195,8 @@ namespace Backend.Analyses
 					// DIEGODIEGO: Should I handle this as a Pure?
 					else if (methodInvoked.Name.Value == "SerializeObject")
 					{
-						UpdateCall(methodCallStmt);
+						var arg = methodCallStmt.Arguments[0];
+						AddJsonColumnFieldToTraceables(methodCallStmt, arg, "*");
 						return true;
 					}
 				}
@@ -1215,16 +1223,7 @@ namespace Backend.Analyses
 						{
 							var columnLiteral = columRange.Literal;
 
-							var jsonFields = this.State.GetTraceables(arg).OfType<TraceableJson>()
-												.Select(tjs => new TraceableJsonField(tjs.TColumn, columnLiteral));
-
-							UpdatePTAForScopeMethod(methodCallStmt);
-							this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
-
-							this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
-							this.iteratorDependencyAnalysis.OutputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Output));
-
-							CheckFailure(methodCallStmt, jsonFields);
+							AddJsonColumnFieldToTraceables(methodCallStmt, arg, columnLiteral);
 						}
 						else
 						{
@@ -1235,7 +1234,7 @@ namespace Backend.Analyses
 						return true; ;
 					}
 				}
-				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName()=="ScopeRuntime.StringColumnData")
+				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName() == "ScopeRuntime.StringColumnData")
 				{
 					if (methodInvoked.Name.Value == @"op_Explicit" || methodInvoked.Name.Value == @"op_Implicit")
 					{
@@ -1244,7 +1243,31 @@ namespace Backend.Analyses
 						return true; ;
 					}
 				}
+				else if (methodInvoked.ContainingType.GetFullName() == "Microsoft.DataMap.Common.Tag")
+				{
+					if (methodInvoked.Name.Value.StartsWith(@"get_"))
+					{
+						var arg = methodCallStmt.Arguments[0];
+						var columName = methodInvoked.Name.Value.Substring(4);
+						AddJsonColumnFieldToTraceables(methodCallStmt, arg, columName);
+						return true;
+					}
+				}
 				return false;
+			}
+
+			private void AddJsonColumnFieldToTraceables(MethodCallInstruction methodCallStmt, IVariable arg, string columnLiteral)
+			{
+				var jsonFields = this.State.GetTraceables(arg).OfType<TraceableJson>()
+									.Select(tjs => new TraceableJsonField(tjs.TColumn, columnLiteral));
+
+				UpdatePTAForScopeMethod(methodCallStmt);
+				this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
+
+				this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
+				this.iteratorDependencyAnalysis.OutputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Output));
+
+				CheckFailure(methodCallStmt, jsonFields);
 			}
 
 			/// <summary>
@@ -1474,7 +1497,7 @@ namespace Backend.Analyses
 					//|| (methodInvoked.Name.Value == "First" && methodInvoked.ContainingType.IsEnumerable())
 					)
                 {
-                    var arg = methodCallStmt.Arguments[0];
+					var arg = methodCallStmt.Arguments[0];
                     var traceables = this.State.GetTraceables(arg);
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     bool createdNode;
@@ -2394,15 +2417,27 @@ namespace Backend.Analyses
 
         private void InitVariablesWithTaint(DependencyPTGDomain depValues)
         {
-            foreach (var v in cfg.GetVariables())
+			foreach (var v in cfg.GetVariables())
             {
                 // The framework has problems with  type resolution
                 // This is a workaround until the problem is fix
                 if (v.Type != null)
                 {
-                    if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && !v.Type.IsClassOrStruct())
+					if (!SongTaoDependencyAnalysis.IsScopeType(v.Type) && !v.IsParameter && (!v.Type.IsClassOrStruct() || v.Type.IsString()))
                     {
-                        depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.GetName()) });
+
+						var varRange = rangeAnalysis.Result[cfg.Exit.Id].Input.GetValue(v);
+						if (!varRange.IsBottom && !varRange.IsTop)
+						{
+							if(varRange.IsString)
+								depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(varRange.Literal) });
+							else
+								depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(varRange.LowerBound.ToString()) });
+						}
+						else
+						{
+							depValues.AssignTraceables(v, new HashSet<Traceable>() { new Other(v.Type.GetName()) });
+						}
                     }
                 }
                 else

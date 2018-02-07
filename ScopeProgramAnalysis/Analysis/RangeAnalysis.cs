@@ -25,13 +25,13 @@ namespace ScopeProgramAnalysis
 
 		public string Literal{ get; private set; }
 
-		private bool isString;
+		public bool IsString { get; private set; }
 
 		public bool IsTop
         {
             get
             {
-                return (!isString && LowerBound==int.MinValue && UpperBound==int.MaxValue) || (isString && Literal==STRINGTOP);
+                return (!IsString && LowerBound==int.MinValue && UpperBound==int.MaxValue) || (IsString && Literal==STRINGTOP);
             }
         }
 
@@ -39,7 +39,7 @@ namespace ScopeProgramAnalysis
         {
             get
             {
-                return (!isString && LowerBound == 0 && UpperBound == -1) || (isString && Literal == STRINGBOTTOM);
+                return (!IsString && LowerBound == 0 && UpperBound == -1) || (IsString && Literal == STRINGBOTTOM);
             }
         }
 
@@ -48,7 +48,7 @@ namespace ScopeProgramAnalysis
             this.LowerBound = singleton;
             this.UpperBound = singleton;
 			this.Literal = null;
-			this.isString = false;
+			this.IsString = false;
         }
 
         public RangeDomain(int start, int end)
@@ -56,7 +56,7 @@ namespace ScopeProgramAnalysis
             this.LowerBound = start;
             this.UpperBound = end;
 			this.Literal = null;
-			this.isString = false;
+			this.IsString = false;
 		}
 
 		public RangeDomain(string literal)
@@ -64,11 +64,11 @@ namespace ScopeProgramAnalysis
 			this.LowerBound = 0;
 			this.UpperBound = -1;
 			this.Literal = literal;
-			this.isString = true;
+			this.IsString = true;
 		}
 		public RangeDomain Join(RangeDomain oth)
         {
-			if (isString)
+			if (IsString)
 			{
 				return oth.Literal != this.Literal ? new RangeDomain(STRINGTOP) : this;
 			}
@@ -88,7 +88,7 @@ namespace ScopeProgramAnalysis
 
         public RangeDomain Widening(RangeDomain prev)
         {
-			if (isString)
+			if (IsString)
 			{
 				return prev.Literal != this.Literal ? new RangeDomain(STRINGTOP) : this;
 			}
@@ -111,35 +111,35 @@ namespace ScopeProgramAnalysis
 
         public RangeDomain Clone()
         {
-			if (isString) return new RangeDomain(this.Literal);
+			if (IsString) return new RangeDomain(this.Literal);
 
             return  new RangeDomain(this.LowerBound, this.UpperBound);
         }
 
         public bool LessEqual(RangeDomain oth)
         {
-			if (isString) return this.Literal==oth.Literal;
+			if (IsString) return this.Literal==oth.Literal;
 
 			return this.LowerBound>=oth.LowerBound && this.UpperBound<=oth.UpperBound;
         }
 
         public bool Equals(RangeDomain oth)
         {
-			if (isString) return this.Literal == oth.Literal;
+			if (IsString) return this.Literal == oth.Literal;
 
 			return this.LowerBound==oth.LowerBound && this.UpperBound==oth.UpperBound;
         }
 
         public RangeDomain Sum(RangeDomain rangeDomain)
         {
-			if (isString) return this;
+			if (IsString) return this;
 
 			if (IsTop) return this;
             return new RangeDomain(this.LowerBound+rangeDomain.LowerBound,this.UpperBound+rangeDomain.UpperBound);
         }
         public RangeDomain Sub(RangeDomain rangeDomain)
         {
-			if (isString) return this;
+			if (IsString) return this;
 
 			if (IsTop) return this;
             return new RangeDomain(this.LowerBound - rangeDomain.LowerBound, this.UpperBound - rangeDomain.UpperBound);
@@ -147,7 +147,7 @@ namespace ScopeProgramAnalysis
 
         public override string ToString()
         {
-			if (isString) return this.Literal!=null?$"'{this.Literal}":"_STRING_BOTTOM_";
+			if (IsString) return this.Literal!=null?$"'{this.Literal}":"_STRING_BOTTOM_";
 			if (IsTop) return "_TOP_";
             if(IsBottom)
                 return "_BOTTOM_";
