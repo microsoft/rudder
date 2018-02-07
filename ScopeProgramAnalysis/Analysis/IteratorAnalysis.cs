@@ -522,8 +522,9 @@ namespace Backend.Analyses
             private IMethodDefinition method;
             private PTAVisitor visitorPTA;
             private VariableRangeDomain variableRanges;
+			private bool validBlock;
 
-            public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis,
+			public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis,
                                    CFGNode cfgNode,  DependencyPTGDomain oldInput)
             {
 
@@ -592,35 +593,49 @@ namespace Backend.Analyses
                 return false;
             }
 
-            //private ISet<ISymbolicValue> GetSymbolicValues(IVariable v)
-            //{
-            //    if(v.Type.TypeKind == TypeKind.ValueType)
-            //    {
-            //        return new HashSet<ISymbolicValue>() { new EscalarVariable(v) } ;
-            //    }
-            //    var res = new HashSet<ISymbolicValue>();
-            //    if(currentPTG.Contains(v))
-            //    {
-            //        res.UnionWith(currentPTG.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
-            //    }
-            //    return res;
-            //}
-            //private ISet<SimplePTGNode> GetSimplePTGNodes(IVariable v)
-            //{
-            //    var res = new HashSet<SimplePTGNode>();
-            //    if (currentPTG.Contains(v))
-            //    {
-            //        res.UnionWith(currentPTG.GetTargets(v));
-            //    }
-            //    return res;
-            //}
+			//private ISet<ISymbolicValue> GetSymbolicValues(IVariable v)
+			//{
+			//    if(v.Type.TypeKind == TypeKind.ValueType)
+			//    {
+			//        return new HashSet<ISymbolicValue>() { new EscalarVariable(v) } ;
+			//    }
+			//    var res = new HashSet<ISymbolicValue>();
+			//    if(currentPTG.Contains(v))
+			//    {
+			//        res.UnionWith(currentPTG.GetTargets(v).Select( ptg => new AbstractObject(ptg) ));
+			//    }
+			//    return res;
+			//}
+			//private ISet<SimplePTGNode> GetSimplePTGNodes(IVariable v)
+			//{
+			//    var res = new HashSet<SimplePTGNode>();
+			//    if (currentPTG.Contains(v))
+			//    {
+			//        res.UnionWith(currentPTG.GetTargets(v));
+			//    }
+			//    return res;
+			//}
 
-            //private ISet<IVariable> GetAliases(IVariable v)
-            //{
-            //    return currentPTG.GetAliases(v);
-            //}
+			//private ISet<IVariable> GetAliases(IVariable v)
+			//{
+			//    return currentPTG.GetAliases(v);
+			//}
 
-            public override void Visit(LoadInstruction instruction)
+			public override void Visit(IInstructionContainer container)
+			{
+				this.validBlock = true;
+				foreach (var instruction in container.Instructions)
+				{
+					instruction.Accept(this);
+					// If we discover that the block should not be analyzed
+					// we stop
+					if (!validBlock)
+						break;
+				}
+			}
+
+
+			public override void Visit(LoadInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
 
@@ -762,15 +777,17 @@ namespace Backend.Analyses
                 // TODO: Check this. I think it is too conservative to add a2[o]
                 // this is a2[o]
                 var traceables = new HashSet<Traceable>();
-                // TODO: Check this. I think it is too conservative to add a2[o]
-                // this is a2[o]
+				// TODO: Check this. I think it is too conservative to add a2[o]
+				// this is a2[o]
 
-                //if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type))
-                //if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
-                //{
-                    
-                    // this is a[loc(o.f)]
-                    var nodes = currentPTG.GetTargets(fieldAccess.Instance);
+				if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+				{
+					var itState = this.State.IteratorState;
+				}
+
+
+				// this is a[loc(o.f)]
+				var nodes = currentPTG.GetTargets(fieldAccess.Instance);
 				if (nodes.Any())
 				{
 					// TODO: SHould I only consider the clousure fields?
@@ -894,14 +911,32 @@ namespace Backend.Analyses
 
                     var o = fieldAccess.Instance;
                     var field = fieldAccess.Field;
-                    //if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
-                    {
-                        var arg = instruction.Operand;
+
+					if (SongTaoDependencyAnalysis.IsScopeType(fieldAccess.Instance.Type) || ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+					{
+						var itState = this.State.IteratorState;
+						if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "ResourceDataTagFlattener")
+						{ }
+
+					}
+
+
+					//if (ISClousureField(fieldAccess.Instance, fieldAccess.Field))
+					{
+						var arg = instruction.Operand;
                         var inputTable = equalities.GetValue(arg);
 
-                        // a3 := a3[loc(o.f) <- a2[v]] 
-                        // union = a2[v]
-                        var traceables = this.State.GetTraceables(instruction.Operand);
+						var iteratorFSMState = this.variableRanges.GetValue(arg);
+
+						if (field.Name.Value.EndsWith("__state"))
+						{
+							this.State.IteratorState = iteratorFSMState;
+						}
+
+
+						// a3 := a3[loc(o.f) <- a2[v]] 
+						// union = a2[v]
+						var traceables = this.State.GetTraceables(instruction.Operand);
 
                         var OK = true;
                         if (o.Name == "this")
@@ -1200,7 +1235,7 @@ namespace Backend.Analyses
 						return true; ;
 					}
 				}
-				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
+				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName()=="ScopeRuntime.StringColumnData")
 				{
 					if (methodInvoked.Name.Value == @"op_Explicit" || methodInvoked.Name.Value == @"op_Implicit")
 					{
@@ -1358,7 +1393,7 @@ namespace Backend.Analyses
                 return result;
             }
 
-            public override void Visit(PhiInstruction instruction)
+			public override void Visit(PhiInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
 
@@ -1574,8 +1609,15 @@ namespace Backend.Analyses
             {
                 if (!traceables.Any())
                 {
-                    this.State.SetTOP();
+					// DIEGODIEGO: We need to check this
+					// When the analysis fail I'm giving a new opportunity 
+					// and I mark the block as invalid. 
+					// We need to actually check whether if the block has 
+					// all predecesors analyzed at least once or 
+					// (if we can) check if we are at the right iterator state
+                    // this.State.SetTOP();
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expecting a traceable and there isn't any"));
+					this.validBlock = false;
                 }
             }
 
@@ -1584,219 +1626,228 @@ namespace Backend.Analyses
                 CheckFailure(instruction, this.State.GetTraceables(var));
             }
 
-            private bool  HandleScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
-            {
-                var result = true;
-                if(methodInvoked.Name.Value=="Clone" && methodInvoked.ContainingType.IsRowType())
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
-                    this.scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
-                }
-                // This is when you get rows
-                // a2 = a2[v<- a[arg_0]] 
-                else if (methodInvoked.Name.Value == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
-                {
-                    var arg = methodCallStmt.Arguments[0];
+			private bool HandleScopeRowMethods(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+			{
+				var result = true;
+				if (methodInvoked.Name.Value == "Clone" && methodInvoked.ContainingType.IsRowType())
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					this.scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+				}
+				// This is when you get rows
+				// a2 = a2[v<- a[arg_0]] 
+				else if (methodInvoked.Name.Value == "get_Rows" && methodInvoked.ContainingType.IsRowSetType())
+				{
+					var arg = methodCallStmt.Arguments[0];
 
-                    var traceables = this.State.GetTraceables(arg);
+					var traceables = this.State.GetTraceables(arg);
 					// DIEGODIEGO: We this I handle the RowList as an Enumerator
 					// DIEGODIEGO: this.iteratorDependencyAnalysis.pta.ProcessGetEnum(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result);
 					// DIEGODIEGO: remove this line if handle as enumerator 
 					UpdatePTAForScopeMethod(methodCallStmt);
 					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
-                    // TODO: I don't know I need this
-                    scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+					// TODO: I don't know I need this
+					scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
 
-                    CheckFailure(methodCallStmt, traceables);
-                }
-                // This is when you get enumerator (same as get rows)
-                // a2 = a2[v <- a[arg_0]] 
-                else if (methodInvoked.Name.Value == "GetEnumerator"
-                    && (methodInvoked.ContainingType.IsIEnumerableRow()
-                       || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					CheckFailure(methodCallStmt, traceables);
+				}
+				// This is when you get enumerator (same as get rows)
+				// a2 = a2[v <- a[arg_0]] 
+				else if (methodInvoked.Name.Value == "GetEnumerator"
+					&& (methodInvoked.ContainingType.IsIEnumerableRow()
+					   || methodInvoked.ContainingType.IsIEnumerableScopeMapUsage()))
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
-                    CheckFailure(methodCallStmt, traceables);
-                }
-                // v = arg.Current
-                // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name.Value == "get_Current"
-                    && (methodInvoked.ContainingType.IsIEnumeratorRow()
-                         || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					CheckFailure(methodCallStmt, traceables);
+				}
+				// v = arg.Current
+				// a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
+				else if (methodInvoked.Name.Value == "get_Current"
+					&& (methodInvoked.ContainingType.IsIEnumeratorRow()
+						 || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
+				{
+					if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "ResourceDataTagFlattener")
+					{ }
 
-                    CheckFailure(methodCallStmt, traceables);
-                }
-                // v = arg.Current
-                // a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name.Value == "MoveNext" && methodInvoked.ContainingType.IsIEnumerator())
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                                        .Select(table_i => new TraceableCounter(table_i));
+					var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, tablesCounters);
+					CheckFailure(methodCallStmt, traceables);
+				}
+				// v = arg.Current
+				// a2 := a2[v <- Table(i)] if Table(i) in a2[arg]
+				else if (methodInvoked.Name.Value == "MoveNext" && methodInvoked.ContainingType.IsIEnumerator())
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var tablesCounters = this.State.GetTraceables(arg).OfType<TraceableTable>()
+										.Select(table_i => new TraceableCounter(table_i));
 
-                }
-                // v = arg.getItem(col)
-                // a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
-                else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.IsRowType())
-                {
-                    var arg = methodCallStmt.Arguments[0];
-                    var col = methodCallStmt.Arguments[1];
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, tablesCounters);
 
-                    var s = TryToGetSchemaForTable(arg, methodCallStmt);
+				}
+				// v = arg.getItem(col)
+				// a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
+				else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.IsRowType())
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var col = methodCallStmt.Arguments[1];
 
-                    //var tableType = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                    //    .Select(t => t.TableKind).FirstOrDefault(); // BUG: what if there are more than one?
-                    //Schema s;
-                    //if (tableType == ProtectedRowKind.Input)
-                    //    s = ScopeProgramAnalysis.ScopeProgramAnalysis.InputSchema;
-                    //else
-                    //    s = ScopeProgramAnalysis.ScopeProgramAnalysis.OutputSchema;
+					var s = TryToGetSchemaForTable(arg, methodCallStmt);
+					if (s != null)
+					{
+						var columnLiteral = UpdateColumnData(methodCallStmt, s); //  ObtainColumn(col, s);
 
-                    //var columnLiteral = ObtainColumn(col, s);
-                    var columnLiteral = UpdateColumnData(methodCallStmt, s); //  ObtainColumn(col, s);
+						var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
+											.Select(table_i => new TraceableColumn(table_i, columnLiteral));
 
-                    var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
-                                        .Select(table_i => new TraceableColumn(table_i, columnLiteral));
+						UpdatePTAForScopeMethod(methodCallStmt);
+						this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
 
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
+						this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
+						this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
 
-                    this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
-                    this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
+						CheckFailure(methodCallStmt, tableColumns);
+					}
+					//scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
+				}
+				// arg.Set(arg1)
+				// a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
+				else if ((methodInvoked.Name.Value == "Set" || methodInvoked.Name.Value == "UnsafeSet") && methodInvoked.ContainingType.IsColumnDataType())
+				//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+				{
+					var arg0 = methodCallStmt.Arguments[0];
+					var arg1 = methodCallStmt.Arguments[1];
 
-                    CheckFailure(methodCallStmt, tableColumns);
-                    //scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
-                }
-                // arg.Set(arg1)
-                // a4 := a4[arg0 <- a4[arg0] U a2[arg1]] 
-                else if ((methodInvoked.Name.Value == "Set" || methodInvoked.Name.Value == "UnsafeSet") && methodInvoked.ContainingType.IsColumnDataType())
-                //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
-                {
-                    var arg0 = methodCallStmt.Arguments[0];
-                    var arg1 = methodCallStmt.Arguments[1];
+					var traceables = this.State.GetTraceables(arg1);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AddOutputTraceables(arg0, traceables);
 
-                    var traceables = this.State.GetTraceables(arg1);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AddOutputTraceables(arg0, traceables);
+					var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+					this.State.AddOutputControlTraceables(arg0, controlTraceables);
 
-                    var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputControlTraceables(arg0, controlTraceables);
+					//CheckFailure(methodCallStmt, traceables);
+				}
+				else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
+				//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
+				{
+					var arg0 = methodCallStmt.Arguments[0];
+					var arg1 = methodCallStmt.Arguments[1];
 
-                    //CheckFailure(methodCallStmt, traceables);
-                }
-                else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsColumnDataType())
-                //                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
-                {
-                    var arg0 = methodCallStmt.Arguments[0];
-                    var arg1 = methodCallStmt.Arguments[1];
+					var traceables = this.State.GetTraceables(arg0);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AddOutputTraceables(arg1, traceables);
 
-                    var traceables = this.State.GetTraceables(arg0);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AddOutputTraceables(arg1, traceables);
+					var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
+					this.State.AddOutputControlTraceables(arg1, controlTraceables);
 
-                    var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
-                    this.State.AddOutputControlTraceables(arg1, controlTraceables);
+					//CheckFailure(methodCallStmt, traceables);
 
-                    //CheckFailure(methodCallStmt, traceables);
+				}
+				// arg.Copy(arg1)
+				// a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
+				else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsRowType())
+				{
+					// TODO: This is a pass-through!
+					var arg0 = methodCallStmt.Arguments[0];
+					var arg1 = methodCallStmt.Arguments[1];
 
-                }
-                // arg.Copy(arg1)
-                // a4 := a4[arg1 <- a4[arg1] U a2[arg0]] 
-                else if (methodInvoked.Name.Value == "CopyTo" && methodInvoked.ContainingType.IsRowType())
-                {
-                    // TODO: This is a pass-through!
-                    var arg0 = methodCallStmt.Arguments[0];
-                    var arg1 = methodCallStmt.Arguments[1];
+					var inputSchema = this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
 
-                    var inputSchema =  this.iteratorDependencyAnalysis.processToAnalyze.InputSchema;
+					//var inputTable = scopeData.GetTableFromSchemaMap(arg0).First(t => t.TableKind == ProtectedRowKind.Input); 
+					//var outputTable = scopeData.GetTableFromSchemaMap(arg1).First(t => t.TableKind == ProtectedRowKind.Output);
+					var inputTable = TryToGetTable(arg0);
+					var outputTable = TryToGetTable(arg1);
 
-                    //var inputTable = scopeData.GetTableFromSchemaMap(arg0).First(t => t.TableKind == ProtectedRowKind.Input); 
-                    //var outputTable = scopeData.GetTableFromSchemaMap(arg1).First(t => t.TableKind == ProtectedRowKind.Output);
-                    var inputTable = TryToGetTable(arg0);
-                    var outputTable = TryToGetTable(arg1);
+					//if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
+					if (inputTable != null && inputTable.TableKind == ProtectedRowKind.Input
+										   && outputTable != null && outputTable.TableKind == ProtectedRowKind.Output)
+					{
+						this.iteratorDependencyAnalysis.CopyRow(this.State, arg1, inputSchema, inputTable, outputTable);
+					}
+					else
+					{
+						// TODO: This is OVERLY conservative. I should wait until the end of the fixpoint
+						// We need to check somehow at the end if the information has not propagated 
+						// One option: remenber arg0 and arg1 and check at the end if they have traceables. 
+						// If they have (because of SSA) they will be assigned only here
+						this.State.SetTOP();
+						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
+					}
 
-                    //if (this.State.HasTraceables(arg0) && this.State.HasTraceables(arg1))
-                    if (inputTable != null && inputTable.TableKind == ProtectedRowKind.Input
-                                           && outputTable != null && outputTable.TableKind == ProtectedRowKind.Output)
-                    {
-                        this.iteratorDependencyAnalysis.CopyRow(this.State, arg1, inputSchema, inputTable, outputTable);
-                    }
-                    else
-                    {
-                        // TODO: This is OVERLY conservative. I should wait until the end of the fixpoint
-                        // We need to check somehow at the end if the information has not propagated 
-                        // One option: remenber arg0 and arg1 and check at the end if they have traceables. 
-                        // If they have (because of SSA) they will be assigned only here
-                        this.State.SetTOP();
-                        AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
-                    }
+				}
+				else if (methodInvoked.Name.Value == "Reset" && methodInvoked.ContainingType.IsRowType())
+				{
+					// TODO: Check semantics of Reset. They apply Reset to each column
+					// Row.Reset(r) 
+					// Now I just look if if is an output column and do nothing.
+					var arg = methodCallStmt.Arguments[0];
+					var outputTable = TryToGetTable(arg);
+				}
+				else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value == "Get")
+					&& methodInvoked.ContainingType.IsColumnDataType())
+				{
+					var arg = methodCallStmt.Arguments[0];
 
-                }
-                else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value=="Get") 
-                    && methodInvoked.ContainingType.IsColumnDataType())
-                {
-                    var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
 
-                    var traceables = this.State.GetTraceables(arg);
-                    UpdatePTAForScopeMethod(methodCallStmt);
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					CheckFailure(methodCallStmt, traceables);
 
-                    CheckFailure(methodCallStmt, traceables);
-
-                }
-                else if (methodInvoked.Name.Value == "Load" && methodInvoked.ContainingType.IsRowListType()) 
-                {
-                    var receiver = methodCallStmt.Arguments[0];
-                    var arg1 = methodCallStmt.Arguments[1];
-                    this.State.AddTraceables(receiver, arg1);
+				}
+				else if (methodInvoked.Name.Value == "Load" && methodInvoked.ContainingType.IsRowListType())
+				{
+					var receiver = methodCallStmt.Arguments[0];
+					var arg1 = methodCallStmt.Arguments[1];
+					this.State.AddTraceables(receiver, arg1);
 					// DIEGODIEGO: Need to add a edge from arg0 to arg1?
 
-                    CheckFailure(methodCallStmt, arg1);
+					CheckFailure(methodCallStmt, arg1);
 
-                }
-                else if(methodInvoked.ContainingType.IsScopeMap())
-                {
-                    if(methodInvoked.Name.Value=="ContainsKey")
-                    {
+				}
+				else if (methodInvoked.ContainingType.IsScopeMap())
+				{
+					if (methodInvoked.Name.Value == "ContainsKey")
+					{
 
-                    }
-                    else if (methodInvoked.Name.Value == "get_Item")
-                    {
-                        var receiver = methodCallStmt.Arguments[0];
-                        var arg1 = methodCallStmt.Arguments[1];
-                        // receiver is of type ScopeMap and should have at least one input column in the traceables
-                        var traceables = this.State.GetTraceables(receiver);
-                        var key = (this.equalities.GetValue(arg1) as Constant).Value as string;
-                        var scopeMapTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableScopeMap(t.Table, t.Column, key));
-                        UpdatePTAForScopeMethod(methodCallStmt);
+					}
+					else if (methodInvoked.Name.Value == "get_Item")
+					{
+						var receiver = methodCallStmt.Arguments[0];
+						var arg1 = methodCallStmt.Arguments[1];
+						// receiver is of type ScopeMap and should have at least one input column in the traceables
+						var traceables = this.State.GetTraceables(receiver);
+						var key = (this.equalities.GetValue(arg1) as Constant).Value as string;
+						var scopeMapTraceables = traceables.OfType<TraceableColumn>().Where(t => t.TableKind == ProtectedRowKind.Input).Select(t => new TraceableScopeMap(t.Table, t.Column, key));
+						UpdatePTAForScopeMethod(methodCallStmt);
 
-                        this.State.AssignTraceables(methodCallStmt.Result, scopeMapTraceables);
-                    }
-                }
-                else if(methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
-                {
-                    UpdateCall(methodCallStmt);
-                }
-                else
-                {
-                    result = false;
-                }
+						this.State.AssignTraceables(methodCallStmt.Result, scopeMapTraceables);
+					}
+				}
+				else if (methodInvoked.ContainingType.IsRowType())
+				{
+					// DIEGODIEGO: I show group operations by type and do something better for this case
+					UpdateCall(methodCallStmt);
+				}
+				else if (methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
+				{
+					UpdateCall(methodCallStmt);
+				}
+				else
+				{
+					result = false;
+				}
 
                 //if(result && methodCallStmt.HasResult)
                 //{
@@ -1950,7 +2001,10 @@ namespace Backend.Analyses
                             return result;
                         }
                     }
-                    this.State.SetTOP();
+					// DIEGODIEGO: We need to check this
+					// Check comment about having analyzed the previous predecessors
+					//this.State.SetTOP();
+					this.validBlock = false;
                     AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
                 }
                 return result;

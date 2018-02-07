@@ -23,21 +23,38 @@ namespace ScopeProgramAnalysis
 
     public class DependencyPTGDomain: IAnalysisDomain<DependencyPTGDomain>
     {
-        public DependencyDomain Dependencies { get; private set; }
+		public RangeDomain IteratorState { get; set; }
+		public RangeDomain BlockState { get; set; }
+
+		public DependencyDomain Dependencies { get; private set; }
         public SimplePointsToGraph PTG { get; set; }
 
         public DependencyPTGDomain()
         {
             Dependencies = new DependencyDomain();
             PTG = new SimplePointsToGraph();
-        }
+
+			IteratorState = RangeDomain.BOTTOM;  // new RangeDomain(-1);
+			BlockState =  RangeDomain.BOTTOM;
+
+		}
         public DependencyPTGDomain(DependencyDomain dependencies, SimplePointsToGraph ptg)
         {
             Dependencies = dependencies;
             PTG = ptg;
-        }
-        
-        public bool IsTop
+			IteratorState = RangeDomain.BOTTOM; // new RangeDomain(-1);
+			BlockState = RangeDomain.BOTTOM;
+		}
+
+		public DependencyPTGDomain(DependencyDomain dependencies, SimplePointsToGraph ptg, RangeDomain itState, RangeDomain blockState)
+		{
+			Dependencies = dependencies;
+			PTG = ptg;
+			IteratorState = itState;
+			BlockState = blockState;
+		}
+
+		public bool IsTop
         {
             get { return Dependencies.IsTop; }
         }
@@ -48,8 +65,7 @@ namespace ScopeProgramAnalysis
             //ptgClone.Union(this.PTG);
             //var ptgClone = this.PTG.Clone();
             var ptgClone = this.PTG;
-
-            var result = new DependencyPTGDomain(this.Dependencies.Clone(), ptgClone);
+            var result = new DependencyPTGDomain(this.Dependencies.Clone(), ptgClone, this.IteratorState, this.BlockState );
             return result;
         }
 
@@ -58,8 +74,10 @@ namespace ScopeProgramAnalysis
             var joinedDep = this.Dependencies.Join(right.Dependencies);
 
             var joinedPTG = this.PTG.Join(right.PTG);
-
-            return new DependencyPTGDomain(joinedDep, joinedPTG);
+			//if (!this.IteratorState.Equals(right.IteratorState))
+			//{
+			//}
+            return new DependencyPTGDomain(joinedDep, joinedPTG, this.IteratorState.Join(right.IteratorState), this.BlockState.Join(right.BlockState));
         }
 
         public bool LessEqual(DependencyPTGDomain depPTG)
