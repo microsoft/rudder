@@ -512,6 +512,8 @@ namespace Backend.Analyses
 
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
         {
+			private static readonly int MAX_ITERATIONS = 3;
+
             private IDictionary<IVariable, IExpression> equalities;
             private IteratorDependencyAnalysis iteratorDependencyAnalysis;
 
@@ -523,9 +525,13 @@ namespace Backend.Analyses
             private PTAVisitor visitorPTA;
             private VariableRangeDomain variableRanges;
 			private bool validBlock;
+			// Used to check if all predecessors where traversed at least once. Maybe no longer needed
+			private bool predecessorsVisited;
+
+			int numberOfVisits;
 
 			public MoveNextVisitorForDependencyAnalysis(IteratorDependencyAnalysis iteratorDependencyAnalysis,
-                                   CFGNode cfgNode,  DependencyPTGDomain oldInput)
+                                   CFGNode cfgNode,  DependencyPTGDomain oldInput, int numberOfVisits ,bool predecessorsVisited = true)
             {
 
                 // A visitor for the points-to graph
@@ -540,7 +546,10 @@ namespace Backend.Analyses
                 this.method = iteratorDependencyAnalysis.method;
                 this.visitorPTA = visitorPTA;
                 this.variableRanges = this.iteratorDependencyAnalysis.rangeAnalysis.Result[cfgNode.Id].Output;
-            }
+
+				this.numberOfVisits = numberOfVisits;
+				this.predecessorsVisited = predecessorsVisited; 
+			}
 
             private bool IsClousureType(IVariable instance)
             {
@@ -1074,7 +1083,7 @@ namespace Backend.Analyses
 					if (!isScopeRowMethod)
 					{
 						// Analyze methods that parte JsonObjects (that can be accessed as "fields" in columns)
-						var isJsonMethod = AnalyzeJsonMethod(methodCallStmt, methodInvoked);
+						var isJsonMethod = HandleJsonRelatedMethod(methodCallStmt, methodInvoked);
 						if (!isJsonMethod)
 						{
 							// Analyze collection handling methods (lists, sets, dictionaries)
@@ -1178,9 +1187,15 @@ namespace Backend.Analyses
 				}
 			}
 
-			private bool AnalyzeJsonMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
+			private bool HandleJsonRelatedMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
 			{
-				if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
+				if (methodInvoked.Name.Value == "ToString" && methodCallStmt.Arguments[0].Type.GetFullName().Contains("Newtonsoft.Json"))
+				{
+					this.State.CopyTraceables(methodCallStmt.Result, methodCallStmt.Arguments[0]);
+					UpdatePTAForScopeMethod(methodCallStmt);
+					return true;
+				}
+				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.JsonConvert")
 				{
 					if (methodInvoked.Name.Value == "DeserializeObject")
 					{
@@ -1192,12 +1207,14 @@ namespace Backend.Analyses
 
 						return true;
 					}
-					// DIEGODIEGO: Should I handle this as a Pure?
 					else if (methodInvoked.Name.Value == "SerializeObject")
 					{
 						var arg = methodCallStmt.Arguments[0];
 						AddJsonColumnFieldToTraceables(methodCallStmt, arg, "*");
 						return true;
+					}
+					else
+					{
 					}
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
@@ -1233,6 +1250,10 @@ namespace Backend.Analyses
 
 						return true; ;
 					}
+					else
+					{
+					}
+
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName() == "ScopeRuntime.StringColumnData")
 				{
@@ -1242,6 +1263,7 @@ namespace Backend.Analyses
 						UpdatePTAForScopeMethod(methodCallStmt);
 						return true; ;
 					}
+					else { }
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Microsoft.DataMap.Common.Tag")
 				{
@@ -1251,6 +1273,9 @@ namespace Backend.Analyses
 						var columName = methodInvoked.Name.Value.Substring(4);
 						AddJsonColumnFieldToTraceables(methodCallStmt, arg, columName);
 						return true;
+					}
+					else
+					{
 					}
 				}
 				return false;
@@ -1394,7 +1419,10 @@ namespace Backend.Analyses
                     return true;
                 }
 
-                var containingType = metodCallStmt.Method.ContainingType;
+				if (metodCallStmt.Method.Name.Value == "ToString")
+					return true;
+
+				var containingType = metodCallStmt.Method.ContainingType;
 
                 if (containingType.IsString())
                 {
@@ -1404,12 +1432,15 @@ namespace Backend.Analyses
                 {
                     return true;
                 }
-                if (    containingType.IsValueType())
+                if (containingType.IsValueType())
                 {
                     return true;
                 }
 
-				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose") };
+				if (metodCallStmt.Method.Name.Value == "ToString")
+					return true;
+
+				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),  };
 				result = specialMethods.Any(sm => sm.Item1 == containingType.GetFullName() 
 												&& sm.Item2 == metodCallStmt.Method.Name.Value);
 
@@ -1632,15 +1663,18 @@ namespace Backend.Analyses
             {
                 if (!traceables.Any())
                 {
-					// DIEGODIEGO: We need to check this
+					// DIEGODIEGODIEGO: We need to check this
 					// When the analysis fail I'm giving a new opportunity 
 					// and I mark the block as invalid. 
-					// We need to actually check whether if the block has 
-					// all predecesors analyzed at least once or 
-					// (if we can) check if we are at the right iterator state
-                    // this.State.SetTOP();
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expecting a traceable and there isn't any"));
-					this.validBlock = false;
+					if (this.numberOfVisits > MAX_ITERATIONS)
+					{
+						this.State.SetTOP();
+						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, instruction, "We are expecting a traceable and there isn't any"));
+					}
+					else
+						this.validBlock = false;
+					
+
                 }
             }
 
@@ -2024,11 +2058,15 @@ namespace Backend.Analyses
                             return result;
                         }
                     }
-					// DIEGODIEGO: We need to check this
-					// Check comment about having analyzed the previous predecessors
-					//this.State.SetTOP();
-					this.validBlock = false;
-                    AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
+					// DIEGODIEGODIEGO: We need to check this
+					// Check comment about having analyzed enough
+					if (this.numberOfVisits > MAX_ITERATIONS)
+					{
+						this.State.SetTOP();
+						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Scope Table mapping not available. Could not get schema"));
+					}
+					else
+						this.validBlock = false;
                 }
                 return result;
             }
@@ -2464,17 +2502,30 @@ namespace Backend.Analyses
             return elem.Clone();
         }
 
+		IDictionary<CFGNode,int> numberOfVisits = new Dictionary<CFGNode,int>();
+
         protected override DependencyPTGDomain Flow(CFGNode node, DependencyPTGDomain input)
         {
             if (input.IsTop)
                 return input;
 
             var oldInput = input.Clone();
-            // var currentPTG = pta.Result[node.Id].Output;
+			// var currentPTG = pta.Result[node.Id].Output;
 
-            // A visitor for the dependency analysis
-            var visitor = new MoveNextVisitorForDependencyAnalysis(this, node, oldInput);
+
+			// var predecessorsVisited = node.Predecessors.All(n => visited.Contains(n));
+
+			int count = 0;
+			if (!numberOfVisits.TryGetValue(node, out count))
+			{
+				numberOfVisits[node] = 0;
+			}
+
+			// A visitor for the dependency analysis
+			var visitor = new MoveNextVisitorForDependencyAnalysis(this, node, oldInput, count);
             visitor.Visit(node);
+
+			numberOfVisits[node] = count + 1;
 
             return visitor.State;
         }

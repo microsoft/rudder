@@ -26,8 +26,9 @@ namespace ScopeProgramAnalysis
         {
             var useScopeFactory = true;
             var scopeKind = ScopeMethodKind.All;
+			var interProcAnalysis = false;
 
-            string input;
+			string input;
 
             //const string root = @"c:\users\t-diga\source\repos\scopeexamples\metting\";
             //const string input = root + @"__ScopeCodeGen__.dll";
@@ -150,8 +151,24 @@ namespace ScopeProgramAnalysis
 			input = @"C:\Temp\Scope\InterestingScopeProjects\0ce5ea59-dec8-4f6f-be08-0e0746e12515\__ScopeCodeGen__.dll";
 			input = @"C:\Temp\Scope\NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
 
-			input = @"C:\Temp\Scope\JsonSurvey\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
-			input = @"C:\Temp\Scope\JsonSurvey\SimpleJsonProcessors\bin\Debug\6BEA71AFD72D97FF\UDO1_C79877185261167E\__ScopeCodeGen__.dll";
+			//input = @"C:\Temp\Scope\JsonSurvey\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
+			// Example that uses JsonConvert
+				//var jsonObj = JsonConvert.DeserializeObject<MyType>(s);
+			    //      string a = jsonObj.A;
+			//input = @"C:\Temp\Scope\JsonSurvey\SimpleJsonProcessors\bin\Debug\6BEA71AFD72D97FF\UDO1_C79877185261167E\__ScopeCodeGen__.dll";
+			
+			// Example that uses o = JObject.Parse and o[field] 
+			// This one is too complex. I uses complex getters and setters to access the row columns
+			// input = @"C:\Temp\Scope\JsonSurvey\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
+
+			// Simpler example made my Mike
+			input = @"C:\Temp\Scope\JsonSurvey\ProcessorWithJObject\__ScopeCodeGen__.dll";
+
+			// UDO with JSon extracted by Mike
+			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
+
+			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0ab0c6d5-731f-5029-8943-32ba867897c1\__ScopeCodeGen__.dll";
+			
 
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
@@ -159,7 +176,7 @@ namespace ScopeProgramAnalysis
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 
-            var log = AnalyzeDll(input, scopeKind, useScopeFactory, false);
+            var log = AnalyzeDll(input, scopeKind, useScopeFactory, interProcAnalysis);
             SarifLogger.WriteSarifOutput(log, outputPath);
 
 
