@@ -116,12 +116,26 @@ namespace ScopeProgramAnalysis.Framework
             return false;
         }
 
-        /// <summary>
-        /// TODO: Hack: This is a type that Mike used
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public static bool IsScopeMapUsage(this ITypeReference type)
+		public static bool IsStrictRowType(this ITypeReference type)
+		{
+			var basicType = type as INamedTypeReference;
+			if (basicType != null)
+			{
+				var resolvedClass = basicType.ResolvedType as INamedTypeDefinition;
+				if (resolvedClass != null)
+				{
+					return resolvedClass.Equals(ScopeTypes.Row);
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// TODO: Hack: This is a type that Mike used
+		/// </summary>
+		/// <param name="type"></param>
+		/// <returns></returns>
+		public static bool IsScopeMapUsage(this ITypeReference type)
         {
             var basicType = type as INamedTypeReference;
             return basicType != null && basicType.Name.Value == "ScopeMapUsage";

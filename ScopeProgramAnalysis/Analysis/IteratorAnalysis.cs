@@ -1069,10 +1069,6 @@ namespace Backend.Analyses
 				var methodInvoked = methodCallStmt.Method;
 				var callResult = methodCallStmt.Result;
 				var candidateClass = method.ContainingType.ResolvedType;
-				if (candidateClass.FullName().Contains(@"ScopeTransformer_4"))
-				{
-				}
-
 				// We are analyzing instructions of the form this.table.Schema.IndexOf("columnLiteral")
 				// to maintain a mapping between column numbers and literals 
 				var isSchemaMethod = HandleSchemaRelatedMethod(methodCallStmt, methodInvoked);
@@ -1440,7 +1436,11 @@ namespace Backend.Analyses
 				if (metodCallStmt.Method.Name.Value == "ToString")
 					return true;
 
-				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),  };
+				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),
+										Tuple.Create(@"___Scope_Generated_Classes___.Helper","trimNamespace")};
+
+
+
 				result = specialMethods.Any(sm => sm.Item1 == containingType.GetFullName() 
 												&& sm.Item2 == metodCallStmt.Method.Name.Value);
 
@@ -1765,16 +1765,7 @@ namespace Backend.Analyses
 					{
 						var columnLiteral = UpdateColumnData(methodCallStmt, s); //  ObtainColumn(col, s);
 
-						var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
-											.Select(table_i => new TraceableColumn(table_i, columnLiteral));
-
-						UpdatePTAForScopeMethod(methodCallStmt);
-						this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
-
-						this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
-						this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
-
-						CheckFailure(methodCallStmt, tableColumns);
+						AddColumnTraceable(methodCallStmt, arg, columnLiteral);
 					}
 					//scopeData.UpdateSchemaMap(methodCallStmt.Result, arg, this.State);
 				}
@@ -1852,6 +1843,22 @@ namespace Backend.Analyses
 					var outputTable = TryToGetTable(arg);
 				}
 				else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value == "Get")
+							&& methodInvoked.Type.IsColumnDataType() && methodInvoked.ContainingType.IsRowType() && !methodInvoked.ContainingType.IsStrictRowType())
+				{
+					// DIEGODIEGO: This is a case of a column used as a property
+					// DIEGODIEGO: Check check
+					var arg = methodCallStmt.Arguments[0];
+					var columnLiteral = methodInvoked.Name.Value.Substring(4);
+
+					var s = TryToGetSchemaForTable(arg, methodCallStmt);
+					if (s != null)
+					{
+						var column = s.GetColumn(columnLiteral) ?? new Column(columnLiteral, RangeDomain.BOTTOM, null);
+						AddColumnTraceable(methodCallStmt, arg, column);
+					}
+				}
+
+				else if ((methodInvoked.Name.Value.Contains("get_") || methodInvoked.Name.Value == "Get")
 					&& methodInvoked.ContainingType.IsColumnDataType())
 				{
 					var arg = methodCallStmt.Arguments[0];
@@ -1892,9 +1899,9 @@ namespace Backend.Analyses
 						this.State.AssignTraceables(methodCallStmt.Result, scopeMapTraceables);
 					}
 				}
-				else if (methodInvoked.ContainingType.IsRowType())
+				else if (methodInvoked.ContainingType.IsStrictRowType())
 				{
-					// DIEGODIEGO: I show group operations by type and do something better for this case
+					// DIEGODIEGO: I should group operations by type and do something better for this case
 					UpdateCall(methodCallStmt);
 				}
 				else if (methodInvoked.ContainingType.IsScopeRuntime()) // .ContainingNamespace=="ScopeRuntime")
@@ -1915,12 +1922,26 @@ namespace Backend.Analyses
 
             }
 
-            /// <summary>
-            /// Obtain the column referred by a variable
-            /// </summary>
-            /// <param name="col"></param>
-            /// <returns></returns>
-            private Column ObtainColumn(IVariable col, Schema schema)
+			private void AddColumnTraceable(MethodCallInstruction methodCallStmt, IVariable arg, Column columnLiteral)
+			{
+				var tableColumns = this.State.GetTraceables(arg).OfType<TraceableTable>()
+															.Select(table_i => new TraceableColumn(table_i, columnLiteral));
+
+				UpdatePTAForScopeMethod(methodCallStmt);
+				this.State.AssignTraceables(methodCallStmt.Result, tableColumns);
+
+				this.iteratorDependencyAnalysis.InputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Input));
+				this.iteratorDependencyAnalysis.OutputColumns.AddRange(tableColumns.Where(t => t.TableKind == ProtectedRowKind.Output));
+
+				CheckFailure(methodCallStmt, tableColumns);
+			}
+
+			/// <summary>
+			/// Obtain the column referred by a variable
+			/// </summary>
+			/// <param name="col"></param>
+			/// <returns></returns>
+			private Column ObtainColumn(IVariable col, Schema schema)
             {
                 Column result = result = Column.TOP; 
                 var columnLiteral = "";
@@ -2008,8 +2029,12 @@ namespace Backend.Analyses
 				{
 					return true;
 				}
-				if (methodInvoked.Name.Value == "ParseJson")
+				// DIEGODIEGO: Method we want to force interprocedural analysis
+				// A better way would be a white list or a limited scope of intraproc
+				if (methodInvoked.Name.Value == "ParseJson" || methodInvoked.Name.Value == "GetAttributeValue")
 					return true;
+
+
                return result;
              }
 

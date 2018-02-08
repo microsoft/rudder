@@ -264,10 +264,10 @@ namespace ScopeProgramAnalysis
 					calleeDepDomain.AddOutputControlTraceables(param, callInfo.CallerState.GetOutputControlTraceables(arg));
 				}
 
+				initializedRanges.AssignValue(param, callInfo.VariableRanges.GetValue(arg));
+
 				// DIEGODIEGO: Do I need this?
 				callInfo.ScopeData.PropagateCopy(arg, param);
-				initializedRanges.AssignValue(param, callInfo.VariableRanges.GetValue(param)); 
-				
             }
             calleeDepDomain.Dependencies.A1_Escaping = callInfo.CallerState.Dependencies.A1_Escaping;
 
