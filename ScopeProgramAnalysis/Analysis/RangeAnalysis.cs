@@ -246,15 +246,19 @@ namespace ScopeProgramAnalysis
     public class RangeAnalysis: ForwardDataFlowAnalysis<VariableRangeDomain> 
     {
 
-        private object originalValue = null;
+		public static IDictionary<IFieldDefinition, RangeDomain> GlobalVariables = new Dictionary<IFieldDefinition, RangeDomain>(); 
+
 		private VariableRangeDomain initRange = null;
 		public IVariable ReturnVariable { get; private set; }
+
+		private IMethodDefinition methodUnderAnalysis;
 
 		public DataFlowAnalysisResult<VariableRangeDomain>[] Result { get; private set; }
 
         public RangeAnalysis(ControlFlowGraph cfg, IMethodDefinition method): base(cfg)
         {
 			this.ReturnVariable = new LocalVariable(method.Name + "_" + "$RV") { Type = method.Type.PlatformType.SystemObject };
+			this.methodUnderAnalysis = method;
 		}
 		public RangeAnalysis(ControlFlowGraph cfg, IMethodDefinition method, VariableRangeDomain initRange) : this(cfg, method)
 		{
@@ -282,11 +286,15 @@ namespace ScopeProgramAnalysis
 
         protected override VariableRangeDomain InitialValue(CFGNode node)
         {
-			if (this.cfg.Entry.Id == node.Id && this.initRange != null)
+			var res = new VariableRangeDomain();
+			if (this.cfg.Entry.Id == node.Id)
 			{
-				return this.initRange;
+				if (this.initRange != null)
+				{
+					return this.initRange;
+				}
 			}
-			return new VariableRangeDomain();
+			return res;
         }
 
 		protected override VariableRangeDomain Join(VariableRangeDomain left, VariableRangeDomain right)
@@ -308,6 +316,19 @@ namespace ScopeProgramAnalysis
 
             public override void Visit(LoadInstruction instruction)
 			{
+				if (instruction.Operand is StaticFieldAccess)
+				{
+					var fieldAccess = (instruction.Operand as StaticFieldAccess);
+					var field = fieldAccess.Field.ResolvedField;
+					if (field != null)
+					{
+						RangeDomain value;
+						if (RangeAnalysis.GlobalVariables.TryGetValue(field, out value))
+						{
+							this.State.SetValue(instruction.Result,value);
+						}
+					}
+				}
 				var source = instruction.Operand;
 				var dest = instruction.Result;
 				Copy(source, dest);
@@ -323,6 +344,31 @@ namespace ScopeProgramAnalysis
 				if (source is IVariable)
 				{
 					this.State.SetValue(dest, this.State.GetValue(source as IVariable));
+				}
+			}
+
+			private RangeDomain ExtracRangeOrLiteral(IValue source)
+			{
+				if (source is Constant)
+				{
+					return  ExtractConstant(source as Constant);
+				}
+				if (source is IVariable)
+				{
+					return this.State.GetValue(source as IVariable);
+				}
+				return RangeDomain.BOTTOM;
+			}
+			public override void Visit(StoreInstruction instruction)
+			{
+			 if (instruction.Result is StaticFieldAccess)
+				{
+					var fieldAccess = (instruction.Result as StaticFieldAccess);
+					var field = fieldAccess.Field.ResolvedField;
+					if (field != null)
+					{
+						RangeAnalysis.GlobalVariables[field] = ExtracRangeOrLiteral(instruction.Operand);
+					}
 				}
 			}
 
