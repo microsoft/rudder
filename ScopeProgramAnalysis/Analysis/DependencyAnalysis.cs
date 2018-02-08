@@ -107,11 +107,21 @@ namespace ScopeProgramAnalysis
             var sw = new Stopwatch();
             sw.Start();
 
+			// 0) Analyze static fields. 
+			// DIEGODIEGO: Should I also Include the points-to graph???
+			var staticConstructor = processToAnalyze.ProcessorClass.Methods.SingleOrDefault(m => m.Name.Value == ".cctor");
+			if (staticConstructor != null)
+			{
+				var cfgcCtor = staticConstructor.DoAnalysisPhases(host, sourceLocationProvider);
+				var rangeAnalysisCctor = new RangeAnalysis(cfgcCtor, staticConstructor);
+				rangeAnalysisCctor.Analyze();
+			}
+
 			// The following steps generates a PTG for the MoveNext method that takes into account the context of invocation
 			// This is the Producer entry method and the call to GetEnumerator which then is used in the Movenext method
 
-            // 1) Analyze the entry method that creates, populates  and return the clousure 
-            var cfgEntry = processToAnalyze.EntryMethod.DoAnalysisPhases(host, sourceLocationProvider);
+			// 1) Analyze the entry method that creates, populates  and return the clousure 
+			var cfgEntry = processToAnalyze.EntryMethod.DoAnalysisPhases(host, sourceLocationProvider);
             var pointsToEntry = new SimplePointsToAnalysis(cfgEntry, processToAnalyze.EntryMethod); 
             var entryResult = pointsToEntry.Analyze();
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
