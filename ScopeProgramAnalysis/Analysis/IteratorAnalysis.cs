@@ -88,6 +88,19 @@ namespace Backend.Analyses
 		}
 	}
 
+	public class TraceableJsonCollectionElement : TraceableJson
+	{
+		public TraceableJson TJson{ get; private set; }
+		public TraceableJsonCollectionElement(TraceableJson tj) : base(tj.TColumn)
+		{
+			this.TJson = tj;
+		}
+		public override string ToString()
+		{
+			return String.Format(CultureInfo.InvariantCulture, "{0}.[*]", TJson.ToString());
+		}
+	}
+
 	/// <summary>
 	/// Representation of a column in a SCOPE table.
 	/// 
@@ -282,20 +295,19 @@ namespace Backend.Analyses
         }
     }
 
+
 	public class TraceableJsonField : TraceableColumn
 	{
 		public string Key { get; private set; }
-		public TraceableJsonField(TraceableColumn tableColumn, String key) : base(tableColumn.Table, tableColumn.Column)
+		public TraceableJson JsonTraceable { get; private set; }
+		public TraceableJsonField(TraceableJson tj, String key) : base(tj.TColumn.Table, tj.TColumn.Column)
 		{
-			this.Key = key;
-		}
-		public TraceableJsonField(TraceableTable table, Column column, String key) : base(table, column)
-		{
+			this.JsonTraceable = tj;
 			this.Key = key;
 		}
 		public override string ToString()
 		{
-			return String.Format(CultureInfo.InvariantCulture, "Col({0},Json.{1}.{2})", TableName, Column, Key);
+			return String.Format(CultureInfo.InvariantCulture, "Col({0},{1}.{2})", TableName, JsonTraceable, Key);
 		}
 		public override bool Equals(object obj)
 		{
@@ -822,7 +834,7 @@ namespace Backend.Analyses
 					if (!IsClousureInternalField(fieldAccess.Instance,fieldAccess.Field) &&  traceables.OfType<TraceableJson>().Any())
 					{
 						var jsonTraceables = traceables.OfType<TraceableJson>()
-														.Select(jsonTraceable => new TraceableJsonField(jsonTraceable.TColumn, fieldAccess.FieldName));
+														.Select(jsonTraceable => new TraceableJsonField(jsonTraceable, fieldAccess.FieldName));
 						this.State.AssignTraceables(loadStmt.Result, jsonTraceables);
 						return;
 					}
@@ -1280,7 +1292,7 @@ namespace Backend.Analyses
 			private void AddJsonColumnFieldToTraceables(MethodCallInstruction methodCallStmt, IVariable arg, string columnLiteral)
 			{
 				var jsonFields = this.State.GetTraceables(arg).OfType<TraceableJson>()
-									.Select(tjs => new TraceableJsonField(tjs.TColumn, columnLiteral));
+									.Select(tjs => new TraceableJsonField(tjs, columnLiteral));
 
 				UpdatePTAForScopeMethod(methodCallStmt);
 				this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
@@ -1529,7 +1541,10 @@ namespace Backend.Analyses
 					)
                 {
 					var arg = methodCallStmt.Arguments[0];
-                    var traceables = this.State.GetTraceables(arg);
+					var traceables = this.State.GetTraceables(arg);
+
+					var adaptedTraceables = traceables.Select( t => t is TraceableJson? new TraceableJsonCollectionElement(t as TraceableJson): t);
+					
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     bool createdNode;
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result, out createdNode);
@@ -1537,10 +1552,10 @@ namespace Backend.Analyses
                     // If we remove that mapping we MUST do the AssignTraceables
                     if (createdNode)
                     {
-                        this.State.AssignTraceables(methodCallStmt.Result, traceables);
+                        this.State.AssignTraceables(methodCallStmt.Result, adaptedTraceables);
                     } else
                     {
-                        this.State.AddTraceables(methodCallStmt.Result, traceables);
+                        this.State.AddTraceables(methodCallStmt.Result, adaptedTraceables);
                     }
                 }
                 // set_Item add an element to the colecction using a fake field "$item"
