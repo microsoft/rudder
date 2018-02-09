@@ -1225,43 +1225,36 @@ namespace Backend.Analyses
 					{
 					}
 				}
-				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
+				else if ((methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject"
+							|| methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JArray"
+							|| methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
+							&& methodInvoked.Name.Value == "Parse")
 				{
-					if (methodInvoked.Name.Value == "Parse")
+					var arg = methodCallStmt.Arguments[0];
+					var traceables = this.State.GetTraceables(arg).Where(t => !(t is Other));
+					var jsontraceables = traceables.OfType<TraceableColumn>().Select(t => new TraceableJson(t));
+					this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
+					return true;
+				}
+				else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var col = methodCallStmt.Arguments[1];
+
+					var columRange = this.variableRanges.GetValue(col);
+					if (!columRange.IsBottom)
 					{
-						if (methodInvoked.Type.GetFullName() == "Newtonsoft.Json.Linq.JObject")
-						{
-							var arg = methodCallStmt.Arguments[0];
-							var traceables = this.State.GetTraceables(arg).Where(t => !(t is Other));
-							var jsontraceables = traceables.OfType<TraceableColumn>().Select(t => new TraceableJson(t));
-							this.State.AssignTraceables(methodCallStmt.Result, jsontraceables);
-						}
-						return true;
-					}
-					else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JObject")
-					{
-						var arg = methodCallStmt.Arguments[0];
-						var col = methodCallStmt.Arguments[1];
+						var columnLiteral = columRange.Literal;
 
-						var columRange = this.variableRanges.GetValue(col);
-						if (!columRange.IsBottom)
-						{
-							var columnLiteral = columRange.Literal;
-
-							AddJsonColumnFieldToTraceables(methodCallStmt, arg, columnLiteral);
-						}
-						else
-						{
-							this.State.SetTOP();
-							AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "We are expecting a string for a columns but get null"));
-						}
-
-						return true; ;
+						AddJsonColumnFieldToTraceables(methodCallStmt, arg, columnLiteral);
 					}
 					else
 					{
+						this.State.SetTOP();
+						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "We are expecting a string for a columns but get null"));
 					}
 
+					return true; ;
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName() == "ScopeRuntime.StringColumnData")
 				{
@@ -1271,7 +1264,20 @@ namespace Backend.Analyses
 						UpdatePTAForScopeMethod(methodCallStmt);
 						return true; ;
 					}
-					else { }
+					else if (methodInvoked.Name.Value == @"get_Item")
+					{
+						var arg0 = methodCallStmt.Arguments[0];
+						var arg1 = methodCallStmt.Arguments[1];
+						var columName = variableRanges.GetValue(arg1).Literal;
+						if (columName != null)
+						{
+							AddJsonColumnFieldToTraceables(methodCallStmt, arg0, columName);
+						}
+						return true;
+					}
+					else
+					{
+					}
 				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Microsoft.DataMap.Common.Tag")
 				{
@@ -1420,7 +1426,12 @@ namespace Backend.Analyses
 
             private bool IsPureMethod(MethodCallInstruction metodCallStmt)
             {
-                var result = false;
+				var whiteListedTypes = new HashSet<string> { "System.Convert", "System.String" };
+				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),
+										Tuple.Create(@"___Scope_Generated_Classes___.Helper","trimNamespace")};
+
+
+				var result = false;
 
                 if(metodCallStmt.Method.IsPure())
                 {
@@ -1445,12 +1456,13 @@ namespace Backend.Analyses
                     return true;
                 }
 
+				if (whiteListedTypes.Contains(containingType.GetFullName()))
+					return true;
+
 				if (metodCallStmt.Method.Name.Value == "ToString")
 					return true;
 
-				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),
-										Tuple.Create(@"___Scope_Generated_Classes___.Helper","trimNamespace")};
-
+				
 
 
 				result = specialMethods.Any(sm => sm.Item1 == containingType.GetFullName() 
@@ -1512,7 +1524,7 @@ namespace Backend.Analyses
 			private bool HandleCollectionMethod(MethodCallInstruction methodCallStmt, IMethodReference methodInvoked)
 			{
 				var pureCollectionMethods = new HashSet<String>() { "Contains", "ContainsKey", "Count", "get_Count", "First"};
-				var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First" };
+				var pureEnumerationMethods = new HashSet<String>() { "Select", "Where", "Any", "Count", "GroupBy", "Max", "Min", "First","ToList" };
 
 				var result = true;
                 // For constructors of collections we create an small summary for the PTA
@@ -1543,7 +1555,7 @@ namespace Backend.Analyses
 					var arg = methodCallStmt.Arguments[0];
 					var traceables = this.State.GetTraceables(arg);
 
-					var adaptedTraceables = traceables.Select( t => t is TraceableJson? new TraceableJsonCollectionElement(t as TraceableJson): t);
+				   var adaptedTraceables = traceables.Select( t => t is TraceableJson? new TraceableJsonCollectionElement(t as TraceableJson): t);
 					
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     bool createdNode;
@@ -2048,7 +2060,8 @@ namespace Backend.Analyses
 				// A better way would be a white list or a limited scope of intraproc
 				if (methodInvoked.Name.Value == "ParseJson" || methodInvoked.Name.Value == "GetAttributeValue")
 					return true;
-
+				if (methodInvoked.ContainingType.GetFullName().Contains("Helper"))
+					return true;
 
                return result;
              }
