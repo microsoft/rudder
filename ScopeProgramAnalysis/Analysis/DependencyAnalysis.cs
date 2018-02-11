@@ -127,7 +127,7 @@ namespace ScopeProgramAnalysis
             var ptgOfEntry = entryResult[cfgEntry.Exit.Id].Output;
 
             // 2) Call the GetEnumerator that may create a new clousure and polulate it
-            var myGetEnumResult = new LocalVariable("$_temp_it") { Type = processToAnalyze.GetIteratorMethod.Type };
+            var myGetEnumResult = new LocalVariable("$_temp_it", processToAnalyze.EntryMethod) { Type = processToAnalyze.GetIteratorMethod.Type };
             ptgOfEntry.Add(myGetEnumResult);
             var ptgAfterEnum = this.interprocManager.PTAInterProcAnalysis(ptgOfEntry, new List<IVariable> { pointsToEntry.ReturnVariable }, myGetEnumResult, processToAnalyze.GetIteratorMethod);
 

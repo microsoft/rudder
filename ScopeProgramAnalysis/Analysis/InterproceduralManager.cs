@@ -81,7 +81,7 @@ namespace ScopeProgramAnalysis
         private int stackDepth;
         private IMetadataHost host;
         private ScopeProcessorInfo processToAnalyze;
-        private const int MaxStackDepth = 100;
+        private const int MaxStackDepth = 5;
         private Stack<IMethodDefinition> callStack;
 
         public MethodCFGCache CFGCache { get; set; }
@@ -154,9 +154,13 @@ namespace ScopeProgramAnalysis
         /// <param name="calleeCFG"></param>
         private InterProceduralReturnInfo InterproceduralAnalysis(InterProceduralCallInfo callInfo, ControlFlowGraph calleeCFG)
         {
-            if (stackDepth > InterproceduralManager.MaxStackDepth)
-                return new InterProceduralReturnInfo(callInfo.CallerState);
-
+			if (stackDepth > InterproceduralManager.MaxStackDepth)
+			{
+				callInfo.CallerState.Dependencies.IsTop = true;
+				AnalysisStats.AddAnalysisReason(new AnalysisReason(callInfo.Caller, callInfo.Instruction, String.Format(CultureInfo.InvariantCulture, "Reach maximum call depth {0}", callInfo.Callee.Name)));
+				return new InterProceduralReturnInfo(callInfo.CallerState);
+			}
+                
             stackDepth++;
             // I currently do not support recursive calls 
             // Will add support for this in the near future
@@ -275,9 +279,11 @@ namespace ScopeProgramAnalysis
 
             calleeDepDomain.Dependencies.A3_Fields = callInfo.CallerState.Dependencies.A3_Fields;
             calleeDepDomain.Dependencies.ControlVariables = callInfo.CallerState.Dependencies.ControlVariables;
-            //calleeDepDomain.Dependencies.A1_Escaping.UnionWith(callInfo.CallerState.Dependencies.A1_Escaping);
-            //calleeDepDomain.Dependencies.A3_Clousures.UnionWith(callInfo.CallerState.Dependencies.A3_Clousures);
-            return calleeDepDomain;
+			//calleeDepDomain.Dependencies.ControlTraceables = callInfo.CallerState.Dependencies.ControlTraceables;
+			
+			//calleeDepDomain.Dependencies.A1_Escaping.UnionWith(callInfo.CallerState.Dependencies.A1_Escaping);
+			//calleeDepDomain.Dependencies.A3_Clousures.UnionWith(callInfo.CallerState.Dependencies.A3_Clousures);
+			return calleeDepDomain;
         }
 
         private static IVariable AdaptIsReference(IVariable arg)
@@ -324,7 +330,7 @@ namespace ScopeProgramAnalysis
             {
                 //if (exitResult.HasOutputTraceables(outputVar))
                 {
-                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name) { Type = outputVar.Type };
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name, callInfo.Callee) { Type = outputVar.Type };
                     callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
                     callInfo.CallerState.AddOutputTraceables(newVar, exitResult.GetOutputTraceables(outputVar));
                     callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
@@ -334,7 +340,7 @@ namespace ScopeProgramAnalysis
             {
                 //if (exitResult.HasOutputControlTraceables(outputVar))
                 {
-                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name) { Type = outputVar.Type };
+                    var newVar = new LocalVariable(callInfo.Callee.Name + "_" + outputVar.Name, callInfo.Callee) { Type = outputVar.Type };
                     callInfo.CallerState.AddTraceables(newVar, exitResult.GetTraceables(outputVar));
                     callInfo.CallerState.AddOutputControlTraceables(newVar, exitResult.GetOutputControlTraceables(outputVar));
                 }
@@ -346,8 +352,10 @@ namespace ScopeProgramAnalysis
             callInfo.CallerState.Dependencies.A2_References.UnionWith(exitResult.Dependencies.A2_References);
             callInfo.CallerState.Dependencies.A3_Fields.UnionWith(exitResult.Dependencies.A3_Fields);
 
-            
-            callInfo.CallerState.Dependencies.IsTop |= exitResult.Dependencies.IsTop;
+			//callInfo.CallerState.Dependencies.ControlTraceables.UnionWith(exitResult.Dependencies.ControlTraceables);
+
+
+			callInfo.CallerState.Dependencies.IsTop |= exitResult.Dependencies.IsTop;
 
             if (callInfo.CallLHS != null)
             {

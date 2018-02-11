@@ -338,8 +338,9 @@ namespace ScopeProgramAnalysis
 
         public bool HasTraceables(IVariable arg)
         {
-            return Dependencies.A2_Variables.ContainsKey(arg)
-                && Dependencies.A2_Variables[arg].Count > 0;
+            return (Dependencies.A2_Variables.ContainsKey(arg)
+                && Dependencies.A2_Variables[arg].Any())
+				|| GetTraceables(arg).Any();
         }
 
 
@@ -519,9 +520,11 @@ namespace ScopeProgramAnalysis
 
         public ISet<IVariable> ControlVariables { get; set; }
 
-        //public SimplePointsToGraph PTG { get; set; }
+		//public ISet<Traceable> ControlTraceables { get; set; }
 
-        public DependencyDomain()
+		//public SimplePointsToGraph PTG { get; set; }
+
+		public DependencyDomain()
         {
             A2_References = new MapSet<SimplePTGNode, Traceable>();
 
@@ -533,8 +536,9 @@ namespace ScopeProgramAnalysis
             A1_Escaping = new HashSet<Traceable>();
 
             ControlVariables = new HashSet<IVariable>();
+			//ControlTraceables = new HashSet<Traceable>();
 
-            IsTop = false;
+			IsTop = false;
         }
 
         private bool MapLessEqual<K, V>(MapSet<K, V> left, MapSet<K, V> right)
@@ -583,15 +587,16 @@ namespace ScopeProgramAnalysis
             if (oth.IsTop) return true;
             else if (this.isTop) return false;
 
-            return oth != null
-                && this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
-                && MapLessEqual(A2_References, oth.A2_References)
-                && MapLessEqual(A2_Variables, oth.A2_Variables)
-                && MapLessEqual(A3_Fields, oth.A3_Fields)
-                && MapLessEqual(A4_Ouput, oth.A4_Ouput)
-                && MapLessEqual(A4_Ouput_Control, oth.A4_Ouput_Control)
-                && ControlVariables.IsSubsetOf(oth.ControlVariables);
-        }
+			return oth != null
+				&& this.A1_Escaping.IsSubsetOf(oth.A1_Escaping)
+				&& MapLessEqual(A2_References, oth.A2_References)
+				&& MapLessEqual(A2_Variables, oth.A2_Variables)
+				&& MapLessEqual(A3_Fields, oth.A3_Fields)
+				&& MapLessEqual(A4_Ouput, oth.A4_Ouput)
+				&& MapLessEqual(A4_Ouput_Control, oth.A4_Ouput_Control)
+				&& ControlVariables.IsSubsetOf(oth.ControlVariables);
+				//&& ControlTraceables.IsSubsetOf(oth.ControlTraceables);
+		}
         public override bool Equals(object obj)
         {
             // Add ControlVariables
@@ -609,14 +614,15 @@ namespace ScopeProgramAnalysis
         }
         public override int GetHashCode()
         {
-            // Add ControlVariables
-            return A1_Escaping.GetHashCode()
-                + A2_Variables.GetHashCode()
-                + A3_Fields.GetHashCode()
-                + A4_Ouput.GetHashCode()
-                + ControlVariables.GetHashCode();
+			// Add ControlVariables
+			return A1_Escaping.GetHashCode()
+				+ A2_Variables.GetHashCode()
+				+ A3_Fields.GetHashCode()
+				+ A4_Ouput.GetHashCode()
+				+ ControlVariables.GetHashCode();
+				//+ControlTraceables.GetHashCode();
 
-        }
+		}
         public DependencyDomain Clone()
         {
             var result = new DependencyDomain();
@@ -629,7 +635,8 @@ namespace ScopeProgramAnalysis
             result.A4_Ouput = new MapSet<IVariable, Traceable>(this.A4_Ouput);
             result.A4_Ouput_Control = new MapSet<IVariable, Traceable>(this.A4_Ouput_Control);
             result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
-            return result;
+			//result.ControlTraceables = new HashSet<Traceable>(this.ControlTraceables);
+			return result;
         }
         public DependencyDomain Join(DependencyDomain right)
         {
@@ -659,8 +666,9 @@ namespace ScopeProgramAnalysis
                 result.A4_Ouput_Control = new MapSet<IVariable, Traceable>(this.A4_Ouput_Control);
 
                 result.ControlVariables = new HashSet<IVariable>(this.ControlVariables);
+				//result.ControlTraceables = new HashSet<Traceable>(this.ControlTraceables);
 
-                result.isTop = result.isTop || right.isTop;
+				result.isTop = result.isTop || right.isTop;
                 result.A2_References.UnionWith(right.A2_References);
 
                 result.A1_Escaping.UnionWith(right.A1_Escaping);
@@ -670,7 +678,8 @@ namespace ScopeProgramAnalysis
                 result.A4_Ouput_Control.UnionWith(right.A4_Ouput_Control);
 
                 result.ControlVariables.UnionWith(right.ControlVariables);
-            }
+				//result.ControlTraceables.UnionWith(right.ControlTraceables);
+			}
             return result;
         }
 
@@ -732,7 +741,8 @@ namespace ScopeProgramAnalysis
                 && oth.A4_Ouput.MapEquals(A4_Ouput)
                 && oth.A4_Ouput_Control.MapEquals(A4_Ouput_Control)
                 && oth.ControlVariables.SetEquals(ControlVariables);
-        }
+				//&& oth.ControlTraceables.SetEquals(ControlTraceables);
+		}
 
     }
 

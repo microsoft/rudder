@@ -257,7 +257,7 @@ namespace ScopeProgramAnalysis
 
         public RangeAnalysis(ControlFlowGraph cfg, IMethodDefinition method): base(cfg)
         {
-			this.ReturnVariable = new LocalVariable(method.Name + "_" + "$RV") { Type = method.Type.PlatformType.SystemObject };
+			this.ReturnVariable = new LocalVariable(method.Name + "_" + "$RV", method) { Type = method.Type.PlatformType.SystemObject};
 			this.methodUnderAnalysis = method;
 		}
 		public RangeAnalysis(ControlFlowGraph cfg, IMethodDefinition method, VariableRangeDomain initRange) : this(cfg, method)

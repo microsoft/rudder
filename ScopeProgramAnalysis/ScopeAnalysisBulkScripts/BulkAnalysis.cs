@@ -27,9 +27,10 @@ namespace ScopeAnalysisBulkScripts
             var outputAnalyzer = Path.Combine(rudderPath, @"CompareAnalysisOutput\Compare\bin\Debug\Compare.exe");
 
             var inputFolder =// @"C:\Temp\Scope\ScopeJobs-2017-07-07-Cosmos11";
-                @"C:\Temp\Scope\First100JobsFromMadan";
-				//@"C:\Temp\Scope\InterestingScopeProjects";
-                // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+							 //@"C:\Temp\Scope\InterestingScopeProjects";
+							 // @"\\madanm2\parasail2\TFS\parasail\ScopeSurvey\AutoDownloader\bin\Debug";
+							 //@"C:\Temp\Scope\First100JobsFromMadan";
+				@"C:\Temp\Scope\JsonSurvey\JobsWithUDOs";
             if (doOnlyPassthrough)
             {
                 inputFolder = @"C:\Temp\Scope\out-cosmos11";
@@ -40,7 +41,7 @@ namespace ScopeAnalysisBulkScripts
 
             var inputList = @"C:\Temp\Zvo\inputDlls.txt";
             //var inputList = @"C:\Temp\Zvo\sampleDlls.txt";
-            var outputFolder = @"C:\Temp\Scope\OutNew";
+            var outputFolder = @"C:\Temp\Scope\OutJSon";
             //outputFolder = @"C:\Temp\Mike100";
             //outputFolder = @"C:\temp\ZvoList";
 

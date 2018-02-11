@@ -46,7 +46,7 @@ namespace ScopeProgramAnalysis.Framework
 			var domFrontierAnalysis = new DominanceFrontierAnalysis(cfg);
 			domFrontierAnalysis.Analyze();
 
-			var splitter = new WebAnalysis(cfg);
+			var splitter = new WebAnalysis(cfg, method);
 			splitter.Analyze();
 			splitter.Transform();
 

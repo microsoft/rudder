@@ -812,10 +812,14 @@ namespace Backend.Analyses
 					var itState = this.State.IteratorState;
 				}
 
-
+				var validHeap = true;
+				if (fieldAccess.Type.IsClassOrStruct())
+				{
+					var nodes = currentPTG.GetTargets(fieldAccess.Instance);
+					validHeap = nodes.Any();
+				}
 				// this is a[loc(o.f)]
-				var nodes = currentPTG.GetTargets(fieldAccess.Instance);
-				if (nodes.Any())
+				if (validHeap)
 				{
 					// TODO: SHould I only consider the clousure fields?
 					traceables.UnionWith(this.State.GetHeapTraceables(fieldAccess.Instance, fieldAccess.Field));
@@ -1045,9 +1049,9 @@ namespace Backend.Analyses
             public override void Visit(ConditionalBranchInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
-
                 this.State.Dependencies.ControlVariables.UnionWith(instruction.UsedVariables.Where( v => this.State.GetTraceables(v).Any()));
-            }
+				//this.State.Dependencies.ControlTraceables.UnionWith(instruction.UsedVariables.SelectMany(v => this.State.GetTraceables(v)));
+			}
             public override void Visit(ReturnInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
@@ -1616,8 +1620,15 @@ namespace Backend.Analyses
                 {
                     if (methodInvoked.ContainingType.IsDictionary())
                     {
-                        var itemField = this.iteratorDependencyAnalysis.pta.GetItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Result);
-                        this.State.AssignTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], itemField));
+						if (methodCallStmt.Arguments.Count>1 &&  this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableJson>().Any())
+						{
+							var columLiteral = variableRanges.GetValue(methodCallStmt.Arguments[1]).Literal;
+							if (columLiteral != null)
+								AddJsonColumnFieldToTraceables(methodCallStmt, methodCallStmt.Arguments[0], String.Format("[{0}]",columLiteral));
+						}
+
+						var itemField = this.iteratorDependencyAnalysis.pta.GetItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Result);
+                        this.State.AddTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], itemField));
                         // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
                     }
                     else
@@ -1758,8 +1769,8 @@ namespace Backend.Analyses
 					&& (methodInvoked.ContainingType.IsIEnumeratorRow()
 						 || methodInvoked.ContainingType.IsIEnumeratorScopeMapUsage()))
 				{
-					if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "ResourceDataTagFlattener")
-					{ }
+					//if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "ResourceDataTagFlattener")
+					//{ }
 
 					var arg = methodCallStmt.Arguments[0];
 					var traceables = this.State.GetTraceables(arg);
@@ -1808,6 +1819,7 @@ namespace Backend.Analyses
 					UpdatePTAForScopeMethod(methodCallStmt);
 					this.State.AddOutputTraceables(arg0, traceables);
 
+					//var controlTraceables = this.State.Dependencies.ControlTraceables; // this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
 					var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
 					this.State.AddOutputControlTraceables(arg0, controlTraceables);
 
@@ -1823,6 +1835,7 @@ namespace Backend.Analyses
 					UpdatePTAForScopeMethod(methodCallStmt);
 					this.State.AddOutputTraceables(arg1, traceables);
 
+					//var controlTraceables = this.State.Dependencies.ControlTraceables; //this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
 					var controlTraceables = this.State.Dependencies.ControlVariables.SelectMany(controlVar => this.State.GetTraceables(controlVar));
 					this.State.AddOutputControlTraceables(arg1, controlTraceables);
 
@@ -1856,8 +1869,13 @@ namespace Backend.Analyses
 						// We need to check somehow at the end if the information has not propagated 
 						// One option: remenber arg0 and arg1 and check at the end if they have traceables. 
 						// If they have (because of SSA) they will be assigned only here
-						this.State.SetTOP();
-						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
+						if (this.numberOfVisits > MAX_ITERATIONS)
+						{
+							this.State.SetTOP();
+							AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "Could not determine the input or output table"));
+						}
+						else
+							this.validBlock = false;
 					}
 
 				}
@@ -2435,7 +2453,7 @@ namespace Backend.Analyses
             this.protectedNodes = protectedNodes;
             this.interproceduralManager = interprocManager;
             this.initValue = null;
-            this.ReturnVariable = new LocalVariable(method.Name + "_$RV") { Type = Types.Instance.PlatformType.SystemObject };
+            this.ReturnVariable = new LocalVariable(method.Name + "_$RV", method) { Type = Types.Instance.PlatformType.SystemObject };
             this.InterProceduralAnalysisEnabled = AnalysisOptions.DoInterProcAnalysis;
             this.pta = pta;
             this.rangeAnalysis = rangeAnalysis;
@@ -2594,13 +2612,15 @@ namespace Backend.Analyses
                 var traceableInputColumn = new TraceableColumn(inputTable, column);
                 var traceableOutputColumn = new TraceableColumn(outputTable, column);
 
-                var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1) { Type = Types.Instance.PlatformType.SystemVoid };
+                var outputColumnVar = new TemporalVariable(arg1.Name + "_$" + column.Name, 1, method) { Type = Types.Instance.PlatformType.SystemVoid };
                 state.AssignTraceables(outputColumnVar, new Traceable[] { traceableOutputColumn });
 
                 state.AddOutputTraceables(outputColumnVar, new Traceable[] { traceableInputColumn });
 
-                var traceables = state.Dependencies.ControlVariables.SelectMany(controlVar => state.GetTraceables(controlVar));
-                state.AddOutputControlTraceables(outputColumnVar, traceables);
+				//var traceables = state.Dependencies.ControlTraceables; 
+				var traceables = state.Dependencies.ControlVariables.SelectMany(controlVar => state.GetTraceables(controlVar));
+
+				state.AddOutputControlTraceables(outputColumnVar, traceables);
 
                 this.InputColumns.Add(traceableInputColumn);
                 this.OutputColumns.Add(traceableOutputColumn);

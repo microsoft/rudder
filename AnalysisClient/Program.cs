@@ -120,8 +120,7 @@ namespace AnalysisClient
             }
             try
             {
-                var sarifLog = ScopeProgramAnalysis.Program.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true);
-
+                var sarifLog = ScopeProgramAnalysis.Program.AnalyzeDll(inputDll, ScopeProgramAnalysis.ScopeProgramAnalysis.ScopeMethodKind.All, true, true);
 
                 if (sarifLog == null)
                 {

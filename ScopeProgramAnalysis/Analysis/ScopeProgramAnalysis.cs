@@ -851,9 +851,9 @@ namespace ScopeProgramAnalysis
 					if (reducerClassDefinition.FullName().Contains(@"ScoperTransformer_4") || reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17"))
 					{
 					}
-					//else
-					//	if (isCompilerGenerated)
-					//    continue;
+					else
+						if (isCompilerGenerated)
+						continue;
 
 					if (processorsToAnalyze.Contains(reducerClassDefinition))
                         continue;

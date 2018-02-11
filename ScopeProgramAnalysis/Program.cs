@@ -169,6 +169,10 @@ namespace ScopeProgramAnalysis
 
 			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0ab0c6d5-731f-5029-8943-32ba867897c1\__ScopeCodeGen__.dll";
 			
+			// 1 UDO with Json
+			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
+			// 1 UDO with Json + compiler generated process that generates a dictionary from JSon... 
+			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
 
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");

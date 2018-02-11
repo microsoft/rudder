@@ -265,7 +265,7 @@ namespace Backend.Analyses
             this.method = method;
 
             if (GlobalVariable==null)
-                GlobalVariable = new LocalVariable("$Global") { Type = method.Type.PlatformType.SystemObject };
+                GlobalVariable = new LocalVariable("$Global", Dummy.MethodDefinition) { Type = method.Type.PlatformType.SystemObject };
 
             // this.specialFields = specialFields;
             this.CreateInitialGraph();
@@ -345,7 +345,7 @@ namespace Backend.Analyses
 
 		private void CreateInitialGraph(bool createNodeForParams = true, SimplePointsToGraph initialGraph = null)
 		{
-            this.ReturnVariable = new LocalVariable(this.method.Name + "_" + "$RV") { Type = this.method.Type.PlatformType.SystemObject };
+            this.ReturnVariable = new LocalVariable(this.method.Name + "_" + "$RV", method) { Type = this.method.Type.PlatformType.SystemObject };
 
             //IteratorPointsToAnalysis.GlobalVariable= new LocalVariable("$Global");
             //IteratorPointsToAnalysis.GlobalVariable.Type = MyLoader.PlatformTypes.SystemObject;
