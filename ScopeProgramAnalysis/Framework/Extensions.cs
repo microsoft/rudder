@@ -141,7 +141,9 @@ namespace ScopeProgramAnalysis.Framework
 				var receiverTypeDef = receiverType.ResolvedType;
 				if (receiverTypeDef == null) break;
 
-				var matchingMethod = receiverTypeDef.Methods.SingleOrDefault(m => MemberHelper.SignaturesAreEqual(m, method));
+				//var foo = receiverTypeDef.Methods.Where(m => MemberHelper.SignaturesAreEqual(m, method));
+				//var bar = receiverTypeDef.Methods.Where(m => MemberHelper.MethodsAreEquivalent(m, method.ResolvedMethod));
+				var matchingMethod = receiverTypeDef.Methods.SingleOrDefault(m => m.Name.UniqueKey == method.Name.UniqueKey && MemberHelper.SignaturesAreEqual(m, method));
 
 				if (matchingMethod != null)
 				{

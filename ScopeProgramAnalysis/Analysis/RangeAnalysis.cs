@@ -73,7 +73,7 @@ namespace ScopeProgramAnalysis
 				return oth.Literal != this.Literal ? new RangeDomain(STRINGTOP) : this;
 			}
 
-            var prevInterval = this;
+            var prevInterval = this.Clone();
             if (prevInterval.IsBottom)
                 return oth;
             if (oth.IsBottom)
@@ -83,7 +83,8 @@ namespace ScopeProgramAnalysis
             if (oth.IsTop)
                 return oth;
             var newInterval = new RangeDomain(Math.Min(LowerBound, oth.LowerBound), Math.Max(UpperBound, oth.UpperBound));
-            return newInterval.Widening(prevInterval);
+            var result = newInterval.Widening(prevInterval);
+			return result;
         }
 
         public RangeDomain Widening(RangeDomain prev)
@@ -186,8 +187,8 @@ namespace ScopeProgramAnalysis
         public VariableRangeDomain Join(VariableRangeDomain right)
         {
             var result = new VariableRangeDomain();
-            
-            foreach(var entry in this.variableRange)
+
+			foreach (var entry in this.variableRange)
             {
                 if (right.variableRange.ContainsKey(entry.Key))
                 {

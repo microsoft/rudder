@@ -524,7 +524,7 @@ namespace Backend.Analyses
 
         internal class MoveNextVisitorForDependencyAnalysis : InstructionVisitor
         {
-			private static readonly int MAX_ITERATIONS = 3;
+			private static readonly int MAX_ITERATIONS = 5;
 
             private IDictionary<IVariable, IExpression> equalities;
             private IteratorDependencyAnalysis iteratorDependencyAnalysis;
@@ -665,8 +665,9 @@ namespace Backend.Analyses
 			public override void Visit(LoadInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                var loadStmt = instruction;
+				var loadStmt = instruction;
                 var operand = loadStmt.Operand;
                 // Try to handle a = C.f, a = b.f, a = b, a = K, etc
                 var isHandledLoad = HandleLoadWithOperand(loadStmt, operand);
@@ -867,7 +868,7 @@ namespace Backend.Analyses
                 var iteratorClass = this.iteratorDependencyAnalysis.iteratorClass as INestedTypeDefinition;
 
                 // TODO: Move to IsClousureField()
-                var isClousureField =  iteratorClass.Equals(fieldAccess.Field.ContainingType);
+                var isClousureField = iteratorClass!=null &&  iteratorClass.Equals(fieldAccess.Field.ContainingType);
                 var isReducerField = iteratorClass!=null 
                                         && iteratorClass.ContainingType.TypeEquals(fieldAccess.Field.ContainingType);
                 // TODO: Hack. I need to check for private fields and properly model 
@@ -899,8 +900,9 @@ namespace Backend.Analyses
             public override void Visit(StoreInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                var result = instruction.Result;
+				var result = instruction.Result;
                 if (!HandleStdStore(instruction, result))
                 {
                     if (result is Reference)
@@ -1049,14 +1051,17 @@ namespace Backend.Analyses
             public override void Visit(ConditionalBranchInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
-                this.State.Dependencies.ControlVariables.UnionWith(instruction.UsedVariables.Where( v => this.State.GetTraceables(v).Any()));
+				this.State.PTG = visitorPTA.State;
+
+				this.State.Dependencies.ControlVariables.UnionWith(instruction.UsedVariables.Where( v => this.State.GetTraceables(v).Any()));
 				//this.State.Dependencies.ControlTraceables.UnionWith(instruction.UsedVariables.SelectMany(v => this.State.GetTraceables(v)));
 			}
             public override void Visit(ReturnInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                if (instruction.HasOperand)
+				if (instruction.HasOperand)
                 {
 					// var rv = this.iteratorDependencyAnalysis.ReturnVariable;
 					var rv = instruction.Operand;
@@ -1068,7 +1073,9 @@ namespace Backend.Analyses
                 var traceables = new HashSet<Traceable>();
                 traceables.Add(new Other(instruction.AllocationType.GetName()));
                 instruction.Accept(visitorPTA);
-                this.State.AssignTraceables(instruction.Result, traceables);
+				this.State.PTG = visitorPTA.State;
+
+				this.State.AssignTraceables(instruction.Result, traceables);
                 
             }
 			/// <summary>
@@ -1080,6 +1087,7 @@ namespace Backend.Analyses
 			{
 				// Updates the Points-to information with the call 
 				instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
 				var methodCallStmt = instruction;
 				var methodInvoked = methodCallStmt.Method;
@@ -1149,6 +1157,21 @@ namespace Backend.Analyses
 									var traceablesInArguments = methodCallStmt.Arguments.SelectMany(arg => State.GetTraceables(arg)).Where(t => !(t is Other));
 
 									var calleeRequiringAnalysis = escaping || traceablesInArguments.Any();
+
+									if (methodInvoked.Name.Value == "GetCurrentEntity")
+									{
+									}
+
+									if (methodInvoked.Name.Value == "DeSerializeFromString")
+									{
+									}
+
+									if (methodInvoked.Name.Value == "DeSerializeFromBase64String")
+									{
+									}
+
+							
+
 
 									if (calleeRequiringAnalysis)
 									{
@@ -1260,6 +1283,25 @@ namespace Backend.Analyses
 
 					return true; ;
 				}
+				else if (methodInvoked.Name.Value == "SelectToken" && methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken")
+				{
+					var arg = methodCallStmt.Arguments[0];
+					var col = methodCallStmt.Arguments[1];
+
+					var columRange = this.variableRanges.GetValue(col);
+					if (!columRange.IsBottom)
+					{
+						var columnLiteral = columRange.Literal;
+
+						AddJsonColumnFieldToTraceables(methodCallStmt, arg, columnLiteral);
+					}
+					else
+					{
+						this.State.SetTOP();
+						AnalysisStats.AddAnalysisReason(new AnalysisReason(this.method, methodCallStmt, "We are expecting a string for a columns but get null"));
+					}
+					return true; ;
+				}
 				else if (methodInvoked.ContainingType.GetFullName() == "Newtonsoft.Json.Linq.JToken" || methodInvoked.ContainingType.GetFullName() == "ScopeRuntime.StringColumnData")
 				{
 					if (methodInvoked.Name.Value == @"op_Explicit" || methodInvoked.Name.Value == @"op_Implicit")
@@ -1307,8 +1349,8 @@ namespace Backend.Analyses
 				UpdatePTAForScopeMethod(methodCallStmt);
 				this.State.AssignTraceables(methodCallStmt.Result, jsonFields);
 
-				this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
-				this.iteratorDependencyAnalysis.OutputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Output));
+				//this.iteratorDependencyAnalysis.InputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Input));
+				//this.iteratorDependencyAnalysis.OutputColumns.AddRange(jsonFields.Where(t => t.TableKind == ProtectedRowKind.Output));
 
 				CheckFailure(methodCallStmt, jsonFields);
 			}
@@ -1395,8 +1437,9 @@ namespace Backend.Analyses
 
 							this.State = interProcResult.State;
                             currentPTG = interProcResult.State.PTG;
+							this.visitorPTA.State = interProcResult.State.PTG; 
 
-                        }
+						}
                         catch (Exception e)
                         {
                             //Console.WriteLine("Could not analyze {0}", resolvedCallee.ToString());
@@ -1430,11 +1473,11 @@ namespace Backend.Analyses
 
             private bool IsPureMethod(MethodCallInstruction metodCallStmt)
             {
-				var whiteListedTypes = new HashSet<string> { "System.Convert", "System.String" };
+				var whiteListedTypes = new HashSet<string> { "System.Convert", "System.String", "System.Text.Encoding" };
 				var specialMethods = new Tuple<string, string>[] { Tuple.Create("System.IDisposable", "Dispose"),
-										Tuple.Create(@"___Scope_Generated_Classes___.Helper","trimNamespace")};
-
-
+										Tuple.Create(@"___Scope_Generated_Classes___.Helper","trimNamespace"),
+										Tuple.Create("System.IO.Stream","Write")
+										 };
 				var result = false;
 
                 if(metodCallStmt.Method.IsPure())
@@ -1466,9 +1509,6 @@ namespace Backend.Analyses
 				if (metodCallStmt.Method.Name.Value == "ToString")
 					return true;
 
-				
-
-
 				result = specialMethods.Any(sm => sm.Item1 == containingType.GetFullName() 
 												&& sm.Item2 == metodCallStmt.Method.Name.Value);
 
@@ -1478,8 +1518,9 @@ namespace Backend.Analyses
 			public override void Visit(PhiInstruction instruction)
             {
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                var traceables = new HashSet<Traceable>();
+				var traceables = new HashSet<Traceable>();
                 foreach (var arg in instruction.UsedVariables)
                 {
                     var tables = this.State.GetTraceables(arg);
@@ -1491,7 +1532,7 @@ namespace Backend.Analyses
                     //        tables = this.State.GetTraceables(temp.Original);
                     //    }
                     //}
-                    //traceables.UnionWith(tables);
+                    traceables.UnionWith(tables);
                 }
                 this.State.AssignTraceables(instruction.Result, traceables);
             }
@@ -1500,8 +1541,9 @@ namespace Backend.Analyses
             {
                 var traceables = this.State.GetTraceables(instruction.Operand);
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                this.State.AssignTraceables(instruction.Result, traceables);
+				this.State.AssignTraceables(instruction.Result, traceables);
 
 
             }
@@ -1514,8 +1556,9 @@ namespace Backend.Analyses
             public override void Default(Instruction instruction)
             {
                 instruction.Accept(visitorPTA);
+				this.State.PTG = visitorPTA.State;
 
-                UpdateUsingDefUsed(instruction);
+				UpdateUsingDefUsed(instruction);
                 // base.Default(instruction);
             }
 

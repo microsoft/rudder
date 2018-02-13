@@ -493,7 +493,7 @@ namespace Backend.Analyses
 
             ptg.RemoveRootEdges(dst);
 			var nodes = ptg.GetTargets(instance, false);
-            foreach (var node in nodes)
+            foreach (var node in nodes.Where(n => !n.Equals(SimplePointsToGraph.NullNode)))
             {
                 var targets = ptg.GetTargets(node, field);
 

@@ -546,8 +546,18 @@ namespace ScopeProgramAnalysis
             var inputSchemaString = processToAnalyze.InputSchema.Columns.Select(t => t.ToString());
             var outputSchemaString = processToAnalyze.OutputSchema.Columns.Select(t => t.ToString());
 
-            if (!depAnalysisResult.IsTop)
-            {
+			var analysisReasons = "";
+			foreach (var analysisReason in AnalysisStats.AnalysisReasons)
+			{
+				foreach (var reason in analysisReason.Value)
+				{
+					analysisReasons += String.Format("{0} \n", reason);
+				}
+			}
+
+
+			if (!depAnalysisResult.IsTop)
+			{
 				#region Compute Sarif Results for the Dependency Analysis
 				// Compute dependencies for each output column
 				if (depAnalysisResult.Dependencies.A4_Ouput.Any())
@@ -555,28 +565,28 @@ namespace ScopeProgramAnalysis
 					ObtainOutputDependenciesInSarifFormat(results, depAnalysisResult, inputUses, outputModifies);
 				}
 				else
-                {
+				{
 					var result = new Result();
-                    result.Id = "SingleColumn";
-                    result.SetProperty("column", "_EMPTY_");
+					result.Id = "SingleColumn";
+					result.SetProperty("column", "_EMPTY_");
 					// TODO: Check: before escape info was added for every column
 					//var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
 					//result.SetProperty("escapes", escapes);
 					results.Add(result);
 
-                }
+				}
 
 				// Add computed inputs, outputs and schemas
-                var resultSummary = new Result();
-                resultSummary.Id = "Summary";
+				var resultSummary = new Result();
+				resultSummary.Id = "Summary";
 
-                var inputsString = inputColumns.Select(t => t.ToString());
-                var outputsString = outputColumns.Select(t => t.ToString());
-                resultSummary.SetProperty("Inputs", inputsString);
-                resultSummary.SetProperty("Outputs", outputsString);
+				var inputsString = inputColumns.Select(t => t.ToString());
+				var outputsString = outputColumns.Select(t => t.ToString());
+				resultSummary.SetProperty("Inputs", inputsString);
+				resultSummary.SetProperty("Outputs", outputsString);
 
-                resultSummary.SetProperty("SchemaInputs", inputSchemaString);
-                resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
+				resultSummary.SetProperty("SchemaInputs", inputSchemaString);
+				resultSummary.SetProperty("SchemaOutputs", outputSchemaString);
 
 				var escapes = depAnalysisResult.Dependencies.A1_Escaping.Select(traceable => traceable.ToString());
 				// TODO: Check: before escape info was added for every column
@@ -585,6 +595,7 @@ namespace ScopeProgramAnalysis
 
 				resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
 				resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
+				resultSummary.SetProperty("AnalysisReasons", analysisReasons);
 				resultSummary.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
 				#endregion
 
@@ -643,6 +654,7 @@ namespace ScopeProgramAnalysis
                 resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
                 resultEmpty.SetProperty("BagOColumnsTime", 0); //(int)bagOColumnsTime.TotalMilliseconds);
 				resultEmpty.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
+				resultEmpty.SetProperty("AnalysisReasons", analysisReasons);
 				results.Add(resultEmpty);
             }
 
@@ -848,7 +860,9 @@ namespace ScopeProgramAnalysis
 
                     var isCompilerGenerated = compilerGeneretedMethodMatchers.Any(regex => regex.IsMatch(reducerClassDefinition.FullName()));
 
-					if (reducerClassDefinition.FullName().Contains(@"ScoperTransformer_4") || reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17"))
+					if (reducerClassDefinition.FullName().Contains(@"ScoperTransformer_4") 
+						|| reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_17")
+						|| reducerClassDefinition.FullName().Contains(@"ScopeFilterTransformer_6"))
 					{
 					}
 					else

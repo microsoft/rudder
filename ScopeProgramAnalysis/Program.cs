@@ -26,7 +26,7 @@ namespace ScopeProgramAnalysis
         {
             var useScopeFactory = true;
             var scopeKind = ScopeMethodKind.All;
-			var interProcAnalysis = false;
+			var interProcAnalysis = true;
 
 			string input;
 
@@ -149,7 +149,7 @@ namespace ScopeProgramAnalysis
             input = @"C:\dev\Parasail\ScopeSurvey\ScopeMapAccess\bin\LocalDebug\75f9adff-7f3e-47f5-b282-99518ee7f8b3\__ScopeCodeGen__.dll";
 
 			input = @"C:\Temp\Scope\InterestingScopeProjects\0ce5ea59-dec8-4f6f-be08-0e0746e12515\__ScopeCodeGen__.dll";
-			input = @"C:\Temp\Scope\NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
+			input = @"C:\Temp\Scope\\JsonSurvey\NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
 
 			//input = @"C:\Temp\Scope\JsonSurvey\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
 			// Example that uses JsonConvert
@@ -165,8 +165,6 @@ namespace ScopeProgramAnalysis
 			input = @"C:\Temp\Scope\JsonSurvey\ProcessorWithJObject\__ScopeCodeGen__.dll";
 
 			// UDO with JSon extracted by Mike
-			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
-
 			input = @"C:\Temp\Scope\JsonSurvey\JobsWithUDOs\0ab0c6d5-731f-5029-8943-32ba867897c1\__ScopeCodeGen__.dll";
 			
 			// 1 UDO with Json
@@ -176,6 +174,10 @@ namespace ScopeProgramAnalysis
 
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
+
+			var io = ScopeDemo(5);
+			input = io.Item1;
+			outputPath = io.Item2;
 
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
@@ -193,6 +195,135 @@ namespace ScopeProgramAnalysis
             System.Console.ReadKey();
 
         }
+
+		public static Tuple<string, string> ScopeDemo(int item)
+		{
+			var input = @"C:\Temp\Scope\JsonSurvey\";
+			var output = @"C:\Temp\Scope\Demo\";
+			var benchmark = "";
+			switch (item)
+			{
+				case 1:
+					// Example that uses JsonConvert
+					/*
+					var jsonObj = JsonConvert.DeserializeObject<MyType>(s);
+					string a = jsonObj.A;
+					*/
+					benchmark = @"SimpleJsonProcessors\bin\Debug\6BEA71AFD72D97FF\UDO1_C79877185261167E\__ScopeCodeGen__.dll";
+					break;
+				case 2:
+					// Simpler example made my Mike
+					/*
+					var jsonObj = JObject.Parse(s);
+					string a = (string)jsonObj["A"];
+					 */
+					benchmark = @"\ProcessorWithJObject\__ScopeCodeGen__.dll";
+					break;
+				case 3:
+					// All output columns came from one input columns with Json (although) there are many other inputs
+					/*
+						string jsonString = row["message"].String;
+						JObject jo = (JObject)JsonConvert.DeserializeObject(jsonString);
+						outputRow[0].Set(jo["ApplicationName"].ToString());
+						outputRow[1].Set(jo["ApplicationSubSystem"].ToString());
+						outputRow[2].Set(jo["ApplicationVersion"].ToString());
+						... many more
+					 */
+					benchmark = @"\JobsWithUDOs\0ab0c6d5-731f-5029-8943-32ba867897c1\__ScopeCodeGen__.dll";
+					break;
+				case 4:
+					// 1) Use of JSon than contains a dictionary, and access to that content in a conditional
+					/* 
+					 *   System.Collections.Generic.Dictionary<System.String, System.String> col_EP = (System.Collections.Generic.Dictionary<System.String, System.String>)row.EP.Value;
+						bool succeed = false;
+						try
+						{
+							string staticconstant_0 = "ScanTarget";
+							string staticconstant_1 = "cosmos11.AzureAnalytics.Dev";
+							string staticconstant_2 = "cosmos11.AzureAnalytics.Dev_local.PublishedData";
+							string staticconstant_3 = "cosmos11.AzureAnalytics.Dev_local.PublishedData.Microsoft.Cloud";
+							succeed = col_EP.ContainsKey(staticconstant_0) 
+											&& (col_EP[staticconstant_0].ToLower() == staticconstant_1.ToLower() 
+													|| col_EP[staticconstant_0].ToLower() == staticconstant_2.ToLower() || col_EP[staticconstant_0].ToLower() == staticconstant_3.ToLower());
+						}
+					*/
+					//  Control dependency on "Col(Input,Json(Col(Input,ExtendedProps[8])).[ScanTarget])"
+					
+					// 2) Use Json Tags that is an enumeration 
+					/*
+					 * List<Tag> tags = new List<Tag>();
+						try
+						{
+							tags = JsonConvert.DeserializeObject<List<Tag>>(row["Tags"].String);
+						}
+						...
+						foreach (Tag tag in tags)
+						{
+							...
+								if(!String.IsNullOrEmpty(tag.Column)){
+									output[TagColumnString].UnsafeSet(tag.Column);
+								} else {
+									output[TagColumnString].UnsafeSet("_empty");
+								}
+							...
+						}
+					*/
+					// "column": "Col(Output,TagColumn[6])",
+					// "data depends": ["String","Col(Input,Json(Col(Input,Tags[6])).[*].Column)"],
+
+					benchmark = @"\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
+					break;
+				case 5:
+					// Use Select Token
+					// This example puts all Json Tokens in a dictionary and they produces the column output out of the dict
+					// this is why the analysis conservately add many dependencies for each colunm
+					/*
+					"column": "Col(Output,Name[6])",
+					"data depends": ["Name","Col(Input,Json(Col(Input,jsonValue[13])).name)","Col(Input,Json(Col(Input,jsonValue[13])).subscriptionId)","Col(Input,Json(Col(Input,jsonValue[13])).groupName)","Col(Input,Json(Col(Input,jsonValue[13])).etag)","Col(Input,Json(Col(Input,jsonValue[13])).lastOperationId)","Col(Input,Json(Col(Input,jsonValue[13])).lastOperationType)","Col(Input,Json(Col(Input,jsonValue[13])).lastModifiedTime)","Col(Input,Json(Col(Input,jsonValue[13])).createdTime)","Col(Input,Json(Col(Input,jsonValue[13])).resourceGuid)","Col(Input,Json(Col(Input,jsonValue[13])).properties.provisioningState)","Col(Input,Json(Col(Input,jsonValue[13])).properties.allocatedTenant.id)","Col(Input,Json(Col(Input,jsonValue[13])).properties.virtualMachine.id)","Col(Input,Json(Col(Input,jsonValue[13])).properties.primary)","Col(Input,Json(Col(Input,jsonValue[13])).properties.macAddress)","Col(Input,Json(Col(Input,jsonValue[13])).properties.networkSecurityGroup.id)","Col(Input,Json(Col(Input,jsonValue[13])).properties.ipConfigurations)","Col(Input,Json(Col(Input,jsonValue[13])).properties.dnsSettings)","False","String","True","0","ToString(Int32&)","Col(Input,Json(Col(Input,jsonValue[13])).properties.enableAcceleratedNetworking)"],
+					"control depends": ["Int32","3","RC(Input)"]
+					 */
+					benchmark = @"\JobsWithUDOs\06c226da-559e-46f6-a83c-35608aa544dc\__ScopeCodeGen__.dll";
+					break;
+				case 6:
+					//benchmark = @"\JobsWithUDOs\0a671f56-c4c1-47da-a0c0-09c5701854c8\__ScopeCodeGen__.dll";
+					break;
+
+				case 10:
+					// Example that uses o = JObject.Parse and o[field] 
+					// This one is too complex because it is a compiler generated UDO. 
+					// I uses complex getters and setters to access the row columns direcly in the query
+					// And uses Helper methods with parameters 
+					// required: 1) interprocedural string and columns analysis. 2) support for compiler generated properties
+
+					/*
+					 * rsMDSAccountMetaData = SELECT CloudName.Trim().ToLower() AS nCloud,
+                              DivisionName,
+                              OrganizationName,
+                              ServiceGroupName,
+                              ServiceName,
+                              ServiceOid,
+                              Helper.GetAttributeValue(Value, "Namespaces") AS STMDSNamespace, 
+                              Helper.GetAttributeValue(Value, "Endpoint") AS Endpoint
+							  ...
+					*/
+					benchmark = @"\0195e2b3-3fb3-4f36-bc10-cadbfd76c8cd\__ScopeCodeGen__.dll";
+
+					break;
+
+				default:
+					benchmark = @"NewtonSoftMethodSurvey_E18FC06FBAF9E44\__ScopeCodeGen__.dll";
+					item = 0;
+					break;
+			}
+
+			input += benchmark;
+
+			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
+			Directory.CreateDirectory(String.Format("{0}\\Demo_{1}", output, item));
+
+			output += String.Format("Demo_{0}\\{1}_{2}", item, directories.Last(), ".sarif");
+			return Tuple.Create<string, string>(input,output);
+		}
 
         public static SarifLog AnalyzeDll(string inputPath, ScopeMethodKind kind, bool useScopeFactory = true, bool interProc = false, StreamWriter outputStream = null, TimeSpan timeout = default(TimeSpan))
         {
