@@ -616,7 +616,7 @@ namespace Backend.Model
             }
             foreach (var entry in edgesToRemove)
             {
-                this.edges.Remove(entry);
+                // this.edges.Remove(entry);
             }
 
             //this.nodes.ExceptWith(unreacheableNodes);

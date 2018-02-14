@@ -540,16 +540,29 @@ namespace Backend.Analyses
             return collectionNode;
         }
 
-        public IFieldReference AddItemforCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item)
-        {
-            var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
+        public IFieldReference AddItemforCollection(SimplePointsToGraph ptg, uint offset, IVariable collectionVariable, IVariable item, string itemName = null)
+		{
+			if (itemName == null)
+			{
+				itemName = "$item";
+			}
+			else
+				itemName = "$" + itemName;
+
+			var itemsField = new FieldReference(itemName, MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             this.ProcessStore(ptg, offset, collectionVariable, itemsField, item);
             return itemsField;
         }
 
-        public IFieldReference GetItemforCollection(SimplePointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result)
+        public IFieldReference GetItemforCollection(SimplePointsToGraph ptg, uint offset , IVariable collectionVariable, IVariable result, string itemName = null)
         {
-            var itemsField = new FieldReference("$item", MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
+			if (itemName == null)
+			{
+				itemName = "$item";
+			}
+			else
+				itemName = "$" + itemName;
+            var itemsField = new FieldReference(itemName, MyLoader.PlatformTypes.SystemObject, this.method.ContainingType);
             this.ProcessLoad(ptg, offset, result, collectionVariable, itemsField);
             return itemsField;
         }
