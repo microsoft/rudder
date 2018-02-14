@@ -1145,7 +1145,7 @@ namespace ScopeProgramAnalysis
 		}
 		
 
-		public static ColumDependenciesResult AnalyzeOneProcesorFromDll(string inputPath, string processorTypeName,  ScopeMethodKind kind, bool interProc = false, StreamWriter outputStream = null)
+		public static ColumDependenciesResult AnalyzeOneProcesorFromDll(string inputPath, string processorTypeName,  string inputSchema, string outputSchema, ScopeMethodKind kind, bool interProc = false, StreamWriter outputStream = null)
 		{
 			// Determine whether to use Interproc analysis
 			AnalysisOptions.DoInterProcAnalysis = interProc;
@@ -1165,14 +1165,14 @@ namespace ScopeProgramAnalysis
 
 			scopeProgramAnalysis.ComputeProcessorFilters(kind);
 
-			//var scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyzeFromAssemblies(processorTypeName, assembly);
+			var scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyzeFromAssemblies(processorTypeName, assembly);
 
 			// This is temporary until I get the list of schemas
 			List<Tuple<ITypeDefinition, string>> errorMessages;
-			var scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyze(assembly,out errorMessages)
-				.Where(spa => spa.ProcessorClass.FullName() == processorTypeName);
+			//var scopeProcessorsToAnalyze = scopeProgramAnalysis.ObtainScopeMethodsToAnalyze(assembly,out errorMessages)
+			//	.Where(spa => spa.ProcessorClass.FullName() == processorTypeName);
 
-			var allSchemas = ExtractSchemasFromXML(inputPath, true , scopeProgramAnalysis);
+			//var allSchemas = ExtractSchemasFromXML(inputPath, true , scopeProgramAnalysis);
 
 			if (scopeProcessorsToAnalyze.Count() != 1)
 			{
@@ -1189,13 +1189,13 @@ namespace ScopeProgramAnalysis
 
 			Tuple<Schema, Schema> schemas;
 
-			if (!TryToGetSchema(allSchemas, moveNextMethod, out schemas))
-			{
-				return new ColumDependenciesResult() { Error = true, ErrorMsg = String.Format("Could not get schema for {0} ", inputPath) };
-			}
+            //if (!TryToGetSchema(allSchemas, moveNextMethod, out schemas))
+            //{
+            //	return new ColumDependenciesResult() { Error = true, ErrorMsg = String.Format("Could not get schema for {0} ", inputPath) };
+            //}
 
-			scopeProcessorInfo.InputSchema = schemas.Item1;
-			scopeProcessorInfo.OutputSchema = schemas.Item2;
+            scopeProcessorInfo.InputSchema = new Schema(ParseColumns(inputSchema)); // schemas.Item1;
+            scopeProcessorInfo.OutputSchema = new Schema(ParseColumns(outputSchema)); // schemas.Item2;
 
 			scopeProgramAnalysis.InterprocAnalysisManager.SetProcessToAnalyze(scopeProcessorInfo);
 

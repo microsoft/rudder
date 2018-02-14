@@ -25,15 +25,17 @@ namespace ScopeProgramAnalysis
     {
         static void Main(string[] args)
         {
-			args = new string[3];
-			args[0] = "scope";
-			args[1] = @"C:\Temp\Scope\JsonSurvey\ProcessorWithJObject\__ScopeCodeGen__.dll";
-			args[2] = @"___Scope_Generated_Classes___.MyReducer";
+			//args = new string[3];
+			//args[0] = "scope";
+			//args[1] = @"C:\Temp\Scope\JsonSurvey\ProcessorWithJObject\__ScopeCodeGen__.dll";
+			//args[2] = @"___Scope_Generated_Classes___.MyReducer";
 			if (args.Length > 0 && args[0] == "scope")
 			{
 				var inputPath = args[1];
 				var processorTypeName = args[2];
-			 	var columnDependencies = AnalyzeOneProcesorFromDll(inputPath, processorTypeName, ScopeMethodKind.All, true);
+                var inputSchema = args[3];
+                var outputSchema = args[4];
+			 	var columnDependencies = AnalyzeOneProcesorFromDll(inputPath, processorTypeName, inputSchema, outputSchema, ScopeMethodKind.All, true);
 				AnalysisResultsSerialization.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
 
 				// Just for the verification 
