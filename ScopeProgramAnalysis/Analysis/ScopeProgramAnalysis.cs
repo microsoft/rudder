@@ -1225,7 +1225,7 @@ namespace ScopeProgramAnalysis
 							result.Dependencies[outputColumn] = new List<string>(filteredColums.Select(t => t.Column.Name));
 							if (columns.Count == 1 && result.Dependencies.ContainsKey(outputColumn))
 							{
-								result.PasstroughColumns.Add(outputColumn);
+								result.PassthroughColumns.Add(outputColumn);
 							}
 							
 						}

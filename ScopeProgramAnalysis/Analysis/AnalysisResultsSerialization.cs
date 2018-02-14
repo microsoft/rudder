@@ -13,51 +13,58 @@ namespace ScopeProgramAnalysis.Analysis
 		public bool Error { get; set; }
 		public string ErrorMsg { get; set; }
 		public bool IsTop { get; set; }
-		public IDictionary<string, List<string>> Dependencies { get; set; }
-		public ISet<string> PasstroughColumns { get; set; }
+		public IDictionary<string, IEnumerable<string>> Dependencies { get; set; }
+		public ISet<string> PassthroughColumns { get; set; }
 		public ColumDependenciesResult()
 		{
 			Error = false;
 			ErrorMsg = "";
 			IsTop = false;
-			Dependencies = new Dictionary<string, List<string>>();
-			PasstroughColumns = new HashSet<string>();
-		}
-	}
-	class AnalysisResultsSerialization
-	{
-		/// <summary>
-		/// Writes the given object instance to a binary file.
-		/// <para>Object type (and all child types) must be decorated with the [Serializable] attribute.</para>
-		/// <para>To prevent a variable from being serialized, decorate it with the [NonSerialized] attribute; cannot be applied to properties.</para>
-		/// </summary>
-		/// <typeparam name="T">The type of object being written to the XML file.</typeparam>
-		/// <param name="filePath">The file path to write the object instance to.</param>
-		/// <param name="objectToWrite">The object instance to write to the XML file.</param>
-		/// <param name="append">If false the file will be overwritten if it already exists. If true the contents will be appended to the file.</param>
-		public static void WriteToBinaryFile<T>(string filePath, T objectToWrite, bool append = false)
-		{
-			using (Stream stream = File.Open(filePath, append ? FileMode.Append : FileMode.Create))
-			{
-				var binaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-				binaryFormatter.Serialize(stream, objectToWrite);
-			}
+			Dependencies = new Dictionary<string, IEnumerable<string>>();
+			PassthroughColumns = new HashSet<string>();
 		}
 
-		/// <summary>
-		/// Reads an object instance from a binary file.
-		/// </summary>
-		/// <typeparam name="T">The type of object to read from the XML.</typeparam>
-		/// <param name="filePath">The file path to read the object instance from.</param>
-		/// <returns>Returns a new instance of the object read from the binary file.</returns>
-		public static T ReadFromBinaryFile<T>(string filePath)
+		public static ColumDependenciesResult ReadFromTextFile(TextReader s)
 		{
-			using (Stream stream = File.Open(filePath, FileMode.Open))
+			var result = new ColumDependenciesResult();
+			var errorAndMsg =  s.ReadLine().Split(',');
+			result.Error = Boolean.Parse(errorAndMsg[0]);
+			result.ErrorMsg = errorAndMsg[1];
+
+			result.IsTop = Boolean.Parse(s.ReadLine());
+
+			// Read dependencies
+			var line = s.ReadLine();
+			line = s.ReadLine();
+			while (line!= null && line != "Passthrough")
 			{
-				var binaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-				return (T)binaryFormatter.Deserialize(stream);
+				var dep = line.Split(':');
+				var inputs = dep[1].Split(',');
+				result.Dependencies.Add(dep[0], inputs.AsEnumerable());
+				line = s.ReadLine();
 			}
+			// Passthrough 
+			line = s.ReadLine();
+			if(line != null) 
+			{
+				var pts = line.Split(',').AsEnumerable();
+				result.PassthroughColumns.UnionWith(pts);
+				line = s.ReadLine();
+			}
+			return result;
+		}
+
+		public void WriteTextFile(TextWriter s)
+		{
+			s.WriteLine("{0}, {1}", this.Error, this.ErrorMsg);
+			s.WriteLine("{0}", this.IsTop);
+			s.WriteLine("Dependencies");
+			foreach (var dep in this.Dependencies)
+			{
+				s.WriteLine("{0}: {1}", dep.Key, string.Join(",", dep.Value));
+			}
+			s.WriteLine("Passthrough");
+			s.WriteLine("{0}", string.Join(",", this.PassthroughColumns));
 		}
 	}
-
 }

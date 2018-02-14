@@ -36,8 +36,16 @@ namespace ScopeProgramAnalysis
                 var inputSchema = args[3];
                 var outputSchema = args[4];
 			 	var columnDependencies = AnalyzeOneProcesorFromDll(inputPath, processorTypeName, inputSchema, outputSchema, ScopeMethodKind.All, true);
-				AnalysisResultsSerialization.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
 
+				var file = File.CreateText(Path.ChangeExtension(inputPath, "outdep"));
+				columnDependencies.WriteTextFile(file);
+				file.Close();
+
+				var file2 = File.OpenText(Path.ChangeExtension(inputPath, "outdep"));
+				var readColumnDependencies = ColumDependenciesResult.ReadFromTextFile(file2);
+				file2.Close();
+
+				//AnalysisResultsSerialization.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
 				// Just for the verification 
 				// var readColumnDependencies = AnalysisResultsSerialization..ReadFromBinaryFile<ColumDependenciesResult>(Path.ChangeExtension(inputPath, "outdep"));
 
