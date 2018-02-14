@@ -17,6 +17,7 @@ using Backend.Model;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using static ScopeProgramAnalysis.ScopeProgramAnalysis;
+using ScopeProgramAnalysis.Analysis;
 
 namespace ScopeProgramAnalysis
 {
@@ -33,10 +34,10 @@ namespace ScopeProgramAnalysis
 				var inputPath = args[1];
 				var processorTypeName = args[2];
 			 	var columnDependencies = AnalyzeOneProcesorFromDll(inputPath, processorTypeName, ScopeMethodKind.All, true);
-				Util.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
+				AnalysisResultsSerialization.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
 
 				// Just for the verification 
-				// var readColumnDependencies = Util.ReadFromBinaryFile<ColumDependenciesResult>(Path.ChangeExtension(inputPath, "outdep"));
+				// var readColumnDependencies = AnalysisResultsSerialization..ReadFromBinaryFile<ColumDependenciesResult>(Path.ChangeExtension(inputPath, "outdep"));
 
 				return;
 			}

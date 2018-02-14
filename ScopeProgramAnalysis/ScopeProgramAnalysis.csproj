@@ -83,6 +83,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Analysis\AnalysisResultsSerialization.cs" />
     <Compile Include="Analysis\ScopeProgramAnalysis.cs" />
     <Compile Include="ProducesMethodAnalyzer.cs" />
     <Compile Include="Utilities.cs" />

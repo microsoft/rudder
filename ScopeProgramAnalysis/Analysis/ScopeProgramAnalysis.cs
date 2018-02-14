@@ -16,6 +16,7 @@ using Backend;
 using Backend.Model;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using ScopeProgramAnalysis.Analysis;
 
 namespace ScopeProgramAnalysis
 {
@@ -1142,23 +1143,7 @@ namespace ScopeProgramAnalysis
 			var foo = ExtractDependencyStats(log);
 			return log;
 		}
-		[Serializable]
-		public class ColumDependenciesResult
-		{
-			public bool Error { get; set; }
-			public string ErrorMsg { get; set; }
-			public bool IsTop { get; set; }
-			public IDictionary<string, List<string>> Dependencies { get; set; }
-			public ISet<string> PasstroughColumns { get; set; }
-			public ColumDependenciesResult()
-			{
-				Error = false;
-				ErrorMsg = "";
-				IsTop = false;
-				Dependencies = new Dictionary<string, List<string>>();
-				PasstroughColumns = new HashSet<string>();
-			}
-		}
+		
 
 		public static ColumDependenciesResult AnalyzeOneProcesorFromDll(string inputPath, string processorTypeName,  ScopeMethodKind kind, bool interProc = false, StreamWriter outputStream = null)
 		{
