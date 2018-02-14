@@ -24,6 +24,23 @@ namespace ScopeProgramAnalysis
     {
         static void Main(string[] args)
         {
+			args = new string[3];
+			args[0] = "scope";
+			args[1] = @"C:\Temp\Scope\JsonSurvey\ProcessorWithJObject\__ScopeCodeGen__.dll";
+			args[2] = @"___Scope_Generated_Classes___.MyReducer";
+			if (args.Length > 0 && args[0] == "scope")
+			{
+				var inputPath = args[1];
+				var processorTypeName = args[2];
+			 	var columnDependencies = AnalyzeOneProcesorFromDll(inputPath, processorTypeName, ScopeMethodKind.All, true);
+				Util.WriteToBinaryFile(Path.ChangeExtension(inputPath, "outdep"), columnDependencies);
+
+				// Just for the verification 
+				// var readColumnDependencies = Util.ReadFromBinaryFile<ColumDependenciesResult>(Path.ChangeExtension(inputPath, "outdep"));
+
+				return;
+			}
+
             var useScopeFactory = true;
             var scopeKind = ScopeMethodKind.All;
 			var interProcAnalysis = true;
@@ -175,7 +192,7 @@ namespace ScopeProgramAnalysis
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
-			var io = ScopeDemo(5);
+			var io = ScopeDemo(1);
 			input = io.Item1;
 			outputPath = io.Item2;
 

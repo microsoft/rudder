@@ -75,10 +75,10 @@ namespace Backend.Analyses
 
     }
 
-	public class TraceableJson : Traceable
+	public class TraceableJson : TraceableColumn
 	{
 		public TraceableColumn TColumn { get; private set; } 
-		public TraceableJson(TraceableColumn tc) : base("Json", ProtectedRowKind.Json)
+		public TraceableJson(TraceableColumn tc) : base(tc.Table, tc.Column) // base("Json", ProtectedRowKind.Json)
 		{
 			this.TColumn = tc;
 		}
@@ -1607,9 +1607,11 @@ namespace Backend.Analyses
                     // This method makes method.Result point to the collections item, so automatically getting the traceables from there
                     bool createdNode;
                     this.iteratorDependencyAnalysis.pta.ProcessGetCurrent(this.State.PTG, methodCallStmt.Offset, arg, methodCallStmt.Result, out createdNode);
-                    // TODO: Warning: This only works if we keep the mapping A2_References
-                    // If we remove that mapping we MUST do the AssignTraceables
-                    if (createdNode)
+					this.visitorPTA.State = this.State.PTG;
+
+					// TODO: Warning: This only works if we keep the mapping A2_References
+					// If we remove that mapping we MUST do the AssignTraceables
+					if (createdNode)
                     {
                         this.State.AssignTraceables(methodCallStmt.Result, adaptedTraceables);
                     } else
@@ -1634,8 +1636,10 @@ namespace Backend.Analyses
                     var traceables = this.State.GetTraceables(arg);
                     // This method makes method.Result point to the iterator 
                     this.iteratorDependencyAnalysis.pta.ProcessCopy(this.State.PTG, methodCallStmt.Result, arg);
-                    // We copy the traceables from the collection to the iterator
-                    this.State.AssignTraceables(methodCallStmt.Result, traceables);
+					this.visitorPTA.State = this.State.PTG;
+
+					// We copy the traceables from the collection to the iterator
+					this.State.AssignTraceables(methodCallStmt.Result, traceables);
                 }
 
                 // for Add we need to add an element the collection using a fake field "$item"
@@ -1645,8 +1649,19 @@ namespace Backend.Analyses
                     PropagateArguments(methodCallStmt, methodCallStmt.Arguments[0]);
                     if (methodInvoked.ContainingType.IsDictionary())
                     {
-                        var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2]);
-                        this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
+						string columnLiteral = null;
+						//if (methodCallStmt.Arguments.Count > 1)
+						//{
+						//	columnLiteral = variableRanges.GetValue(methodCallStmt.Arguments[1]).Literal;
+						//}
+						//if (columnLiteral == "HasSecondaryIpConfigurations")
+						//{ }
+
+
+						var itemField = this.iteratorDependencyAnalysis.pta.AddItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Arguments[2],columnLiteral);
+						this.visitorPTA.State = this.State.PTG;
+
+						this.State.AddHeapTraceables(methodCallStmt.Arguments[0], itemField, methodCallStmt.Arguments[2]);
                         // Notice that we add the traceables to the receiver object (arg0.Add(args...))
                         this.State.AddTraceables(methodCallStmt.Arguments[0], this.State.GetTraceables(methodCallStmt.Arguments[2]));
                     }
@@ -1663,16 +1678,25 @@ namespace Backend.Analyses
                 {
                     if (methodInvoked.ContainingType.IsDictionary())
                     {
-						if (methodCallStmt.Arguments.Count>1 &&  this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableJson>().Any())
+						string columnLiteral = null;
+						if (methodCallStmt.Arguments.Count>1)
 						{
-							var columLiteral = variableRanges.GetValue(methodCallStmt.Arguments[1]).Literal;
-							if (columLiteral != null)
-								AddJsonColumnFieldToTraceables(methodCallStmt, methodCallStmt.Arguments[0], String.Format("[{0}]",columLiteral));
+							columnLiteral = variableRanges.GetValue(methodCallStmt.Arguments[1]).Literal;
+							if (columnLiteral != null && this.State.GetTraceables(methodCallStmt.Arguments[0]).OfType<TraceableJson>().Any())
+								AddJsonColumnFieldToTraceables(methodCallStmt, methodCallStmt.Arguments[0], String.Format("[{0}]",columnLiteral));
 						}
+						//if (columnLiteral == "HasSecondaryIpConfigurations")
+						//{ }
+
+						//var itemField = this.iteratorDependencyAnalysis.pta.GetItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Result, columnLiteral);
 
 						var itemField = this.iteratorDependencyAnalysis.pta.GetItemforCollection(this.State.PTG, methodCallStmt.Offset, methodCallStmt.Arguments[0], methodCallStmt.Result);
-                        this.State.AddTraceables(methodCallStmt.Result, this.State.GetHeapTraceables(methodCallStmt.Arguments[0], itemField));
-                        // this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
+						this.visitorPTA.State = this.State.PTG;
+
+						var heapTraceables = this.State.GetHeapTraceables(methodCallStmt.Arguments[0], itemField);
+						this.State.AddTraceables(methodCallStmt.Result, heapTraceables);
+						// this.State.AddTraceables(methodCallStmt.Result, this.State.GetTraceables(methodCallStmt.Arguments[0]));
+						
                     }
                     else
                     {
