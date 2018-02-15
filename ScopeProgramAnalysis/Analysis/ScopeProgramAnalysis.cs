@@ -468,8 +468,8 @@ namespace ScopeProgramAnalysis
 
 							ret.UsedColumnTop = result.GetProperty<bool>("UsedColumnTop");
 							ret.TopHappened |= result.GetProperty<bool>("DependencyAnalysisTop");
-							ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
-							ret.DeclaredDependencies = result.GetProperty("DeclaredDependency");
+							// ret.DeclaredPassthroughColumns = result.GetProperty("DeclaredPassthrough");
+							// ret.DeclaredDependencies = result.GetProperty("DeclaredDependency");
 
 							ret.DependencyTime = result.GetProperty<long>("DependencyAnalysisTime");
 

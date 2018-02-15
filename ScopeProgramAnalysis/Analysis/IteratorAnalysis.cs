@@ -1018,7 +1018,7 @@ namespace Backend.Analyses
                     var traceables = this.State.GetTraceables(instruction.Operand);
                     var fakeField = new FieldReference("[]", arrayAccess.Type, method.ContainingType);
                     var OK = this.State.AddHeapTraceables(baseArray, fakeField, instruction.Operand);
-
+					this.State.AddTraceables(baseArray, traceables);
                     //foreach (var SimplePTGNode in currentPTG.GetTargets(baseArray))
                     //{
                     //    // TODO: I need to provide a BasicType. I need the base of the array 
@@ -1862,6 +1862,9 @@ namespace Backend.Analyses
 				// a2 := a2[v <- Col(i, col)] if Table(i) in a2[arg]
 				else if (methodInvoked.Name.Value == "get_Item" && methodInvoked.ContainingType.IsRowType())
 				{
+					if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "TableReducerBase")
+					{ }
+
 					var arg = methodCallStmt.Arguments[0];
 					var col = methodCallStmt.Arguments[1];
 
@@ -1879,6 +1882,9 @@ namespace Backend.Analyses
 				else if ((methodInvoked.Name.Value == "Set" || methodInvoked.Name.Value == "UnsafeSet") && methodInvoked.ContainingType.IsColumnDataType())
 				//                                        && methodInvoked.ContainingType.ContainingAssembly.Name == "ScopeRuntime")
 				{
+					if (this.iteratorDependencyAnalysis.processToAnalyze.ProcessorClass.GetName() == "TableReducerBase")
+					{ }
+
 					var arg0 = methodCallStmt.Arguments[0];
 					var arg1 = methodCallStmt.Arguments[1];
 
