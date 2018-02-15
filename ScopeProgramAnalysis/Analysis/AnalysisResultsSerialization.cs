@@ -61,7 +61,7 @@ namespace ScopeProgramAnalysis.Analysis
 			s.WriteLine("Dependencies");
 			foreach (var dep in this.Dependencies)
 			{
-				s.WriteLine("{0}: {1}", dep.Key, string.Join(",", dep.Value));
+				s.WriteLine("{0}:{1}", dep.Key, string.Join(",", dep.Value));
 			}
 			s.WriteLine("Passthrough");
 			s.WriteLine("{0}", string.Join(",", this.PassthroughColumns));

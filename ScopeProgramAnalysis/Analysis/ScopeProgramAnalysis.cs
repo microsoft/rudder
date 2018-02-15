@@ -1240,6 +1240,7 @@ namespace ScopeProgramAnalysis
 			catch (Exception e)
 			{
 				result.Error = true;
+                result.ErrorMsg = e.Message;
 			}
 
 			return result;
