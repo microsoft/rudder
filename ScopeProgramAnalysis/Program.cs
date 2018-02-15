@@ -203,10 +203,14 @@ namespace ScopeProgramAnalysis
 			string[] directories = Path.GetDirectoryName(input).Split(Path.DirectorySeparatorChar);
             var outputPath = Path.Combine(@"c:\Temp\", directories.Last()) + "_" + Path.ChangeExtension(Path.GetFileName(input), ".sarif");
 
-			var io = ScopeDemo(1);
-			input = io.Item1;
-			outputPath = io.Item2;
+			if (args.Length > 0)
+			{
+				var demoNumber = int.Parse(args[0]);
 
+				var io = ScopeDemo(1);
+				input = io.Item1;
+				outputPath = io.Item2;
+			}
             var logPath = Path.Combine(@"c:\Temp\", "analysis.log");
             var outputStream = File.CreateText(logPath);
 

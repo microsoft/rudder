@@ -594,8 +594,8 @@ namespace ScopeProgramAnalysis
 				resultSummary.SetProperty("escapes", escapes);
 				resultSummary.SetProperty("DependencyAnalysisTop", depAnalysisResult.IsTop);
 
-				resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
-				resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
+				//resultSummary.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+				//resultSummary.SetProperty("DeclaredDependency", declaredDependencyString);
 				resultSummary.SetProperty("AnalysisReasons", analysisReasons);
 				resultSummary.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
 				#endregion
@@ -651,8 +651,8 @@ namespace ScopeProgramAnalysis
 				resultEmpty.SetProperty("DependencyAnalysisTop", false);
 				resultEmpty.SetProperty("BagOColumns", bagOColumnsUsedColumns.ToString());
 				resultEmpty.SetProperty("BagNOColumns", bagOColumnsUsedColumns.Count);
-				resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
-				resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
+				//resultEmpty.SetProperty("DeclaredPassthrough", declaredPassthroughString);
+				//resultEmpty.SetProperty("DeclaredDependency", declaredDependencyString);
 				resultEmpty.SetProperty("BagOColumnsTime", 0); //(int)bagOColumnsTime.TotalMilliseconds);
 				resultEmpty.SetProperty("DependencyAnalysisTime", 0); // (int)depAnalysisTime.TotalMilliseconds);
 				resultEmpty.SetProperty("AnalysisReasons", analysisReasons);
