@@ -207,7 +207,7 @@ namespace ScopeProgramAnalysis
 			{
 				var demoNumber = int.Parse(args[0]);
 
-				var io = ScopeDemo(1);
+				var io = ScopeDemo(demoNumber);
 				input = io.Item1;
 				outputPath = io.Item2;
 			}
@@ -223,8 +223,8 @@ namespace ScopeProgramAnalysis
             outputStream.WriteLine("End.");
             outputStream.Flush();
 
-            Console.WriteLine("Finished. Press any key to exit.");
-            System.Console.ReadKey();
+            //Console.WriteLine("Finished. Press any key to exit.");
+            //System.Console.ReadKey();
 
         }
 
