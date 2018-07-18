@@ -53,7 +53,7 @@ namespace ScopeProgramAnalysis.Framework
 			methodBody.UpdateVariables();
 
 
-			var analysis = new TypeInferenceAnalysis(cfg);
+			var analysis = new TypeInferenceAnalysis(cfg, methodBody.MethodDefinition.Type);
 			analysis.Analyze();
 
 			var copyProgapagtion = new ForwardCopyPropagationAnalysis(cfg);

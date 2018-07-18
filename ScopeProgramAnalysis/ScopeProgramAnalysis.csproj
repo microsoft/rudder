@@ -56,7 +56,7 @@
       <HintPath>..\analysis-net\Dependencies\Microsoft.Cci.SourceModel.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Scope.Interfaces">
-      <HintPath>..\OtherBinaries\Microsoft.Scope.Interfaces.dll</HintPath>
+      <HintPath>OtherBinaries\Microsoft.Scope.Interfaces.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.6.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -67,7 +67,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="scoperuntime">
-      <HintPath>..\OtherBinaries\scoperuntime.exe</HintPath>
+      <HintPath>OtherBinaries\scoperuntime.exe</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Collections.Immutable, Version=1.1.37.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
