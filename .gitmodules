@@ -1,0 +1,3 @@
+[submodule "analysis-net"]
+	path = analysis-net
+	url = https://github.com/garbervetsky/analysis-net/tree/cci-version
