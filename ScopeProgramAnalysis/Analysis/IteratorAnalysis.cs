@@ -1451,7 +1451,8 @@ namespace Backend.Analyses
                         }
 
                     }
-                    this.State = callStates.Aggregate((s1, s2) => s1.Join(s2));
+                    if(callStates.Any())
+                        this.State = callStates.Aggregate((s1, s2) => s1.Join(s2));
                 }
             }
 
@@ -2142,7 +2143,7 @@ namespace Backend.Analyses
                          || specialMethods.Any(sm => sm.Item1 == methodInvoked.ContainingType.GetFullName() 
                          && sm.Item2 == methodInvoked.Name.Value));
 
-				if (methodInvoked.ResolvedMethod != null && (MemberHelper.IsGetter(methodInvoked.ResolvedMethod) ||
+				if (methodInvoked.ResolvedMethod != null && method.ResolvedMethod!=Dummy.Method && (MemberHelper.IsGetter(methodInvoked.ResolvedMethod) ||
 					MemberHelper.IsSetter(methodInvoked.ResolvedMethod) && hasTraceables))
 				{
 					return true;
@@ -2518,7 +2519,7 @@ namespace Backend.Analyses
         {
             this.processToAnalyze = processToAnalyze;
             this.method = method;
-            this.iteratorClass = method.ContainingType as INamedTypeDefinition;
+            this.iteratorClass = processToAnalyze.ProcessorClass as INamedTypeDefinition; //  method.ContainingType as INamedTypeDefinition;
             // this.specialFields = specialFields;
             this.ptgs = pta.Result;
             this.equalities = equalitiesMap;

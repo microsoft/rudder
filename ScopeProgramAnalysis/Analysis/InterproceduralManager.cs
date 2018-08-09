@@ -117,8 +117,7 @@ namespace ScopeProgramAnalysis
 
         public InterProceduralReturnInfo DoInterProcWithCallee(InterProceduralCallInfo callInfo)
         {
-
-            if (callInfo.Callee.Body.Operations.Any())
+            if ((!callInfo.Callee.IsExternal) && callInfo.Callee.Body.Operations.Any())
             {
                 if (previousResult.ContainsKey(callInfo))
                 {
